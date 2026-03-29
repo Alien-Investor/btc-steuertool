@@ -59,6 +59,11 @@ nie versehentlich committed.
 - Freigrenze: 600 EUR (bis 2023) / 1.000 EUR (ab 2024) — bei Überschreitung voller Betrag steuerpflichtig
 - Überträge zwischen eigenen Wallets/Konten: steuerlich neutral
 
+## Unterstützung
+
+Wenn dir das Tool hilft, freue ich mich über eine kleine Spende:
+👉 [alien-investor.org/spenden.html](https://alien-investor.org/spenden.html)
+
 ## Disclaimer
 
 Dieses Tool ersetzt keine Steuerberatung. Die Ergebnisse sollten vor der
