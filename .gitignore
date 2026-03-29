@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# Tool-Outputs
+reports/
+fx_cache.json
+
+# Persönliche Transaktionsdaten — NIE committen
+bitbox/
+Broker/
+manual_sales.csv
+
+# IDE
+.idea/
+.vscode/
+*.swp
