@@ -21,15 +21,20 @@ steuerrelevante Jahresberichte für das deutsche Finanzamt.
 ```bash
 # Einmalig einrichten
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements.txt   # Mac/Linux
+# .venv\Scripts\pip install -r requirements.txt  # Windows
 
-# CSV-Dateien ablegen (werden nie committed — siehe .gitignore)
+# Datenordner anlegen (einmalig — werden nie committed, siehe .gitignore)
+mkdir -p bitbox Broker
+
+# Eigene CSV-Dateien ablegen:
 # bitbox/*.csv       ← BitBox-Exporte
 # Broker/*.csv       ← Broker-Exporte
 # manual_sales.csv   ← optional: private P2P-Verkäufe
 
 # Report für ein Jahr
-.venv/bin/python src/main.py --year 2024
+.venv/bin/python src/main.py --year 2024       # Mac/Linux
+# .venv\Scripts\python src/main.py --year 2024  # Windows
 
 # Alle Jahre
 .venv/bin/python src/main.py --all

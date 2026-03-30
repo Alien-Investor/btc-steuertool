@@ -13,10 +13,24 @@ Die Berechnung folgt der deutschen FiFo-Methode (§ 23 EStG): BTC die länger al
 
 Öffne ein Terminal im Projektordner und führe aus:
 
+**Mac/Linux:**
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
+mkdir -p bitbox Broker
 ```
+
+**Windows:**
+```bash
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+mkdir bitbox
+mkdir Broker
+```
+
+Die Ordner `bitbox/` und `Broker/` existieren nicht im Repository — sie sind in
+`.gitignore` eingetragen damit deine persönlichen Finanzdaten nie versehentlich
+auf GitHub landen. Du musst sie einmalig selbst anlegen.
 
 Das richtest du nur einmal ein. Danach brauchst du nur noch die Befehle unten.
 
