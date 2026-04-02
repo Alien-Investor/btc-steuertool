@@ -11,6 +11,8 @@ steuerrelevante Jahresberichte für das deutsche Finanzamt.
 - Freigrenze automatisch berücksichtigt (600 EUR bis 2023 / 1.000 EUR ab 2024)
 - Unterstützte Broker: **21bitcoin, Bison, Swissquote, Strike, Pocket**
 - Unterstützte Wallets: **BitBox** (alle Wallet-CSVs werden automatisch eingelesen)
+- **noKYC-Käufe** via `manual_buys.csv` — für Bisq, Robosats, P2P und Bargeld-Käufe
+- **Private Verkäufe** via `manual_sales.csv` — für P2P-Verkäufe ohne Broker
 - Historische Wechselkurse via EZB (frankfurter.app) für USD/CHF-Käufe bei Swissquote
 - Formaler Steuernachweis für Steuerberater und Finanzamt (`--nachweis`)
 - CSV-Export für Excel (`--csv`)
@@ -30,6 +32,7 @@ mkdir -p bitbox Broker
 # Eigene CSV-Dateien ablegen:
 # bitbox/*.csv       ← BitBox-Exporte
 # Broker/*.csv       ← Broker-Exporte
+# manual_buys.csv    ← optional: noKYC-Käufe (Bisq, Robosats, P2P)
 # manual_sales.csv   ← optional: private P2P-Verkäufe
 
 # Report für ein Jahr
@@ -54,8 +57,8 @@ Im Ordner `examples/` liegen fiktive Testdaten für alle unterstützten Broker/W
 ## Datenschutz
 
 Eigene CSV-Dateien enthalten sensible Finanzdaten. Die Ordner `bitbox/`, `Broker/`
-und die Datei `manual_sales.csv` sind in `.gitignore` eingetragen und werden
-nie versehentlich committed.
+sowie die Dateien `manual_buys.csv` und `manual_sales.csv` sind in `.gitignore`
+eingetragen und werden nie versehentlich committed.
 
 ## Steuerrechtliche Grundlagen
 

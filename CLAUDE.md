@@ -151,6 +151,7 @@ btc_steuertool/
 │   │   ├── broker_swissquote.py
 │   │   ├── broker_strike.py
 │   │   ├── broker_pocket.py
+│   │   ├── manual_buys.py
 │   │   └── manual_sales.py
 │   ├── fx_rates.py            # Wechselkurs-Abruf + Caching
 │   ├── fifo_engine.py         # FiFo Lot-Verwaltung + Gewinnberechnung

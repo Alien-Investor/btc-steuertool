@@ -28,9 +28,14 @@ mkdir bitbox
 mkdir Broker
 ```
 
-Die Ordner `bitbox/` und `Broker/` existieren nicht im Repository — sie sind in
-`.gitignore` eingetragen damit deine persönlichen Finanzdaten nie versehentlich
-auf GitHub landen. Du musst sie einmalig selbst anlegen.
+Die Ordner `bitbox/` und `Broker/` sowie die Dateien `manual_buys.csv` und
+`manual_sales.csv` existieren nicht im Repository — sie sind in `.gitignore`
+eingetragen damit deine persönlichen Finanzdaten nie versehentlich auf GitHub
+landen. Du musst sie bei Bedarf selbst anlegen:
+
+- `bitbox/` und `Broker/` → einmalig mit den mkdir-Befehlen oben anlegen
+- `manual_buys.csv` → im Projektordner anlegen wenn du noKYC-Käufe hast (Bisq, Robosats, P2P)
+- `manual_sales.csv` → im Projektordner anlegen wenn du private P2P-Verkäufe hast
 
 Das richtest du nur einmal ein. Danach brauchst du nur noch die Befehle unten.
 
@@ -109,7 +114,7 @@ mit den Original-CSV-Dateien der betroffenen Broker einreichen.
 .venv/bin/python src/main.py --data-dir /pfad/zum/anderen/verzeichnis/ --all
 ```
 
-Das Datenverzeichnis muss die gleiche Struktur haben (`bitbox/`, `Broker/`, optional `manual_sales.csv`).
+Das Datenverzeichnis muss die gleiche Struktur haben (`bitbox/`, `Broker/`, optional `manual_buys.csv` / `manual_sales.csv`).
 
 ---
 
@@ -158,7 +163,47 @@ Einfach die neue CSV-Datei in den richtigen Ordner legen:
 Bei Bison und Swissquote: neue Transaktionen in die bestehende Datei einfügen.
 Bei Strike und Pocket: einfach eine neue Datei pro Jahr ablegen, das Tool liest alle automatisch ein.
 
+Für manuelle Einträge direkt im Projektordner (nicht in einem Unterordner):
+- `manual_buys.csv` → noKYC-Käufe (Bisq, Robosats, P2P, Bargeld) — eine Zeile pro Kauf
+- `manual_sales.csv` → private P2P-Verkäufe — eine Zeile pro Verkauf
+
+Diese Dateien existieren nicht im Repository (gitignored) — einfach neu anlegen und befüllen.
+Das Format ist in den Abschnitten "noKYC-Käufe" und "Private Verkäufe" weiter unten beschrieben.
+
 Danach einfach den gewünschten Befehl neu ausführen — das Tool liest immer alle Dateien neu ein.
+
+---
+
+## noKYC-Käufe (Bisq, Robosats, P2P, Bargeld)
+
+Wenn du BTC ohne KYC-Broker gekauft hast — über Bisq, Robosats, HodlHodl, direkt
+von Person zu Person oder gegen Bargeld — gibt es keine Broker-CSV. Dafür gibt es
+die Datei `manual_buys.csv` im Projektordner.
+
+Format (eine Zeile pro Kauf):
+
+```csv
+date,btc_amount,eur_amount,note
+2024-03-10,0.01000000,550.00,Bisq P2P Kauf
+2024-07-22,0.00500000,280.00,Robosats Trade
+```
+
+- `date`: Datum im Format YYYY-MM-DD
+- `btc_amount`: gekaufte BTC-Menge
+- `eur_amount`: gezahlter EUR-Betrag (Gesamtbetrag inkl. etwaiger Gebühren)
+- `note`: Freitext zur eigenen Dokumentation (z.B. Trade-ID, Quelle)
+
+Das Tool liest diese Datei automatisch ein und behandelt jeden Eintrag als Kauf.
+Die Einträge fließen wie gewohnt in die FiFo-Berechnung ein.
+
+**Zur Rechtslage:** Du bist nicht verpflichtet, deinen vollständigen Wallet-Fingerprint
+offenzulegen. Solange die Anschaffungskosten korrekt angegeben sind und steuerpflichtige
+Gewinne vollständig gemeldet werden, ist die selektive Eingabe einzelner Käufe
+steuerrechtlich unbedenklich.
+
+**Wichtig für den Steuernachweis:** Bei noKYC-Käufen gibt es keinen Broker-Beleg.
+Eigene Aufzeichnungen aufbewahren — z.B. Screenshots der Plattform, Wallet-Transaktionsbelege
+oder Kontoauszüge für den EUR-Abfluss.
 
 ---
 

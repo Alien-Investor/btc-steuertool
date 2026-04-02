@@ -10,7 +10,7 @@ ROOT = Path(__file__).parent.parent
 
 sys.path.insert(0, str(ROOT))
 
-from src.parsers import bitbox, broker_21bitcoin, broker_bison, broker_swissquote, broker_strike, broker_pocket, manual_sales
+from src.parsers import bitbox, broker_21bitcoin, broker_bison, broker_swissquote, broker_strike, broker_pocket, manual_sales, manual_buys
 from src.fifo_engine import FifoEngine
 from src.tax_report import TaxReport
 from src.formal_report import generate_tax_free_proof
@@ -78,7 +78,14 @@ def load_all_transactions(data_dir: Path):
     if manual_file.exists():
         txs = manual_sales.parse(manual_file)
         transactions.extend(txs)
-        print(f"  Manuell: {len(txs)} Transaktionen")
+        print(f"  Manuell (Verkäufe): {len(txs)} Transaktionen")
+
+    # Manuelle Käufe (noKYC: Bisq, Robosats, P2P, Bargeld etc.)
+    manual_buys_file = data_dir / "manual_buys.csv"
+    if manual_buys_file.exists():
+        txs = manual_buys.parse(manual_buys_file)
+        transactions.extend(txs)
+        print(f"  Manuell (Käufe):   {len(txs)} Transaktionen")
 
     return sorted(transactions, key=lambda t: t.date)
 
