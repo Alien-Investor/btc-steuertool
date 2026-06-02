@@ -10,7 +10,7 @@ ROOT = Path(__file__).parent.parent
 
 sys.path.insert(0, str(ROOT))
 
-from src.parsers import bitbox, broker_21bitcoin, broker_bison, broker_swissquote, broker_strike, broker_pocket, manual_sales, manual_buys
+from src.parsers import bitbox, broker_21bitcoin, broker_bison, broker_swissquote, broker_strike, broker_pocket, manual_sales, manual_buys, bisq
 from src.fifo_engine import FifoEngine
 from src.tax_report import TaxReport
 from src.formal_report import generate_tax_free_proof
@@ -72,6 +72,16 @@ def load_all_transactions(data_dir: Path):
             pocket_txs.extend(txs)
         transactions.extend(pocket_txs)
         print(f"  Pocket: {len(pocket_txs)} Transaktionen ({len(pocket_files)} Dateien)")
+
+    # Broker: Bisq (noKYC P2P, mehrere CSV-Dateien möglich)
+    bisq_files = sorted((data_dir / "Broker").glob("bisq*.csv"))
+    if bisq_files:
+        bisq_txs = []
+        for bf in bisq_files:
+            txs = bisq.parse(bf)
+            bisq_txs.extend(txs)
+        transactions.extend(bisq_txs)
+        print(f"  Bisq (noKYC): {len(bisq_txs)} Transaktionen ({len(bisq_files)} Dateien)")
 
     # Manuelle Verkäufe (private Peer-to-Peer Transaktionen)
     manual_file = data_dir / "manual_sales.csv"

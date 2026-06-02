@@ -39,6 +39,7 @@ class FifoEngine:
             cost_per_btc=cost_per_btc,
             source=tx.source,
             tx_id=tx.tx_id,
+            no_kyc=tx.no_kyc,
         ))
 
     def _process_sell(self, tx: Transaction) -> None:

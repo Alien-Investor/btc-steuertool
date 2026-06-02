@@ -2,7 +2,7 @@
 
 ## Was macht dieses Tool?
 
-Es liest deine CSV-Dateien von BitBox, 21bitcoin, Bison, Swissquote, Strike und Pocket
+Es liest deine CSV-Dateien von BitBox, 21bitcoin, Bison, Swissquote, Strike, Pocket und Bisq
 und berechnet daraus automatisch, welche Bitcoin-Verkäufe steuerpflichtig oder steuerfrei waren.
 Die Berechnung folgt der deutschen FiFo-Methode (§ 23 EStG): BTC die länger als
 365 Tage gehalten wurden, sind beim Verkauf steuerfrei.
@@ -159,12 +159,13 @@ Einfach die neue CSV-Datei in den richtigen Ordner legen:
 - Swissquote-Export → `Broker/Swissquote_CSV-Gesamt.csv`
 - Strike-Export → `Broker/` (Dateiname muss mit `strike_` beginnen, z.B. `strike_2026.csv`)
 - Pocket-Export → `Broker/` (Dateiname muss mit `Pocket` beginnen)
+- Bisq-Export → `Broker/` (Dateiname muss mit `bisq` beginnen, z.B. `bisq.csv`)
 
 Bei Bison und Swissquote: neue Transaktionen in die bestehende Datei einfügen.
-Bei Strike und Pocket: einfach eine neue Datei pro Jahr ablegen, das Tool liest alle automatisch ein.
+Bei Strike, Pocket und Bisq: einfach eine neue Datei ablegen, das Tool liest alle automatisch ein.
 
 Für manuelle Einträge direkt im Projektordner (nicht in einem Unterordner):
-- `manual_buys.csv` → noKYC-Käufe (Bisq, Robosats, P2P, Bargeld) — eine Zeile pro Kauf
+- `manual_buys.csv` → noKYC-Käufe manuell (Robosats, P2P, Bargeld) — eine Zeile pro Kauf
 - `manual_sales.csv` → private P2P-Verkäufe — eine Zeile pro Verkauf
 
 Diese Dateien existieren nicht im Repository (gitignored) — einfach neu anlegen und befüllen.
@@ -177,15 +178,22 @@ Danach einfach den gewünschten Befehl neu ausführen — das Tool liest immer a
 ## noKYC-Käufe (Bisq, Robosats, P2P, Bargeld)
 
 Wenn du BTC ohne KYC-Broker gekauft hast — über Bisq, Robosats, HodlHodl, direkt
-von Person zu Person oder gegen Bargeld — gibt es keine Broker-CSV. Dafür gibt es
-die Datei `manual_buys.csv` im Projektordner.
+von Person zu Person oder gegen Bargeld — gibt es zwei Wege:
 
-Format (eine Zeile pro Kauf):
+### Option A: Bisq-CSV direkt importieren (empfohlen für Bisq-Nutzer)
+
+Bisq bietet einen CSV-Export unter "Portfolio → Trades → Exportieren".
+Diese Datei einfach als `bisq.csv` in den `Broker/`-Ordner legen.
+Das Tool liest sie automatisch ein und erkennt alle abgeschlossenen Käufe.
+
+### Option B: Manuelle Eingabe via `manual_buys.csv`
+
+Für Robosats, HodlHodl, P2P oder Bargeldkäufe — also alles ohne CSV-Export:
 
 ```csv
 date,btc_amount,eur_amount,note
-2024-03-10,0.01000000,550.00,Bisq P2P Kauf
-2024-07-22,0.00500000,280.00,Robosats Trade
+2024-03-10,0.01000000,550.00,Robosats Trade
+2024-07-22,0.00500000,280.00,P2P Kauf
 ```
 
 - `date`: Datum im Format YYYY-MM-DD
@@ -193,16 +201,27 @@ date,btc_amount,eur_amount,note
 - `eur_amount`: gezahlter EUR-Betrag (Gesamtbetrag inkl. etwaiger Gebühren)
 - `note`: Freitext zur eigenen Dokumentation (z.B. Trade-ID, Quelle)
 
-Das Tool liest diese Datei automatisch ein und behandelt jeden Eintrag als Kauf.
-Die Einträge fließen wie gewohnt in die FiFo-Berechnung ein.
+### Wie noKYC-Käufe im Report erscheinen
+
+noKYC-Käufe tauchen **nicht** im offiziellen Finanzamt-Teil des Reports auf.
+Am Ende des Reports gibt es einen separaten internen Block (mit `~~~`-Rand):
+
+```
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  INTERNE ÜBERSICHT — noKYC-KÄUFE (Bisq/Robosats/Manual)
+  Nicht für Finanzamt — nur für interne Kalkulation und Rückfragen
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
+
+Dieser Block zeigt alle noKYC-Käufe und verbleibenden Bestände zur eigenen Übersicht.
+Er kann auf Rückfrage des Finanzamts vorgezeigt werden, muss aber nicht aktiv eingereicht werden.
 
 **Zur Rechtslage:** Du bist nicht verpflichtet, deinen vollständigen Wallet-Fingerprint
 offenzulegen. Solange die Anschaffungskosten korrekt angegeben sind und steuerpflichtige
-Gewinne vollständig gemeldet werden, ist die selektive Eingabe einzelner Käufe
-steuerrechtlich unbedenklich.
+Gewinne vollständig gemeldet werden, ist die selektive Angabe steuerrechtlich unbedenklich.
 
 **Wichtig für den Steuernachweis:** Bei noKYC-Käufen gibt es keinen Broker-Beleg.
-Eigene Aufzeichnungen aufbewahren — z.B. Screenshots der Plattform, Wallet-Transaktionsbelege
+Eigene Aufzeichnungen aufbewahren — z.B. Bisq-Trade-History, Wallet-Transaktionsbelege
 oder Kontoauszüge für den EUR-Abfluss.
 
 ---
@@ -270,3 +289,10 @@ lokal in `fx_cache.json` gespeichert, damit er nicht jedes Mal neu abgerufen wer
 Das Tool rechnet nach der FiFo-Methode wie vom deutschen Steuerrecht vorgeschrieben.
 Die Ergebnisse sollten aber immer von deinem Steuerberater geprüft werden —
 besonders wenn steuerpflichtige Gewinne ausgewiesen werden.
+
+**Warum tauchen Bisq/noKYC-Käufe nicht im Finanzamt-Report auf?**
+Das ist bewusst so gestaltet. noKYC-Käufe erscheinen nur im internen Block am Ende
+des Reports — nicht im offiziellen Teil. Für die Steuer relevant ist, ob du
+steuerpflichtige Gewinne erzielt hast. Bei P2P-Käufen die du als langfristige
+Selbstverwahrung hältst und nie über eine KYC-Börse verkaufst, entsteht kein
+steuerpflichtiger Vorgang der gemeldet werden müsste.

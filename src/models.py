@@ -30,6 +30,7 @@ class Transaction:
     source: str             # z.B. "21bitcoin", "bison", "bitbox:wallet1"
     tx_id: str
     note: str
+    no_kyc: bool = False    # True = P2P-Kauf (Bisq/Robosats/manual) — nicht im Finanzamt-Report
 
     def __post_init__(self):
         # Sicherstellen dass alle Decimal-Felder auch Decimal sind
@@ -47,6 +48,7 @@ class Lot:
     cost_per_btc: Decimal   # (eur_amount + fee_eur) / original_btc_amount
     source: str
     tx_id: str
+    no_kyc: bool = False
 
 
 @dataclass

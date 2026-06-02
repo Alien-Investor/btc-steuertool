@@ -68,4 +68,5 @@ def _parse_row(row: dict, line: int) -> Transaction | None:
         source="manual",
         tx_id=f"manual-buy-{date_str}-{btc_str}",
         note=note,
+        no_kyc=True,
     )

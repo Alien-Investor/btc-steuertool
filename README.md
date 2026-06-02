@@ -9,9 +9,10 @@ steuerrelevante Jahresberichte für das deutsche Finanzamt.
 
 - FiFo-Engine mit 365-Tage-Haltefrist (steuerfrei / steuerpflichtig)
 - Freigrenze automatisch berücksichtigt (600 EUR bis 2023 / 1.000 EUR ab 2024)
-- Unterstützte Broker: **21bitcoin, Bison, Swissquote, Strike, Pocket**
+- Unterstützte Broker: **21bitcoin, Bison, Swissquote, Strike, Pocket, Bisq**
 - Unterstützte Wallets: **BitBox** (alle Wallet-CSVs werden automatisch eingelesen)
-- **noKYC-Käufe** via `manual_buys.csv` — für Bisq, Robosats, P2P und Bargeld-Käufe
+- **noKYC-Käufe** via Bisq-CSV-Direktimport (`Broker/bisq.csv`) oder manuell via `manual_buys.csv`
+- **noKYC taucht nicht im Finanzamt-Report auf** — interner Block am Ende des Reports für eigene Übersicht
 - **Private Verkäufe** via `manual_sales.csv` — für P2P-Verkäufe ohne Broker
 - Historische Wechselkurse via EZB (frankfurter.app) für USD/CHF-Käufe bei Swissquote
 - Formaler Steuernachweis für Steuerberater und Finanzamt (`--nachweis`)
@@ -30,10 +31,11 @@ python3 -m venv .venv
 mkdir -p bitbox Broker
 
 # Eigene CSV-Dateien ablegen:
-# bitbox/*.csv       ← BitBox-Exporte
-# Broker/*.csv       ← Broker-Exporte
-# manual_buys.csv    ← optional: noKYC-Käufe (Bisq, Robosats, P2P)
-# manual_sales.csv   ← optional: private P2P-Verkäufe
+# bitbox/*.csv           ← BitBox-Exporte
+# Broker/*.csv           ← Broker-Exporte
+# Broker/bisq.csv        ← optional: Bisq-Export (direkt aus Bisq exportieren)
+# manual_buys.csv        ← optional: noKYC-Käufe manuell (Robosats, P2P, Bargeld)
+# manual_sales.csv       ← optional: private P2P-Verkäufe
 
 # Report für ein Jahr
 .venv/bin/python src/main.py --year 2024       # Mac/Linux

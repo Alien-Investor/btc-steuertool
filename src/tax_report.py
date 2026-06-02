@@ -49,13 +49,21 @@ class TaxReport:
         self.warnings = warnings
         self.year = year
 
-        # Filterung auf gewünschtes Jahr
+        # Filterung auf gewünschtes Jahr — noKYC immer separat halten
         if year:
-            self.buys = [t for t in all_transactions if t.type == TxType.BUY and t.date.year == year]
+            all_buys = [t for t in all_transactions if t.type == TxType.BUY and t.date.year == year]
             self.sells = [sr for sr in sell_results if sr.sell_tx.date.year == year]
         else:
-            self.buys = [t for t in all_transactions if t.type == TxType.BUY]
+            all_buys = [t for t in all_transactions if t.type == TxType.BUY]
             self.sells = sell_results
+
+        self.buys = [t for t in all_buys if not t.no_kyc]
+        self.no_kyc_buys = [t for t in all_buys if t.no_kyc]
+
+        # Verbleibende Lots ebenfalls aufteilen
+        self._all_remaining_lots = remaining_lots
+        self.remaining_lots = [l for l in remaining_lots if not l.no_kyc]
+        self.no_kyc_lots = [l for l in remaining_lots if l.no_kyc]
 
     def print_report(self) -> str:
         lines = []
@@ -121,6 +129,10 @@ class TaxReport:
         if not self.year or self.year == date.today().year:
             lines.extend(self._remaining_lots_section())
 
+        # --- Interne noKYC-Übersicht (nicht für Finanzamt) ---
+        if self.no_kyc_buys or self.no_kyc_lots:
+            lines.extend(self._no_kyc_section())
+
         return "\n".join(lines)
 
     def _summary_section(self) -> list[str]:
@@ -180,6 +192,54 @@ class TaxReport:
             total_btc += lot.btc_amount
         lines.append(f"  {'─'*72}")
         lines.append(f"  {'GESAMT':<28} {total_btc:>14.8f}")
+        return lines
+
+    def _no_kyc_section(self) -> list[str]:
+        lines = []
+        lines.append("")
+        lines.append("~" * 72)
+        lines.append("  INTERNE ÜBERSICHT — noKYC-KÄUFE (Bisq/Robosats/Manual)")
+        lines.append("  Nicht für Finanzamt — nur für interne Kalkulation und Rückfragen")
+        lines.append("~" * 72)
+
+        if self.no_kyc_buys:
+            lines.append("")
+            lines.append(f"  {'Datum':<12} {'Quelle':<10} {'BTC-Menge':>14} {'Kurs EUR/BTC':>16} {'Gebühr':>12} {'Einstand':>14}")
+            lines.append(f"  {'-'*12} {'-'*10} {'-'*14} {'-'*16} {'-'*12} {'-'*14}")
+
+            total_btc = Decimal("0")
+            total_eur = Decimal("0")
+            total_fee = Decimal("0")
+
+            for tx in sorted(self.no_kyc_buys, key=lambda t: t.date):
+                einstand = _r(tx.eur_amount + tx.fee_eur)
+                lines.append(
+                    f"  {tx.date.date()!s:<12} {tx.source:<10} {tx.btc_amount:>14.8f} "
+                    f"{_r(tx.eur_price_per_btc):>16,.2f} {_r(tx.fee_eur):>12,.2f} {einstand:>14,.2f}"
+                )
+                total_btc += tx.btc_amount
+                total_eur += tx.eur_amount
+                total_fee += tx.fee_eur
+
+            lines.append(f"  {'─'*72}")
+            lines.append(f"  {'SUMME':<24} {total_btc:>14.8f} {'':>16} {_r(total_fee):>12,.2f} {_r(total_eur + total_fee):>14,.2f}")
+
+        if self.no_kyc_lots:
+            lines.append("")
+            lines.append("  VERBLEIBENDE noKYC-BESTÄNDE")
+            lines.append(f"  {'Kaufdatum':<12} {'Quelle':<10} {'BTC-Bestand':>14} {'Einstand EUR/BTC':>18}")
+            lines.append(f"  {'-'*12} {'-'*10} {'-'*14} {'-'*18}")
+            total_btc = Decimal("0")
+            for lot in sorted(self.no_kyc_lots, key=lambda l: l.purchase_date):
+                lines.append(
+                    f"  {lot.purchase_date.date()!s:<12} {lot.source:<10} {lot.btc_amount:>14.8f} "
+                    f"{lot.cost_per_btc:>18,.2f}"
+                )
+                total_btc += lot.btc_amount
+            lines.append(f"  {'─'*72}")
+            lines.append(f"  {'GESAMT':<24} {total_btc:>14.8f}")
+
+        lines.append("~" * 72)
         return lines
 
     def save_csv(self, output_dir: Path) -> list[Path]:
