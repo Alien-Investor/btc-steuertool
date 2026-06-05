@@ -15,6 +15,18 @@ from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, TxType
+from ..fx_rates import eur_rate_for_date
+
+FIAT = ("EUR", "CHF", "USD")
+
+
+def _to_eur(amount: Decimal, price: Decimal, currency: str, date) -> tuple[Decimal, Decimal]:
+    """Rechnet Betrag + Stückpreis in EUR um (Pocket bucht CH-Käufe oft in CHF)."""
+    currency = (currency or "EUR").upper()
+    if currency == "EUR":
+        return amount, price
+    rate = eur_rate_for_date(date.date(), currency)
+    return amount * rate, price * rate
 
 
 def parse(filepath: Path) -> list[Transaction]:
@@ -41,7 +53,7 @@ def parse(filepath: Path) -> list[Transaction]:
         cost_currency = row.get("cost.currency", "").upper()
         if cost_currency == "BTC":
             tx = _parse_sell(row, deposit)
-        elif cost_currency == "EUR":
+        elif cost_currency in FIAT:
             tx = _parse_buy(row, deposit)
         else:
             continue
@@ -67,9 +79,12 @@ def _parse_sell(exchange: dict, deposit: dict | None) -> Transaction | None:
         fee_btc = fee_eur / price if price else Decimal("0")
         btc_amount = btc_net + fee_btc
 
-    # EUR netto erhalten (Gebühr wurde in BTC abgezogen, nicht in EUR)
-    eur_amount = _d(exchange["value.amount"])
-    eur_price_per_btc = _d(exchange.get("price.amount", "0"))
+    # Fiat netto erhalten (Gebühr wurde in BTC abgezogen, nicht in Fiat)
+    recv_currency = exchange.get("value.currency", "").upper()
+    recv = _d(exchange["value.amount"])
+    price = _d(exchange.get("price.amount", "0"))
+    eur_amount, eur_price_per_btc = _to_eur(recv, price, recv_currency, date)
+    note = "Pocket Verkauf" + (f" [Original: {recv_currency}]" if recv_currency not in ("EUR", "") else "")
 
     return Transaction(
         date=date,
@@ -80,7 +95,7 @@ def _parse_sell(exchange: dict, deposit: dict | None) -> Transaction | None:
         fee_eur=Decimal("0"),  # Gebühr in BTC abgezogen, bereits in eur_amount reflektiert
         source="pocket",
         tx_id=f"pocket-{exchange['date']}",
-        note="Pocket Verkauf",
+        note=note,
     )
 
 
@@ -91,13 +106,18 @@ def _parse_buy(exchange: dict, deposit: dict | None) -> Transaction | None:
     # BTC-Menge: was Pocket für den Nutzer gekauft hat
     btc_amount = _d(exchange["value.amount"])
 
-    # EUR bezahlt gesamt (aus deposit-Zeile oder cost + fee)
-    if deposit and deposit.get("value.currency", "").upper() == "EUR":
-        eur_amount = _d(deposit["value.amount"])
+    # Gesamtbetrag bezahlt (Originalwährung): bevorzugt deposit-Zeile, sonst cost + fee
+    cost_currency = exchange.get("cost.currency", "").upper()
+    if deposit and _d(deposit.get("value.amount", "0")) > 0:
+        paid = _d(deposit["value.amount"])
+        paid_currency = (deposit.get("value.currency", "") or cost_currency).upper()
     else:
-        eur_amount = _d(exchange["cost.amount"]) + _d(exchange.get("fee.amount", "0"))
+        paid = _d(exchange["cost.amount"]) + _d(exchange.get("fee.amount", "0"))
+        paid_currency = cost_currency
 
-    eur_price_per_btc = _d(exchange.get("price.amount", "0"))
+    price = _d(exchange.get("price.amount", "0"))
+    eur_amount, eur_price_per_btc = _to_eur(paid, price, paid_currency, date)
+    note = "Pocket Kauf" + (f" [Original: {paid_currency}]" if paid_currency not in ("EUR", "") else "")
 
     return Transaction(
         date=date,
@@ -108,7 +128,7 @@ def _parse_buy(exchange: dict, deposit: dict | None) -> Transaction | None:
         fee_eur=Decimal("0"),  # Gebühr in eur_amount enthalten
         source="pocket",
         tx_id=f"pocket-{exchange['date']}",
-        note="Pocket Kauf",
+        note=note,
     )
 
 

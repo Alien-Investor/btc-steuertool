@@ -136,9 +136,11 @@ Transaktionen kommen als Dreier-Gruppen (deposit / exchange / withdrawal):
 type,date,value.currency,value.amount,cost.currency,cost.amount,fee.currency,fee.amount,price.amount
 ```
 
-- `type=exchange` mit `cost.currency=EUR`: BTC-Kauf
+- `type=exchange` mit `cost.currency=EUR` (oder `CHF`/`USD`): BTC-Kauf
 - `type=exchange` mit `cost.currency=BTC`: BTC-Verkauf
 - Zugehörige `deposit`-Zeile mit gleichem Timestamp enthält Betrag der Gegenseite
+- **CHF/USD-Käufe** (Pocket ist ein Schweizer Dienst): historischer EUR-Kurs wird
+  automatisch via `fx_rates` abgerufen — wie bei Swissquote
 
 ---
 
