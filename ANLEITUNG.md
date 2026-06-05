@@ -152,6 +152,24 @@ Beides zusammen ergibt die vollständige Nachvollziehbarkeit.
 Das Tool zeigt im Steuernachweis unter "Quelle" genau welcher Broker welches Lot geliefert hat.
 Waren Käufe bei mehreren Brokern beteiligt, müssen auch deren CSVs beigelegt werden.
 
+### Was das Finanzamt NICHT bekommt
+
+Genauso wichtig wie die richtigen Unterlagen: zu wissen, was nicht in die Belegkette gehört.
+
+| Datei | Warum nicht |
+|-------|-------------|
+| `reports/nokyc_intern_JAHR.txt` | Interne noKYC-Übersicht — niemals einreichen |
+| BitBox-CSVs (`bitbox/`) | Selbst erstellte Dateien ohne Beweiswert — das Finanzamt hat keinen Anspruch auf deine Wallet-Historie. Die Belegkette besteht aus den Broker-CSVs. |
+| `Broker/bisq*.csv` und `manual_buys.csv` | noKYC-Quellen — nur für die interne Buchführung |
+| `fx_cache.json` und Quellcode | Technische Dateien, für das Finanzamt irrelevant |
+
+**Wallet-Notizen neutral halten:** Die Notiz-Felder in den BitBox-CSVs sind private
+Anmerkungen — sie tauchen in keinem vom Tool erzeugten Finanzamt-Dokument auf.
+Trotzdem empfiehlt es sich, Notizen neutral zu formulieren („Übertrag" statt
+detaillierter Beschreibungen). Falls eine Wallet-CSV doch einmal weitergegeben wird,
+steht dort nichts, was das Finanzamt nichts angeht. Notizen lassen sich in der
+BitBoxApp jederzeit ändern — danach die CSV einfach neu exportieren.
+
 ---
 
 ## Wenn neue CSV-Dateien dazukommen
