@@ -90,7 +90,7 @@ def load_all_transactions(data_dir: Path):
         transactions.extend(txs)
         print(f"  Manuell (Verkäufe): {len(txs)} Transaktionen")
 
-    # Manuelle Käufe (noKYC: Bisq, Robosats, P2P, Bargeld etc.)
+    # Manuelle Käufe (noKYC: Robosats, P2P, Bargeld etc.)
     manual_buys_file = data_dir / "manual_buys.csv"
     if manual_buys_file.exists():
         txs = manual_buys.parse(manual_buys_file)
@@ -161,6 +161,13 @@ def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir
         saved = report.save_csv(reports_dir)
         for p in saved:
             print(f"  CSV gespeichert:    {p}")
+
+    # noKYC-Intern-Report (getrennte Datei, NICHT für Finanzamt)
+    nokyc_text = report.nokYC_report()
+    if nokyc_text:
+        nokyc_path = reports_dir / f"nokyc_intern_{year_label}.txt"
+        nokyc_path.write_text(nokyc_text, encoding="utf-8")
+        print(f"  noKYC intern:       {nokyc_path}  ← NUR INTERN, nicht für Finanzamt")
 
     if nachweis and year:
         nachweis_path = reports_dir / f"steuernachweis_{year}.txt"

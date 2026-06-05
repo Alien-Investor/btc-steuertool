@@ -36,7 +36,7 @@ def generate_tax_free_proof(
 
     sells_in_year = [sr for sr in sell_results if sr.sell_tx.date.year == year]
     buys_in_year = sorted(
-        [t for t in all_transactions if t.type == TxType.BUY and t.date.year == year],
+        [t for t in all_transactions if t.type == TxType.BUY and t.date.year == year and not t.no_kyc],
         key=lambda t: t.date,
     )
 

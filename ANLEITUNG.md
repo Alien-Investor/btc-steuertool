@@ -124,11 +124,16 @@ Alle erzeugten Dateien landen im Ordner `reports/`:
 
 ```
 reports/
-├── steuerreport_2025.txt     ← Übersichtlicher Report
-├── steuernachweis_2025.txt   ← Formaler Nachweis (druckfertig)
+├── steuerreport_2025.txt     ← Übersichtlicher Report (für Finanzamt verwendbar)
+├── steuernachweis_2025.txt   ← Formaler Nachweis (druckfertig, für Finanzamt)
+├── nokyc_intern_2025.txt     ← noKYC-Käufe — NUR INTERN, nicht für Finanzamt!
 ├── kaeufe_2025.csv           ← Käufe als Tabelle (für Excel)
 └── verkaeufe_2025.csv        ← Verkäufe mit FiFo-Details (für Excel)
 ```
+
+**Wichtig:** `nokyc_intern_YYYY.txt` wird nur erzeugt wenn du Bisq-/noKYC-Daten hast.
+Diese Datei **niemals** dem Finanzamt oder Steuerberater übergeben — sie enthält
+P2P-Käufe die bewusst aus dem offiziellen Report herausgehalten werden.
 
 ---
 
@@ -203,18 +208,28 @@ date,btc_amount,eur_amount,note
 
 ### Wie noKYC-Käufe im Report erscheinen
 
-noKYC-Käufe tauchen **nicht** im offiziellen Finanzamt-Teil des Reports auf.
-Am Ende des Reports gibt es einen separaten internen Block (mit `~~~`-Rand):
+noKYC-Käufe tauchen in **keiner** der Finanzamt-Dateien auf:
+
+- `steuerreport_2025.txt` — enthält **keine** noKYC-Daten
+- `steuernachweis_2025.txt` — enthält **keine** noKYC-Daten
+
+Das Tool erzeugt stattdessen eine eigene Datei:
+
+- `nokyc_intern_2025.txt` — **nur für dich**, niemals weitergeben
+
+Diese Datei beginnt mit einem deutlichen Warnhinweis:
 
 ```
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  INTERNE ÜBERSICHT — noKYC-KÄUFE (Bisq/Robosats/Manual)
-  Nicht für Finanzamt — nur für interne Kalkulation und Rückfragen
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+========================================================================
+  !! INTERN — NICHT FÜR FINANZAMT BESTIMMT !!
+
+  Diese Datei enthält noKYC-Käufe (Bisq / Robosats / P2P).
+  Sie dient ausschließlich der eigenen Buchführung.
+  NICHT an Steuerberater oder Finanzamt weitergeben.
+========================================================================
 ```
 
-Dieser Block zeigt alle noKYC-Käufe und verbleibenden Bestände zur eigenen Übersicht.
-Er kann auf Rückfrage des Finanzamts vorgezeigt werden, muss aber nicht aktiv eingereicht werden.
+Danach folgen alle noKYC-Käufe und verbleibenden noKYC-Bestände zur eigenen Übersicht.
 
 **Zur Rechtslage:** Du bist nicht verpflichtet, deinen vollständigen Wallet-Fingerprint
 offenzulegen. Solange die Anschaffungskosten korrekt angegeben sind und steuerpflichtige

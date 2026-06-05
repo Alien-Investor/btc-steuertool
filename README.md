@@ -12,7 +12,7 @@ steuerrelevante Jahresberichte für das deutsche Finanzamt.
 - Unterstützte Broker: **21bitcoin, Bison, Swissquote, Strike, Pocket, Bisq**
 - Unterstützte Wallets: **BitBox** (alle Wallet-CSVs werden automatisch eingelesen)
 - **noKYC-Käufe** via Bisq-CSV-Direktimport (`Broker/bisq.csv`) oder manuell via `manual_buys.csv`
-- **noKYC taucht nicht im Finanzamt-Report auf** — interner Block am Ende des Reports für eigene Übersicht
+- **noKYC strikt getrennt** — erscheint nie in `steuerreport_*.txt` oder `steuernachweis_*.txt`, sondern nur in der separaten `nokyc_intern_*.txt` (mit Warnhinweis)
 - **Private Verkäufe** via `manual_sales.csv` — für P2P-Verkäufe ohne Broker
 - Historische Wechselkurse via EZB (frankfurter.app) für USD/CHF-Käufe bei Swissquote
 - Formaler Steuernachweis für Steuerberater und Finanzamt (`--nachweis`)

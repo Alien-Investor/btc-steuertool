@@ -129,10 +129,25 @@ class TaxReport:
         if not self.year or self.year == date.today().year:
             lines.extend(self._remaining_lots_section())
 
-        # --- Interne noKYC-Übersicht (nicht für Finanzamt) ---
-        if self.no_kyc_buys or self.no_kyc_lots:
-            lines.extend(self._no_kyc_section())
+        return "\n".join(lines)
 
+    def nokYC_report(self) -> str | None:
+        """Gibt den noKYC-Intern-Report zurück, oder None wenn keine noKYC-Daten vorhanden."""
+        if not self.no_kyc_buys and not self.no_kyc_lots:
+            return None
+        year_label = str(self.year) if self.year else "Gesamt"
+        lines = []
+        lines.append("=" * 72)
+        lines.append("  !! INTERN — NICHT FÜR FINANZAMT BESTIMMT !!")
+        lines.append("")
+        lines.append("  Diese Datei enthält noKYC-Käufe (Bisq / Robosats / P2P).")
+        lines.append("  Sie dient ausschließlich der eigenen Buchführung.")
+        lines.append("  NICHT an Steuerberater oder Finanzamt weitergeben.")
+        lines.append("")
+        lines.append(f"  Für das Finanzamt:  steuerreport_{year_label}.txt")
+        lines.append(f"  Formaler Nachweis:  steuernachweis_{year_label}.txt")
+        lines.append("=" * 72)
+        lines.extend(self._no_kyc_section())
         return "\n".join(lines)
 
     def _summary_section(self) -> list[str]:
@@ -198,7 +213,7 @@ class TaxReport:
         lines = []
         lines.append("")
         lines.append("~" * 72)
-        lines.append("  INTERNE ÜBERSICHT — noKYC-KÄUFE (Bisq/Robosats/Manual)")
+        lines.append("  INTERNE ÜBERSICHT — noKYC-KÄUFE (Bisq/Robosats)")
         lines.append("  Nicht für Finanzamt — nur für interne Kalkulation und Rückfragen")
         lines.append("~" * 72)
 
