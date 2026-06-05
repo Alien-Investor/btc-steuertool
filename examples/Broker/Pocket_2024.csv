@@ -1,0 +1,3 @@
+type,date,value.currency,value.amount,cost.currency,cost.amount,fee.currency,fee.amount,price.amount
+deposit,2024-06-01T10:00:00.000Z,EUR,65.00,,,,,
+exchange,2024-06-01T10:00:00.000Z,BTC,0.00100000,EUR,65.00,EUR,0,65000.00

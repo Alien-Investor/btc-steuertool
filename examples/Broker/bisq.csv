@@ -1,0 +1,4 @@
+Handels-ID,Datum/Zeit,Markt,Preis,Abweichung,Betrag in BTC,Betrag,Währung,Transaktionsgebühr,Handelsgebühr BTC,Handelsgebühr BSQ,Käufer-Kaution,Verkäufer-Kaution,Angebotstyp,Status
+100001,15.03.2024 14:22:10,BTC/EUR,61500.0000,2.50%,0.01000000,615,EUR,0.00005000,0.000070,,0.0010,0.0010,BTC kaufen,Abgeschlossen
+100002,20.07.2024 09:45:33,BTC/EUR,58200.0000,1.80%,0.00500000,291,EUR,0.00004500,0.000035,,0.0005,0.0005,BTC kaufen,Abgeschlossen
+100003,05.11.2024 18:03:55,BTC/EUR,72000.0000,3.00%,0.00250000,180,EUR,0.00003000,0.000025,,0.0003,0.0003,BTC kaufen,Abgeschlossen

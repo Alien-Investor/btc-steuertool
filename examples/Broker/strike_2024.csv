@@ -1,0 +1,3 @@
+Transaction ID,Time (UTC),Status,Transaction Type,Amount EUR,Fee EUR,Amount BTC,Fee BTC,Description,Exchange Rate,Transaction Hash
+STR-001,Mar 15 2024 09:00:00,Completed,Purchase,-189.00,1.89,0.00300000,0,BTC Kauf,63000,
+STR-002,Mar 16 2024 10:00:00,Completed,Send,,,-0.00300000,,Auszahlung an eigene Wallet,,txhash_example_strike_001

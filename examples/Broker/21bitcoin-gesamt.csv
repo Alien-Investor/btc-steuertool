@@ -1,0 +1,3 @@
+id,exchange_name,depot_name,transaction_date,buy_asset,buy_amount,sell_asset,sell_amount,fee_asset,fee_amount,transaction_type,note,linked_transaction
+1,21bitcoin,depot,01.05.2022 14:00:00,BTC,0.01000000,EUR,300.00,EUR,3.00,trade,BTC Kauf,
+2,21bitcoin,depot,02.05.2022 15:30:00,,,BTC,0.01000000,BTC,0,withdrawal,Auszahlung an eigene Wallet,1

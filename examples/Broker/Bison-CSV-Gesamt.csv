@@ -1,0 +1,8 @@
+Transaction ID; Transaction type; Currency; Asset; Eur (amount); Asset (amount); Asset (market price); Fee; Date (UTC - Coordinated Universal Time)
+TX-B-001; Buy; ; Btc; 300.00; 0.00500000; 60000.00; 0; 2024-03-01 10:00:00
+TX-B-002; Deposit; ; Btc; 0.00; 0.00400000; 0.00; 0; 2024-08-31 16:05:00
+TX-B-003; Sell; ; Btc; 260.00; 0.00400000; 65000.00; 0; 2024-09-01 10:00:00
+TX-B-004; Withdraw; Eur; ; 260.00; 0.00; 0.00; 0; 2024-09-01 10:05:00
+TX-B-005; Deposit; ; Btc; 0.00; 0.00300000; 0.00; 0; 2024-10-14 12:05:00
+TX-B-006; Sell; ; Btc; 200.00; 0.00300000; 66666.67; 0; 2024-10-15 09:00:00
+TX-B-007; Withdraw; Eur; ; 200.00; 0.00; 0.00; 0; 2024-10-15 09:05:00
