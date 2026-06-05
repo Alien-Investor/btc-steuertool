@@ -87,6 +87,30 @@ Aufgelaufene Zinsen;Nettobetrag;Saldo;Währung
 - **Wichtig:** `Währung` kann `USD` oder `CHF` sein → historischen EUR-Kurs abrufen!
 - Mehrere Kauf-Zeilen mit gleicher `Auftrag #` gehören zu einer Order (summieren)
 
+### Broker: Bisq (`Broker/bisq*.csv`)
+
+CSV, Komma-getrennt, deutschsprachig (Bisq-Export "Portfolio → Trades → Exportieren"):
+
+```
+Handels-ID,Datum/Zeit,Markt,Preis,Abweichung,Betrag in BTC,Betrag,Währung,
+Transaktionsgebühr,Handelsgebühr BTC,Handelsgebühr BSQ,Käufer-Kaution,
+Verkäufer-Kaution,Angebotstyp,Status
+```
+
+- Nur `Status=Abgeschlossen` + `Angebotstyp=BTC kaufen` wird geparst
+- `Betrag in BTC` → btc_amount, `Betrag` → eur_amount, `Preis` → eur_price_per_btc
+- Gebühren: `Transaktionsgebühr` + `Handelsgebühr BTC` (beide in BTC) × Preis = fee_eur
+- Kautionen sind KEINE Gebühren — werden ignoriert
+- **`no_kyc=True`** — erscheint NICHT im offiziellen Finanzamt-Report
+
+### noKYC-Logik (Bisq + manual_buys)
+
+`Transaction.no_kyc` und `Lot.no_kyc` seit 2026-06-02 im Modell.
+- FiFo-Engine verarbeitet noKYC-Lots normal (korrekte Kostenbasis intern)
+- `TaxReport` filtert `no_kyc=True` aus offiziellen Käufen und Lots heraus
+- Interner Block am Reportende (mit `~~~`-Rand) zeigt noKYC-Käufe + verbleibende Bestände
+- Neue noKYC-Quellen: einfach `no_kyc=True` im Parser setzen — Rest automatisch
+
 ### Broker: Strike (`Broker/strike_YYYY.csv`)
 CSV, Komma-getrennt, UTF-8 (mehrere Dateien pro Jahr möglich, Pattern: `strike_*.csv`):
 
