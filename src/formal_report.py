@@ -239,7 +239,8 @@ def generate_tax_free_proof(
         if key in sources:
             lines.append(f"    - {label} Broker CSV-Export")
     blank()
-    lines.append("  Verarbeitete Transaktionen gesamt (ohne noKYC-Käufe):")
+    # Label bewusst neutral — das Dokument erwähnt nicht, was es nicht enthält
+    lines.append("  Verarbeitete Transaktionen gesamt:")
     type_counts = {}
     for tx in kyc_transactions:
         type_counts[tx.type] = type_counts.get(tx.type, 0) + 1
