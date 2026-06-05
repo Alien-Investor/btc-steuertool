@@ -9,22 +9,27 @@ from ..models import Transaction, TxType, sat_to_btc
 
 
 def parse(filepath: Path) -> list[Transaction]:
-    """Parst eine BitBox-CSV-Datei und gibt eine Liste von Transactions zurück."""
-    wallet_name = filepath.stem  # z.B. "wallet1"
+    """Parst eine BitBox-CSV-Datei und gibt eine Liste von Transactions zurück.
+
+    Liegt die Datei in einem 'nokyc'-Unterordner (bitbox/nokyc/), werden alle
+    Transaktionen mit no_kyc=True markiert und erscheinen nicht im Finanzamt-Report.
+    """
+    wallet_name = filepath.stem  # z.B. "valhalla"
     source = f"bitbox:{wallet_name}"
+    no_kyc = filepath.parent.name == "nokyc"
     transactions = []
 
     with open(filepath, encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            tx = _parse_row(row, source)
+            tx = _parse_row(row, source, no_kyc=no_kyc)
             if tx is not None:
                 transactions.append(tx)
 
     return transactions
 
 
-def _parse_row(row: dict, source: str) -> Transaction | None:
+def _parse_row(row: dict, source: str, no_kyc: bool = False) -> Transaction | None:
     tx_type_raw = row["Type"].strip().lower()
     if tx_type_raw == "sent":
         tx_type = TxType.TRANSFER_OUT
@@ -62,4 +67,5 @@ def _parse_row(row: dict, source: str) -> Transaction | None:
         source=source,
         tx_id=tx_id,
         note=f"{note} | Adresse: {address}" if address else note,
+        no_kyc=no_kyc,
     )

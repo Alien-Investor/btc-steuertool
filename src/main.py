@@ -21,13 +21,25 @@ import src.fx_rates as fx_rates
 def load_all_transactions(data_dir: Path):
     transactions = []
 
-    # BitBox-Wallets
+    # BitBox-Wallets (KYC)
     bitbox_dir = data_dir / "bitbox"
     if bitbox_dir.exists():
         for csv_file in sorted(bitbox_dir.glob("*.csv")):
             txs = bitbox.parse(csv_file)
             transactions.extend(txs)
             print(f"  BitBox {csv_file.stem}: {len(txs)} Transaktionen")
+
+    # BitBox-Wallets (noKYC — bitbox/nokyc/*.csv)
+    nokyc_dir = data_dir / "bitbox" / "nokyc"
+    if nokyc_dir.exists():
+        nokyc_txs = []
+        for csv_file in sorted(nokyc_dir.glob("*.csv")):
+            txs = bitbox.parse(csv_file)
+            nokyc_txs.extend(txs)
+            print(f"  BitBox noKYC {csv_file.stem}: {len(txs)} Transaktionen")
+        if nokyc_txs:
+            transactions.extend(nokyc_txs)
+            print(f"  → {len(nokyc_txs)} noKYC-Wallet-Transaktionen (intern, nicht für Finanzamt)")
 
     # Broker: 21bitcoin (Dateiname kann variieren, z.B. 21bitcoin-gesamt.csv oder 21bitcoin_name_gesamt.csv)
     btc21_files = sorted((data_dir / "Broker").glob("21bitcoin*.csv"))

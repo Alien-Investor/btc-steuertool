@@ -65,6 +65,14 @@ class TaxReport:
         self.remaining_lots = [l for l in remaining_lots if not l.no_kyc]
         self.no_kyc_lots = [l for l in remaining_lots if l.no_kyc]
 
+        # noKYC-Wallet-Transfers (TRANSFER_IN/OUT aus bitbox/nokyc/)
+        transfer_types = (TxType.TRANSFER_IN, TxType.TRANSFER_OUT)
+        if year:
+            all_transfers = [t for t in all_transactions if t.type in transfer_types and t.date.year == year]
+        else:
+            all_transfers = [t for t in all_transactions if t.type in transfer_types]
+        self.no_kyc_transfers = [t for t in all_transfers if t.no_kyc]
+
     def print_report(self) -> str:
         lines = []
         year_label = str(self.year) if self.year else "Gesamt (alle Jahre)"
@@ -133,7 +141,7 @@ class TaxReport:
 
     def nokYC_report(self) -> str | None:
         """Gibt den noKYC-Intern-Report zurück, oder None wenn keine noKYC-Daten vorhanden."""
-        if not self.no_kyc_buys and not self.no_kyc_lots:
+        if not self.no_kyc_buys and not self.no_kyc_lots and not self.no_kyc_transfers:
             return None
         year_label = str(self.year) if self.year else "Gesamt"
         lines = []
@@ -253,6 +261,28 @@ class TaxReport:
                 total_btc += lot.btc_amount
             lines.append(f"  {'─'*72}")
             lines.append(f"  {'GESAMT':<24} {total_btc:>14.8f}")
+
+        if self.no_kyc_transfers:
+            lines.append("")
+            lines.append("  noKYC-WALLET-AKTIVITÄT (bitbox/nokyc/)")
+            lines.append(f"  {'Datum':<12} {'Wallet':<20} {'Typ':<12} {'BTC-Betrag':>14} {'Note'}")
+            lines.append(f"  {'-'*12} {'-'*20} {'-'*12} {'-'*14} {'-'*20}")
+            total_in = Decimal("0")
+            total_out = Decimal("0")
+            for tx in sorted(self.no_kyc_transfers, key=lambda t: t.date):
+                typ = "empfangen" if tx.type == TxType.TRANSFER_IN else "gesendet "
+                wallet = tx.source.replace("bitbox:", "")
+                lines.append(
+                    f"  {tx.date.date()!s:<12} {wallet:<20} {typ:<12} {tx.btc_amount:>14.8f}  {tx.note}"
+                )
+                if tx.type == TxType.TRANSFER_IN:
+                    total_in += tx.btc_amount
+                else:
+                    total_out += tx.btc_amount
+            lines.append(f"  {'─'*72}")
+            lines.append(f"  Gesamt empfangen: {total_in:>14.8f} BTC")
+            lines.append(f"  Gesamt gesendet:  {total_out:>14.8f} BTC")
+            lines.append(f"  Netto (Saldo):    {total_in - total_out:>14.8f} BTC")
 
         lines.append("~" * 72)
         return lines

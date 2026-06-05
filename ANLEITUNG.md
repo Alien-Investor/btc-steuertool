@@ -185,6 +185,28 @@ Danach einfach den gewünschten Befehl neu ausführen — das Tool liest immer a
 Wenn du BTC ohne KYC-Broker gekauft hast — über Bisq, Robosats, HodlHodl, direkt
 von Person zu Person oder gegen Bargeld — gibt es zwei Wege:
 
+### Option C: Dedizierte noKYC-BitBox-Wallet
+
+Wenn du eine eigene BitBox-Wallet nur für noKYC-Sats verwendest (z.B. Bisq-Eingang,
+Wasabi-Outputs, Lightning-Swaps), kannst du deren CSV in den Unterordner `bitbox/nokyc/`
+legen. Das Tool erkennt den Ordner automatisch und markiert alle Transaktionen als intern:
+
+```
+bitbox/
+├── wallet1.csv           ← normale KYC-Wallet
+└── nokyc/
+    └── nokyc_wallet.csv  ← NUR INTERN, nicht für Finanzamt
+```
+
+Alle Wallet-Bewegungen aus `bitbox/nokyc/` erscheinen:
+- **nicht** in `steuerreport_*.txt` oder `steuernachweis_*.txt`
+- **nur** in `nokyc_intern_*.txt` unter "noKYC-WALLET-AKTIVITÄT"
+
+Das ist sinnvoll um den Saldo und die Bewegungen intern nachzuhalten, ohne dass
+das Finanzamt von dieser Wallet-Aktivität erfährt.
+
+---
+
 ### Option A: Bisq-CSV direkt importieren (empfohlen für Bisq-Nutzer)
 
 Bisq bietet einen CSV-Export unter "Portfolio → Trades → Exportieren".
