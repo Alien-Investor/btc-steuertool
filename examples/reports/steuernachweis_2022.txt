@@ -1,0 +1,79 @@
+============================================================================
+
+                NACHWEIS STEUERFREIER BITCOIN-VERÄUSSERUNGEN                
+
+                              Steuerjahr 2022                               
+
+      Privatveräußerungsgeschäfte gemäß § 23 Abs. 1 Satz 1 Nr. 2 EStG       
+
+============================================================================
+
+  Erstellt am:        05.06.2026
+  Berechnungsmethode: First In, First Out (FiFo)
+  Haltefrist:         365 Tage (§ 23 Abs. 1 Satz 1 Nr. 2 EStG)
+  Freigrenze 2022:    600,00 EUR
+
+============================================================================
+  ERGEBNIS
+============================================================================
+
+Im Steuerjahr 2022 wurden 0 Bitcoin-Veräußerung(en) mit einem Gesamterlös
+von 0,00 EUR durchgeführt.
+
+ALLE Veräußerungen sind gemäß § 23 Abs. 1 Satz 1 Nr. 2 EStG STEUERFREI, da
+die veräußerten Bitcoin-Einheiten jeweils länger als 365 Tage gehalten
+wurden (Haltedauer > 1 Jahr).
+
+  Steuerpflichtiger Gewinn 2022:    0,00 EUR
+  Steuerfreier Gewinn 2022:         0,00 EUR
+  In Anlage SO anzugeben:           NEIN (kein steuerpflichtiger Vorgang)
+
+============================================================================
+  DETAILNACHWEIS DER VERÄUSSERUNGEN
+============================================================================
+
+============================================================================
+  ANSCHAFFUNGEN 2022 (nicht steuerpflichtig — zur Vollständigkeit)
+============================================================================
+
+Die folgenden Anschaffungen wurden im Jahr 2022 getätigt. Sie begründen neue
+Haltefristen und sind erst nach Ablauf von 365 Tagen steuerfrei veräußerbar.
+
+  Datum        Plattform           Menge BTC   Kurs EUR/BTC     Gebühr     Einstand
+  ──────────── ────────────── ────────────── ────────────── ────────── ────────────
+  01.05.2022   21bitcoin          0.01000000      30,000.00       3.00       303.00
+
+  SUMME                            0.01000000                                 303.00
+
+============================================================================
+  METHODIK UND DATENQUELLEN
+============================================================================
+
+  Berechnungsmethode:
+Die Berechnung erfolgt nach der FiFo-Methode (First In, First Out). Die
+zuerst erworbenen Bitcoin-Einheiten werden bei einer Veräußerung zuerst als
+veräußert betrachtet. Maßgeblich für die Haltefrist ist § 23 Abs. 1 Satz 1
+Nr. 2 EStG: Gewinne aus der Veräußerung von Kryptowährungen sind steuerfrei,
+wenn zwischen Anschaffung und Veräußerung mehr als ein Jahr liegt.
+
+  Datenquellen:
+    - BitBox Hardware Wallet CSV-Exporte (1 Wallet: wallet1)
+    - 21bitcoin Broker CSV-Export
+    - Bison Broker CSV-Export
+    - Swissquote Broker CSV-Export
+    - Strike Broker CSV-Export
+    - Pocket Broker CSV-Export
+    - Manuell (P2P) Broker CSV-Export
+
+  Verarbeitete Transaktionen gesamt (ohne noKYC-Käufe):
+    Käufe:                  5
+    Verkäufe:               3
+    Überträge (eigene):     9
+    Gesamt:                17
+
+Hinweis: Überträge zwischen eigenen Wallets und Konten (BitBox ↔ Broker)
+stellen keine steuerpflichtigen Vorgänge dar und fließen nicht in die
+Gewinnberechnung ein. Sie dienen lediglich der lückenlosen Dokumentation
+aller Bewegungen.
+
+============================================================================

@@ -52,18 +52,26 @@ class TaxReport:
         # Filterung auf gewünschtes Jahr — noKYC immer separat halten
         if year:
             all_buys = [t for t in all_transactions if t.type == TxType.BUY and t.date.year == year]
-            self.sells = [sr for sr in sell_results if sr.sell_tx.date.year == year]
+            all_sells = [sr for sr in sell_results if sr.sell_tx.date.year == year]
         else:
             all_buys = [t for t in all_transactions if t.type == TxType.BUY]
-            self.sells = sell_results
+            all_sells = sell_results
 
         self.buys = [t for t in all_buys if not t.no_kyc]
         self.no_kyc_buys = [t for t in all_buys if t.no_kyc]
 
+        # Verkäufe trennen: KYC → offizieller Report, noKYC → nur intern
+        self.sells = [sr for sr in all_sells if not sr.sell_tx.no_kyc]
+        self.no_kyc_sells = [sr for sr in all_sells if sr.sell_tx.no_kyc]
+
         # Verbleibende Lots ebenfalls aufteilen
         self._all_remaining_lots = remaining_lots
         self.remaining_lots = [l for l in remaining_lots if not l.no_kyc]
-        self.no_kyc_lots = [l for l in remaining_lots if l.no_kyc]
+        # noKYC-Bestände nur im Gesamt- oder aktuellen Jahresreport (wie KYC-Bestände)
+        if not year or year == date.today().year:
+            self.no_kyc_lots = [l for l in remaining_lots if l.no_kyc]
+        else:
+            self.no_kyc_lots = []
 
         # noKYC-Wallet-Transfers (TRANSFER_IN/OUT aus bitbox/nokyc/)
         transfer_types = (TxType.TRANSFER_IN, TxType.TRANSFER_OUT)
@@ -139,16 +147,17 @@ class TaxReport:
 
         return "\n".join(lines)
 
-    def nokYC_report(self) -> str | None:
+    def nokyc_report(self) -> str | None:
         """Gibt den noKYC-Intern-Report zurück, oder None wenn keine noKYC-Daten vorhanden."""
-        if not self.no_kyc_buys and not self.no_kyc_lots and not self.no_kyc_transfers:
+        if (not self.no_kyc_buys and not self.no_kyc_lots
+                and not self.no_kyc_transfers and not self.no_kyc_sells):
             return None
         year_label = str(self.year) if self.year else "Gesamt"
         lines = []
         lines.append("=" * 72)
         lines.append("  !! INTERN — NICHT FÜR FINANZAMT BESTIMMT !!")
         lines.append("")
-        lines.append("  Diese Datei enthält noKYC-Käufe (Bisq / Robosats / P2P).")
+        lines.append("  Diese Datei enthält noKYC-Käufe und -Verkäufe (Bisq / Robosats / P2P).")
         lines.append("  Sie dient ausschließlich der eigenen Buchführung.")
         lines.append("  NICHT an Steuerberater oder Finanzamt weitergeben.")
         lines.append("")
@@ -221,7 +230,7 @@ class TaxReport:
         lines = []
         lines.append("")
         lines.append("~" * 72)
-        lines.append("  INTERNE ÜBERSICHT — noKYC-KÄUFE (Bisq/Robosats)")
+        lines.append("  INTERNE ÜBERSICHT — noKYC (Bisq/Robosats/P2P)")
         lines.append("  Nicht für Finanzamt — nur für interne Kalkulation und Rückfragen")
         lines.append("~" * 72)
 
@@ -246,6 +255,26 @@ class TaxReport:
 
             lines.append(f"  {'─'*72}")
             lines.append(f"  {'SUMME':<24} {total_btc:>14.8f} {'':>16} {_r(total_fee):>12,.2f} {_r(total_eur + total_fee):>14,.2f}")
+
+        if self.no_kyc_sells:
+            lines.append("")
+            lines.append("  noKYC-VERKÄUFE (aus noKYC-FiFo-Pool)")
+            lines.append("  Hinweis: Haltefrist/Gewinn zur eigenen steuerlichen Einordnung.")
+            for sr in self.no_kyc_sells:
+                tx = sr.sell_tx
+                lines.append("")
+                lines.append(
+                    f"  Verkauf: {tx.date.date()}  {tx.btc_amount:.8f} BTC  "
+                    f"@  {_r(tx.eur_price_per_btc):,.2f} EUR/BTC  =  {_r(tx.eur_amount):,.2f} EUR  ({tx.note})"
+                )
+                for m in sr.matches:
+                    status = "haltefrist abgelaufen" if m.is_tax_free else f"{m.holding_days} Tage — innerhalb Haltefrist"
+                    lines.append(
+                        f"    Lot: Kauf {m.lot_purchase_date.date()}  ({m.lot_source})  "
+                        f"{m.btc_used:.8f} BTC  @  {m.cost_per_btc:,.2f} EUR/BTC"
+                        f"  →  {'+' if m.gain_eur >= 0 else ''}{_r(m.gain_eur):,.2f} EUR  [{status}]"
+                    )
+                lines.append(f"    Gewinn gesamt: {_r(sr.total_gain):+,.2f} EUR")
 
         if self.no_kyc_lots:
             lines.append("")

@@ -2,14 +2,18 @@
 
 Für private BTC-Verkäufe (z.B. Peer-to-Peer) die in keiner Broker-CSV auftauchen.
 
-Format (UTF-8, Komma-getrennt):
-    date,btc_amount,eur_amount,note
-    2024-06-15,0.00500000,325.00,P2P Verkauf
+Format (UTF-8, Komma-getrennt, Spalte no_kyc optional):
+    date,btc_amount,eur_amount,note,no_kyc
+    2026-01-18,0.02222222,2000.00,P2P Verkauf,
+    2026-02-10,0.00500000,450.00,Verkauf aus noKYC-Bestand,ja
 
 - date: YYYY-MM-DD (wird als 12:00 UTC interpretiert)
 - btc_amount: BTC verkauft (positiv)
 - eur_amount: EUR erhalten (netto, ohne zusätzliche Gebühren)
 - note: Freitext
+- no_kyc: "ja"/"1"/"true" → Verkauf konsumiert den noKYC-FiFo-Pool und
+  erscheint NUR im internen Report, nicht in den Finanzamt-Dokumenten.
+  Leer oder fehlend → normaler KYC-Verkauf.
 """
 from __future__ import annotations
 import csv
@@ -51,6 +55,7 @@ def _parse_row(row: dict, line: int) -> Transaction | None:
 
     note = row.get("note", "").strip() or "Manueller Verkauf"
     eur_price_per_btc = eur_amount / btc_amount if btc_amount else Decimal("0")
+    no_kyc = row.get("no_kyc", "").strip().lower() in ("ja", "1", "true", "yes", "x")
 
     return Transaction(
         date=date,
@@ -62,4 +67,5 @@ def _parse_row(row: dict, line: int) -> Transaction | None:
         source="manual",
         tx_id=f"manual-{date_str}-{btc_str}",
         note=note,
+        no_kyc=no_kyc,
     )

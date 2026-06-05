@@ -103,12 +103,15 @@ Verkäufer-Kaution,Angebotstyp,Status
 - Kautionen sind KEINE Gebühren — werden ignoriert
 - **`no_kyc=True`** — erscheint NICHT im offiziellen Finanzamt-Report
 
-### noKYC-Logik (Bisq + manual_buys)
+### noKYC-Logik (Bisq + manual_buys + bitbox/nokyc/)
 
 `Transaction.no_kyc` und `Lot.no_kyc` seit 2026-06-02 im Modell.
-- FiFo-Engine verarbeitet noKYC-Lots normal (korrekte Kostenbasis intern)
-- `TaxReport` filtert `no_kyc=True` aus offiziellen Käufen und Lots heraus
-- Interner Block am Reportende (mit `~~~`-Rand) zeigt noKYC-Käufe + verbleibende Bestände
+- **Zwei strikt getrennte FiFo-Pools** (seit 2026-06-05): KYC-Verkäufe konsumieren
+  nur KYC-Lots, noKYC-Verkäufe (manual_sales mit `no_kyc=ja`) nur noKYC-Lots.
+  Dadurch kann ein noKYC-Lot nie in der FiFo-Zuordnung eines Finanzamt-Dokuments erscheinen.
+- `TaxReport` filtert `no_kyc=True` aus offiziellen Käufen, Verkäufen und Lots heraus
+- Separate Datei `nokyc_intern_YYYY.txt` zeigt noKYC-Käufe, -Verkäufe (mit FiFo-Zuordnung
+  und Haltefrist), Wallet-Aktivität (`bitbox/nokyc/`) und verbleibende Bestände
 - Neue noKYC-Quellen: einfach `no_kyc=True` im Parser setzen — Rest automatisch
 
 ### Broker: Strike (`Broker/strike_YYYY.csv`)
@@ -175,6 +178,7 @@ btc_steuertool/
 │   │   ├── broker_swissquote.py
 │   │   ├── broker_strike.py
 │   │   ├── broker_pocket.py
+│   │   ├── bisq.py
 │   │   ├── manual_buys.py
 │   │   └── manual_sales.py
 │   ├── fx_rates.py            # Wechselkurs-Abruf + Caching
@@ -232,11 +236,14 @@ class Lot:
 
 ### Regeln
 1. Jeder `BUY` erzeugt ein neues Lot: `cost_per_btc = (eur_amount + fee_eur) / btc_amount`
-2. Lots in einer Liste sortiert nach Kaufdatum (älteste zuerst)
-3. Bei `SELL`: Lots von vorne aufbrauchen bis BTC-Menge erreicht
+2. **Zwei getrennte Pools**: KYC-Lots und noKYC-Lots (je eine Deque, älteste zuerst).
+   `tx.no_kyc` entscheidet, in welchen Pool ein Kauf geht und aus welchem ein Verkauf konsumiert.
+3. Bei `SELL`: Lots des passenden Pools von vorne aufbrauchen bis BTC-Menge erreicht
 4. Für jedes verbrauchte Lot berechnen:
-   - `holding_days = (sell_date - lot.purchase_date).days`
-   - `is_tax_free = holding_days > 365`
+   - `holding_days = (sell_date - lot.purchase_date).days` (nur Anzeige)
+   - **Steuerfreiheit per Kalenderdatum** (§§ 187/188 BGB): steuerfrei wenn
+     `sale.date() > purchase.date() + 1 Jahr` (Jahrestag; 29.02. → 28.02.).
+     Korrekt auch in Schaltjahren — nicht einfach `> 365 Tage`.
    - `gain = (net_sell_price_per_btc - lot.cost_per_btc) * used_btc_amount`
    - `net_sell_price_per_btc = (eur_amount - fee_eur) / total_btc_sold`
 5. `TRANSFER_OUT` / `TRANSFER_IN`: keine Lot-Änderung (Kostenbasis bleibt)

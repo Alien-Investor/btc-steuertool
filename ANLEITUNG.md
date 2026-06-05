@@ -267,20 +267,31 @@ Wenn du BTC direkt an eine Person verkaufst — also außerhalb eines Brokers, z
 eine Überweisung — gibt es keine CSV von einer Plattform. Dafür gibt es die Datei
 `manual_sales.csv` im Projektordner.
 
-Format (eine Zeile pro Verkauf):
+Format (eine Zeile pro Verkauf, Spalte `no_kyc` optional):
 
 ```csv
-date,btc_amount,eur_amount,note
-2024-06-15,0.00500000,325.00,P2P Verkauf
+date,btc_amount,eur_amount,note,no_kyc
+2024-06-15,0.00500000,325.00,P2P Verkauf,
+2024-08-01,0.00300000,180.00,Verkauf aus noKYC-Bestand,ja
 ```
 
 - `date`: Datum im Format YYYY-MM-DD
 - `btc_amount`: verkaufte BTC-Menge
 - `eur_amount`: erhaltener EUR-Betrag (netto, ohne zusätzliche Gebühren)
 - `note`: Freitext zur eigenen Dokumentation
+- `no_kyc`: `ja` → Verkauf stammt aus dem noKYC-Bestand (siehe unten). Leer = normaler Verkauf.
 
 Das Tool liest diese Datei automatisch ein und behandelt jeden Eintrag als Verkauf.
-Die Einträge tauchen im Report unter der Quelle `manual` auf.
+Normale Einträge tauchen im offiziellen Report unter der Quelle `manual` auf.
+
+**Getrennte FiFo-Pools (wichtig):** KYC- und noKYC-Bestände werden in zwei strikt
+getrennten FiFo-Pools geführt. Broker-Verkäufe und normale manuelle Verkäufe
+verbrauchen ausschließlich KYC-Lots — ein Bisq- oder Robosats-Kauf kann dadurch
+niemals in der FiFo-Zuordnung eines Finanzamt-Dokuments auftauchen.
+
+Verkäufe mit `no_kyc=ja` verbrauchen ausschließlich den noKYC-Pool und erscheinen
+**nur** in `nokyc_intern_YYYY.txt` — inklusive FiFo-Zuordnung, Haltedauer und Gewinn,
+damit du die steuerliche Lage selbst beurteilen kannst.
 
 **Wichtig für den Steuernachweis:** Bei privaten Verkäufen gibt es keinen Broker-Beleg.
 Als Nachweis sollten Kontoauszug (EUR-Eingang) und ggf. Kommunikation mit dem Käufer

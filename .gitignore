@@ -7,9 +7,9 @@ venv/
 dist/
 build/
 
-# Tool-Outputs
-reports/
-fx_cache.json
+# Tool-Outputs (nur im Root — examples/ bleibt committbar)
+/reports/
+/fx_cache.json
 
 # Persönliche Transaktionsdaten — NIE committen
 # /bitbox/ und /Broker/ nur im Root ignorieren (nicht in examples/)

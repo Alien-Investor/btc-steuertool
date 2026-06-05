@@ -1,0 +1,41 @@
+========================================================================
+  Bitcoin Steuerreport Deutschland — 2024
+  Methode: FiFo  |  Haltefrist: 365 Tage  |  § 23 EStG
+========================================================================
+
+KÄUFE
+------------------------------------------------------------------------
+  Datum        Quelle              BTC-Menge     Kurs EUR/BTC       Gebühr       Einstand
+  ------------ -------------- -------------- ---------------- ------------ --------------
+  2024-03-01   bison              0.00500000        60,000.00         0.00         300.00
+  2024-03-15   strike             0.00300000        63,000.00         1.89         190.89
+  2024-06-01   pocket             0.00100000        65,000.00         0.00          65.00
+  ────────────────────────────────────────────────────────────────────────
+  SUMME                            0.00900000                          1.89         555.89
+
+STEUERFREIE VERÄUSSERUNGEN (Haltedauer > 365 Tage)
+------------------------------------------------------------------------
+  Verkauf: 2024-06-15  manual  0.00500000 BTC  @  65,000.00 EUR/BTC  =  325.00 EUR
+    Lot: Kauf 2022-05-01  (21bitcoin)  0.00500000 BTC  @  30,300.00 EUR/BTC  →  +173.50 EUR  [STEUERFREI]
+    Gewinn: +173.50 EUR
+
+  Verkauf: 2024-09-01  bison  0.00400000 BTC  @  65,000.00 EUR/BTC  =  260.00 EUR
+    Lot: Kauf 2022-05-01  (21bitcoin)  0.00400000 BTC  @  30,300.00 EUR/BTC  →  +138.80 EUR  [STEUERFREI]
+    Gewinn: +138.80 EUR
+
+  Verkauf: 2024-10-15  bison  0.00300000 BTC  @  66,666.67 EUR/BTC  =  200.00 EUR
+    Lot: Kauf 2022-05-01  (21bitcoin)  0.00100000 BTC  @  30,300.00 EUR/BTC  →  +36.37 EUR  [STEUERFREI]
+    Lot: Kauf 2023-08-15  (swissquote)  0.00200000 BTC  @  26,807.67 EUR/BTC  →  +79.72 EUR  [STEUERFREI]
+    Gewinn: +116.09 EUR
+
+
+ZUSAMMENFASSUNG 2024
+========================================================================
+  Veräußerungserlöse (gesamt):              785.00 EUR
+  Verkaufsgebühren:                           0.00 EUR
+  ─────────────────────────────────────────────────────────────────
+  Gewinn steuerpflichtig (≤ 365 Tage):       0.00 EUR
+  Gewinn steuerfrei (> 365 Tage):          428.39 EUR
+  Freigrenze 2024 (1,000 EUR): kein steuerpflichtiger Gewinn
+  Gesamtgewinn/-verlust:                    428.39 EUR
+========================================================================

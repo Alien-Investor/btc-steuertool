@@ -1,0 +1,148 @@
+============================================================================
+
+                NACHWEIS STEUERFREIER BITCOIN-VERÄUSSERUNGEN                
+
+                              Steuerjahr 2024                               
+
+      Privatveräußerungsgeschäfte gemäß § 23 Abs. 1 Satz 1 Nr. 2 EStG       
+
+============================================================================
+
+  Erstellt am:        05.06.2026
+  Berechnungsmethode: First In, First Out (FiFo)
+  Haltefrist:         365 Tage (§ 23 Abs. 1 Satz 1 Nr. 2 EStG)
+  Freigrenze 2024:    1.000,00 EUR
+
+============================================================================
+  ERGEBNIS
+============================================================================
+
+Im Steuerjahr 2024 wurden 3 Bitcoin-Veräußerung(en) mit einem Gesamterlös
+von 785,00 EUR durchgeführt.
+
+ALLE Veräußerungen sind gemäß § 23 Abs. 1 Satz 1 Nr. 2 EStG STEUERFREI, da
+die veräußerten Bitcoin-Einheiten jeweils länger als 365 Tage gehalten
+wurden (Haltedauer > 1 Jahr).
+
+  Steuerpflichtiger Gewinn 2024:    0,00 EUR
+  Steuerfreier Gewinn 2024:         428,39 EUR
+  In Anlage SO anzugeben:           NEIN (kein steuerpflichtiger Vorgang)
+
+============================================================================
+  DETAILNACHWEIS DER VERÄUSSERUNGEN
+============================================================================
+
+  Veräußerung 1 von 3
+----------------------------------------------------------------------------
+  Datum:              15.06.2024 14:00 Uhr (UTC: 15.06.2024 12:00)
+  Handelsplattform:   MANUAL
+  Veräußerte Menge:   0.00500000 BTC
+  Veräußerungserlös:  325,00 EUR
+  Kurs zum Verkauf:   65.000,00 EUR / BTC
+
+  FiFo-Zuordnung (Anschaffungsgeschäfte):
+  Nr.  Anschaffung  Quelle              Menge BTC   Kurs EUR/BTC   Tage Status      
+  ──── ──────────── ────────────── ────────────── ────────────── ────── ────────────
+  1    01.05.2022   21bitcoin          0.00500000      30,300.00    775 STEUERFREI  
+
+  Gewinn gesamt:                      173,50 EUR
+  davon steuerfrei (>365d):           173,50 EUR
+  davon steuerpflichtig:                0,00 EUR
+
+  → Diese Veräußerung ist vollständig STEUERFREI.
+    Alle veräußerten Einheiten wurden vor mehr als 365 Tagen erworben.
+
+----------------------------------------------------------------------------
+
+  Veräußerung 2 von 3
+----------------------------------------------------------------------------
+  Datum:              01.09.2024 12:00 Uhr (UTC: 01.09.2024 10:00)
+  Handelsplattform:   BISON
+  Veräußerte Menge:   0.00400000 BTC
+  Veräußerungserlös:  260,00 EUR
+  Kurs zum Verkauf:   65.000,00 EUR / BTC
+
+  FiFo-Zuordnung (Anschaffungsgeschäfte):
+  Nr.  Anschaffung  Quelle              Menge BTC   Kurs EUR/BTC   Tage Status      
+  ──── ──────────── ────────────── ────────────── ────────────── ────── ────────────
+  1    01.05.2022   21bitcoin          0.00400000      30,300.00    853 STEUERFREI  
+
+  Gewinn gesamt:                      138,80 EUR
+  davon steuerfrei (>365d):           138,80 EUR
+  davon steuerpflichtig:                0,00 EUR
+
+  → Diese Veräußerung ist vollständig STEUERFREI.
+    Alle veräußerten Einheiten wurden vor mehr als 365 Tagen erworben.
+
+----------------------------------------------------------------------------
+
+  Veräußerung 3 von 3
+----------------------------------------------------------------------------
+  Datum:              15.10.2024 11:00 Uhr (UTC: 15.10.2024 09:00)
+  Handelsplattform:   BISON
+  Veräußerte Menge:   0.00300000 BTC
+  Veräußerungserlös:  200,00 EUR
+  Kurs zum Verkauf:   66.666,67 EUR / BTC
+
+  FiFo-Zuordnung (Anschaffungsgeschäfte):
+  Nr.  Anschaffung  Quelle              Menge BTC   Kurs EUR/BTC   Tage Status      
+  ──── ──────────── ────────────── ────────────── ────────────── ────── ────────────
+  1    01.05.2022   21bitcoin          0.00100000      30,300.00    897 STEUERFREI  
+  2    15.08.2023   swissquote         0.00200000      26,807.67    426 STEUERFREI  
+
+  Gewinn gesamt:                      116,09 EUR
+  davon steuerfrei (>365d):           116,09 EUR
+  davon steuerpflichtig:                0,00 EUR
+
+  → Diese Veräußerung ist vollständig STEUERFREI.
+    Alle veräußerten Einheiten wurden vor mehr als 365 Tagen erworben.
+
+----------------------------------------------------------------------------
+
+============================================================================
+  ANSCHAFFUNGEN 2024 (nicht steuerpflichtig — zur Vollständigkeit)
+============================================================================
+
+Die folgenden Anschaffungen wurden im Jahr 2024 getätigt. Sie begründen neue
+Haltefristen und sind erst nach Ablauf von 365 Tagen steuerfrei veräußerbar.
+
+  Datum        Plattform           Menge BTC   Kurs EUR/BTC     Gebühr     Einstand
+  ──────────── ────────────── ────────────── ────────────── ────────── ────────────
+  01.03.2024   bison              0.00500000      60,000.00       0.00       300.00
+  15.03.2024   strike             0.00300000      63,000.00       1.89       190.89
+  01.06.2024   pocket             0.00100000      65,000.00       0.00        65.00
+
+  SUMME                            0.00900000                                 555.89
+
+============================================================================
+  METHODIK UND DATENQUELLEN
+============================================================================
+
+  Berechnungsmethode:
+Die Berechnung erfolgt nach der FiFo-Methode (First In, First Out). Die
+zuerst erworbenen Bitcoin-Einheiten werden bei einer Veräußerung zuerst als
+veräußert betrachtet. Maßgeblich für die Haltefrist ist § 23 Abs. 1 Satz 1
+Nr. 2 EStG: Gewinne aus der Veräußerung von Kryptowährungen sind steuerfrei,
+wenn zwischen Anschaffung und Veräußerung mehr als ein Jahr liegt.
+
+  Datenquellen:
+    - BitBox Hardware Wallet CSV-Exporte (1 Wallet: wallet1)
+    - 21bitcoin Broker CSV-Export
+    - Bison Broker CSV-Export
+    - Swissquote Broker CSV-Export
+    - Strike Broker CSV-Export
+    - Pocket Broker CSV-Export
+    - Manuell (P2P) Broker CSV-Export
+
+  Verarbeitete Transaktionen gesamt (ohne noKYC-Käufe):
+    Käufe:                  5
+    Verkäufe:               3
+    Überträge (eigene):     9
+    Gesamt:                17
+
+Hinweis: Überträge zwischen eigenen Wallets und Konten (BitBox ↔ Broker)
+stellen keine steuerpflichtigen Vorgänge dar und fließen nicht in die
+Gewinnberechnung ein. Sie dienen lediglich der lückenlosen Dokumentation
+aller Bewegungen.
+
+============================================================================

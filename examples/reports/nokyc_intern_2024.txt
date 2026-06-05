@@ -1,0 +1,37 @@
+========================================================================
+  !! INTERN — NICHT FÜR FINANZAMT BESTIMMT !!
+
+  Diese Datei enthält noKYC-Käufe und -Verkäufe (Bisq / Robosats / P2P).
+  Sie dient ausschließlich der eigenen Buchführung.
+  NICHT an Steuerberater oder Finanzamt weitergeben.
+
+  Für das Finanzamt:  steuerreport_2024.txt
+  Formaler Nachweis:  steuernachweis_2024.txt
+========================================================================
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  INTERNE ÜBERSICHT — noKYC (Bisq/Robosats/P2P)
+  Nicht für Finanzamt — nur für interne Kalkulation und Rückfragen
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Datum        Quelle          BTC-Menge     Kurs EUR/BTC       Gebühr       Einstand
+  ------------ ---------- -------------- ---------------- ------------ --------------
+  2024-03-10   manual         0.01000000        55,000.00         0.00         550.00
+  2024-03-15   bisq           0.01000000        61,500.00         7.38         622.38
+  2024-07-20   bisq           0.00500000        58,200.00         4.66         295.66
+  2024-07-22   manual         0.00500000        56,000.00         0.00         280.00
+  2024-11-05   manual         0.00250000        59,400.00         0.00         148.50
+  2024-11-05   bisq           0.00250000        72,000.00         3.96         183.96
+  ────────────────────────────────────────────────────────────────────────
+  SUMME                        0.03500000                         16.00       2,080.50
+
+  noKYC-WALLET-AKTIVITÄT (bitbox/nokyc/)
+  Datum        Wallet               Typ              BTC-Betrag Note
+  ------------ -------------------- ------------ -------------- --------------------
+  2024-03-11   nokyc_wallet         empfangen        0.01000000  Bisq Kauf angekommen | Adresse: bc1qnokyc1example000000000000000000000000
+  2024-07-23   nokyc_wallet         empfangen        0.00500000  Robosats Trade empfangen | Adresse: bc1qnokyc2example000000000000000000000000
+  ────────────────────────────────────────────────────────────────────────
+  Gesamt empfangen:     0.01500000 BTC
+  Gesamt gesendet:      0.00000000 BTC
+  Netto (Saldo):        0.01500000 BTC
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -175,7 +175,7 @@ def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir
             print(f"  CSV gespeichert:    {p}")
 
     # noKYC-Intern-Report (getrennte Datei, NICHT für Finanzamt)
-    nokyc_text = report.nokYC_report()
+    nokyc_text = report.nokyc_report()
     if nokyc_text:
         nokyc_path = reports_dir / f"nokyc_intern_{year_label}.txt"
         nokyc_path.write_text(nokyc_text, encoding="utf-8")

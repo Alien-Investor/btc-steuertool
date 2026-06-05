@@ -8,6 +8,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
 from .models import Transaction, TxType, SellResult, Lot
+from .tax_report import _freigrenze
 
 CENT = Decimal("0.01")
 
@@ -34,7 +35,10 @@ def generate_tax_free_proof(
 ) -> None:
     """Erzeugt einen formalen Steuernachweis als Textdatei."""
 
-    sells_in_year = [sr for sr in sell_results if sr.sell_tx.date.year == year]
+    sells_in_year = [
+        sr for sr in sell_results
+        if sr.sell_tx.date.year == year and not sr.sell_tx.no_kyc
+    ]
     buys_in_year = sorted(
         [t for t in all_transactions if t.type == TxType.BUY and t.date.year == year and not t.no_kyc],
         key=lambda t: t.date,
@@ -82,7 +86,7 @@ def generate_tax_free_proof(
     lines.append(f"  Erstellt am:        {date.today().strftime('%d.%m.%Y')}")
     lines.append(f"  Berechnungsmethode: First In, First Out (FiFo)")
     lines.append(f"  Haltefrist:         365 Tage (§ 23 Abs. 1 Satz 1 Nr. 2 EStG)")
-    lines.append(f"  Freigrenze {year}:    1.000,00 EUR")
+    lines.append(f"  Freigrenze {year}:    {_eur(_freigrenze(year))}")
     blank()
 
     # =========================================================

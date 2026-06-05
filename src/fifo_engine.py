@@ -1,12 +1,19 @@
-"""FiFo-Engine: Lot-Verwaltung und Gewinnberechnung nach deutschem Steuerrecht."""
+"""FiFo-Engine: Lot-Verwaltung und Gewinnberechnung nach deutschem Steuerrecht.
+
+Zwei strikt getrennte FiFo-Pools:
+- KYC-Pool:   Broker-Käufe (no_kyc=False). KYC-Verkäufe konsumieren NUR diesen Pool.
+- noKYC-Pool: Bisq/manual_buys (no_kyc=True). noKYC-Verkäufe konsumieren NUR diesen.
+
+Dadurch kann ein noKYC-Lot niemals in der FiFo-Zuordnung eines offiziellen
+Finanzamt-Dokuments auftauchen.
+"""
 from __future__ import annotations
 from collections import deque
+from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
-from datetime import timezone
 
 from .models import Transaction, TxType, Lot, DisposalMatch, SellResult
 
-HOLDING_PERIOD_DAYS = 365
 CENT = Decimal("0.01")
 
 
@@ -14,9 +21,27 @@ def _round(val: Decimal) -> Decimal:
     return val.quantize(CENT, rounding=ROUND_HALF_UP)
 
 
+def _is_tax_free(purchase: datetime, sale: datetime) -> bool:
+    """Haltefrist nach § 23 EStG i.V.m. §§ 187 Abs. 1, 188 Abs. 2/3 BGB.
+
+    Die Jahresfrist endet mit Ablauf des Tages im Folgejahr, der dem
+    Anschaffungstag entspricht. Steuerfrei ist erst die Veräußerung DANACH.
+    Kalenderdatum-Vergleich statt Tageszählung — korrekt auch in Schaltjahren
+    (366 Tage können genau ein Jahr sein, nicht mehr als ein Jahr).
+    """
+    p = purchase.date()
+    try:
+        anniversary = p.replace(year=p.year + 1)
+    except ValueError:
+        # 29. Februar: Frist endet mit Ablauf des 28. Februar (§ 188 Abs. 3 BGB)
+        anniversary = p.replace(year=p.year + 1, day=28)
+    return sale.date() > anniversary
+
+
 class FifoEngine:
     def __init__(self):
-        self.lots: deque[Lot] = deque()
+        self.lots: deque[Lot] = deque()        # KYC-Pool
+        self.nokyc_lots: deque[Lot] = deque()  # noKYC-Pool (strikt getrennt)
         self.sell_results: list[SellResult] = []
         self.warnings: list[str] = []
 
@@ -33,7 +58,8 @@ class FifoEngine:
     def _add_lot(self, tx: Transaction) -> None:
         # Einstandspreis inkl. Kaufgebühren
         cost_per_btc = _round((tx.eur_amount + tx.fee_eur) / tx.btc_amount) if tx.btc_amount else Decimal("0")
-        self.lots.append(Lot(
+        pool = self.nokyc_lots if tx.no_kyc else self.lots
+        pool.append(Lot(
             purchase_date=tx.date,
             btc_amount=tx.btc_amount,
             cost_per_btc=cost_per_btc,
@@ -43,6 +69,10 @@ class FifoEngine:
         ))
 
     def _process_sell(self, tx: Transaction) -> None:
+        # Pool nach Verkaufsart wählen — KYC-Verkäufe sehen noKYC-Lots NIE
+        pool = self.nokyc_lots if tx.no_kyc else self.lots
+        pool_label = "noKYC" if tx.no_kyc else "KYC"
+
         # Netto-Verkaufspreis pro BTC (Erlös minus Verkaufsgebühren)
         net_proceeds = tx.eur_amount - tx.fee_eur
         net_sell_price_per_btc = _round(net_proceeds / tx.btc_amount) if tx.btc_amount else Decimal("0")
@@ -51,28 +81,28 @@ class FifoEngine:
         matches: list[DisposalMatch] = []
 
         while remaining > Decimal("0"):
-            if not self.lots:
+            if not pool:
                 self.warnings.append(
-                    f"WARNUNG: Verkauf am {tx.date.date()} über {remaining:.8f} BTC "
+                    f"WARNUNG: {pool_label}-Verkauf am {tx.date.date()} über {remaining:.8f} BTC "
                     f"kann nicht vollständig FiFo-Lots zugeordnet werden. "
                     f"Fehlende Menge: {remaining:.8f} BTC. "
                     f"Prüfe ob alle Käufe in den CSV-Dateien vorhanden sind."
                 )
                 break
 
-            lot = self.lots[0]
+            lot = pool[0]
 
             if lot.btc_amount <= remaining:
                 # Dieses Lot wird vollständig verbraucht
                 used = lot.btc_amount
-                self.lots.popleft()
+                pool.popleft()
             else:
                 # Lot wird nur teilweise verbraucht
                 used = remaining
                 lot.btc_amount -= used
 
             holding_days = (tx.date.replace(tzinfo=timezone.utc) - lot.purchase_date).days
-            is_tax_free = holding_days > HOLDING_PERIOD_DAYS
+            tax_free = _is_tax_free(lot.purchase_date, tx.date)
             gain = _round((net_sell_price_per_btc - lot.cost_per_btc) * used)
 
             matches.append(DisposalMatch(
@@ -83,7 +113,7 @@ class FifoEngine:
                 net_sell_price_per_btc=net_sell_price_per_btc,
                 gain_eur=gain,
                 holding_days=holding_days,
-                is_tax_free=is_tax_free,
+                is_tax_free=tax_free,
             ))
 
             remaining -= used
@@ -91,7 +121,8 @@ class FifoEngine:
         self.sell_results.append(SellResult(sell_tx=tx, matches=matches))
 
     def remaining_lots(self) -> list[Lot]:
-        return list(self.lots)
+        """Alle verbleibenden Lots (KYC + noKYC) — Filterung übernimmt der Report."""
+        return list(self.lots) + list(self.nokyc_lots)
 
     def total_btc_held(self) -> Decimal:
-        return sum((lot.btc_amount for lot in self.lots), Decimal("0"))
+        return sum((lot.btc_amount for lot in self.remaining_lots()), Decimal("0"))
