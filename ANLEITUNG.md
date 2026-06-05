@@ -152,6 +152,13 @@ Beides zusammen ergibt die vollständige Nachvollziehbarkeit.
 Das Tool zeigt im Steuernachweis unter "Quelle" genau welcher Broker welches Lot geliefert hat.
 Waren Käufe bei mehreren Brokern beteiligt, müssen auch deren CSVs beigelegt werden.
 
+**Nicht beteiligte Broker weglassen:** Nur die CSVs der Broker beilegen, die im
+Steuernachweis unter "Quelle" in der FiFo-Zuordnung der Verkäufe auftauchen.
+CSVs anderer Broker haben keine Beleg-Funktion — der Nachweis listet die
+Jahres-Anschaffungen bereits auf. "Gesamt"-CSVs verraten zudem immer auch
+Transaktionen aus anderen Jahren (z.B. Käufe des laufenden Jahres) und ggf.
+Einnahmen wie Spenden-Eingänge, die mit dem Steuerjahr nichts zu tun haben.
+
 ### Was das Finanzamt NICHT bekommt
 
 Genauso wichtig wie die richtigen Unterlagen: zu wissen, was nicht in die Belegkette gehört.
