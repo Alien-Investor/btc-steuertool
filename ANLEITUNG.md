@@ -172,9 +172,10 @@ Genauso wichtig wie die richtigen Unterlagen: zu wissen, was nicht in die Belegk
 
 **Wallet-Notizen neutral halten:** Die Notiz-Felder in den BitBox-CSVs sind private
 Anmerkungen — sie tauchen in keinem vom Tool erzeugten Finanzamt-Dokument auf.
-Trotzdem empfiehlt es sich, Notizen neutral zu formulieren („Übertrag" statt
-detaillierter Beschreibungen). Falls eine Wallet-CSV doch einmal weitergegeben wird,
-steht dort nichts, was das Finanzamt nichts angeht. Notizen lassen sich in der
+Trotzdem empfiehlt es sich, Notizen neutral zu formulieren („Uebertrag" statt
+detaillierter Beschreibungen — bewusst ohne Umlaut, damit die Note in jedem
+Programm sauber dargestellt wird). Falls eine Wallet-CSV doch einmal weitergegeben
+wird, steht dort nichts, was das Finanzamt nichts angeht. Notizen lassen sich in der
 BitBoxApp jederzeit ändern — danach die CSV einfach neu exportieren.
 
 ---
