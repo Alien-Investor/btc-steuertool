@@ -39,6 +39,7 @@ def generate_tax_free_proof(
         [t for t in all_transactions if t.type == TxType.BUY and t.date.year == year and not t.no_kyc],
         key=lambda t: t.date,
     )
+    kyc_transactions = [t for t in all_transactions if not t.no_kyc]
 
     lines = []
     W = 76
@@ -220,19 +221,28 @@ def generate_tax_free_proof(
     )
     blank()
     lines.append("  Datenquellen:")
-    lines.append("    - BitBox Hardware Wallet CSV-Exporte (4 Wallets)")
-    lines.append("    - 21bitcoin Broker CSV-Export")
-    lines.append("    - Bison Broker CSV-Export")
-    lines.append("    - Swissquote Broker CSV-Export")
+    sources = set(t.source for t in kyc_transactions)
+    bitbox_wallets = sorted(s.replace("bitbox:", "") for s in sources if s.startswith("bitbox:"))
+    if bitbox_wallets:
+        count = len(bitbox_wallets)
+        names = ", ".join(bitbox_wallets)
+        lines.append(f"    - BitBox Hardware Wallet CSV-Exporte ({count} {'Wallet' if count == 1 else 'Wallets'}: {names})")
+    _BROKER_DISPLAY = {
+        "21bitcoin": "21bitcoin", "bison": "Bison", "swissquote": "Swissquote",
+        "strike": "Strike", "pocket": "Pocket", "manual": "Manuell (P2P)",
+    }
+    for key, label in _BROKER_DISPLAY.items():
+        if key in sources:
+            lines.append(f"    - {label} Broker CSV-Export")
     blank()
-    lines.append("  Verarbeitete Transaktionen gesamt:")
+    lines.append("  Verarbeitete Transaktionen gesamt (ohne noKYC-Käufe):")
     type_counts = {}
-    for tx in all_transactions:
+    for tx in kyc_transactions:
         type_counts[tx.type] = type_counts.get(tx.type, 0) + 1
     lines.append(f"    Käufe:              {type_counts.get(TxType.BUY, 0):>5}")
     lines.append(f"    Verkäufe:           {type_counts.get(TxType.SELL, 0):>5}")
     lines.append(f"    Überträge (eigene): {type_counts.get(TxType.TRANSFER_IN, 0) + type_counts.get(TxType.TRANSFER_OUT, 0):>5}")
-    lines.append(f"    Gesamt:             {len(all_transactions):>5}")
+    lines.append(f"    Gesamt:             {len(kyc_transactions):>5}")
     blank()
     para(
         "Hinweis: Überträge zwischen eigenen Wallets und Konten (BitBox ↔ Broker) "

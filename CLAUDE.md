@@ -291,17 +291,6 @@ ZUSAMMENFASSUNG 2024
 
 ---
 
-## Transfer-Matching (`transfer_matcher.py`)
-
-Dient der Plausibilitätsprüfung und Kennzeichnung von Überträgen:
-
-- Matcher versucht, Broker-Withdrawals mit BitBox-Received-Transaktionen zu verknüpfen
-- Matching-Kriterien: BTC-Betrag ± On-Chain-Fee, Zeitfenster ± 24h
-- Nicht gematchte Transfers werden im Report als Warnung ausgegeben
-- Matching ist **nicht** steuerrelevant — ändert keine FiFo-Berechnungen
-
----
-
 ## Bekannte Ergebnisse (eigene Referenzwerte eintragen)
 
 Trage hier nach dem ersten erfolgreichen Lauf deine eigenen Referenzwerte ein,
