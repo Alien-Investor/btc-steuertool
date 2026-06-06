@@ -106,6 +106,9 @@ Verkäufer-Kaution,Angebotstyp,Status
 ### noKYC-Logik (Bisq + manual_buys + bitbox/nokyc/)
 
 `Transaction.no_kyc` und `Lot.no_kyc` seit 2026-06-02 im Modell.
+- `manual_buys.csv` hat optionale Spalte `kyc` (seit 2026-06-06): `ja`/`1`/`true` →
+  KYC-Kauf (Broker ohne eigenen Parser, z.B. Coinbase) → KYC-Pool + Finanzamt-Report.
+  Leer/fehlend → noKYC (Standard, abwärtskompatibel).
 - **Zwei strikt getrennte FiFo-Pools** (seit 2026-06-05): KYC-Verkäufe konsumieren
   nur KYC-Lots, noKYC-Verkäufe (manual_sales mit `no_kyc=ja`) nur noKYC-Lots.
   Dadurch kann ein noKYC-Lot nie in der FiFo-Zuordnung eines Finanzamt-Dokuments erscheinen.

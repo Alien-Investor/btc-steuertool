@@ -196,7 +196,7 @@ Bei Bison und Swissquote: neue Transaktionen in die bestehende Datei einfügen.
 Bei Strike, Pocket und Bisq: einfach eine neue Datei ablegen, das Tool liest alle automatisch ein.
 
 Für manuelle Einträge direkt im Projektordner (nicht in einem Unterordner):
-- `manual_buys.csv` → noKYC-Käufe manuell (Robosats, P2P, Bargeld) — eine Zeile pro Kauf
+- `manual_buys.csv` → Käufe manuell: noKYC (Robosats, P2P, Bargeld) oder mit Spalte `kyc=ja` auch KYC-Broker ohne eigenen Parser — eine Zeile pro Kauf
 - `manual_sales.csv` → private P2P-Verkäufe — eine Zeile pro Verkauf
 
 Diese Dateien existieren nicht im Repository (gitignored) — einfach neu anlegen und befüllen.
@@ -222,15 +222,19 @@ Das Tool liest sie automatisch ein und erkennt alle abgeschlossenen Käufe.
 Für Robosats, HodlHodl, P2P oder Bargeldkäufe — also alles ohne CSV-Export:
 
 ```csv
-date,btc_amount,eur_amount,note
-2024-03-10,0.01000000,550.00,Robosats Trade
-2024-07-22,0.00500000,280.00,P2P Kauf
+date,btc_amount,eur_amount,note,kyc
+2024-03-10,0.01000000,550.00,Robosats Trade,
+2024-07-22,0.00500000,280.00,P2P Kauf,
+2024-12-01,0.00200000,190.00,Coinbase Kauf,ja
 ```
 
 - `date`: Datum im Format YYYY-MM-DD
 - `btc_amount`: gekaufte BTC-Menge
 - `eur_amount`: gezahlter EUR-Betrag (Gesamtbetrag inkl. etwaiger Gebühren)
 - `note`: Freitext zur eigenen Dokumentation (z.B. Trade-ID, Quelle)
+- `kyc` (optional): `ja` → Kauf bei einem **KYC-Broker, für den es (noch) keinen
+  eigenen Parser gibt** (z.B. Coinbase, Kraken). Der Kauf landet dann im offiziellen
+  Finanzamt-Report wie jeder Broker-Kauf. Leer oder fehlend → noKYC (Standard).
 
 ### Option C: Dedizierte noKYC-BitBox-Wallet
 
