@@ -149,7 +149,7 @@ type,date,value.currency,value.amount,cost.currency,cost.amount,fee.currency,fee
 
 ## Historische Wechselkurse (für Swissquote USD/CHF)
 
-- API: `https://api.frankfurter.app/{YYYY-MM-DD}?from=USD&to=EUR`
+- API: `https://api.frankfurter.dev/v1/{YYYY-MM-DD}?from=USD&to=EUR` (seit 2026 — alte Domain api.frankfurter.app liefert nur noch 301)
 - Nur bei Swissquote-Käufen in USD oder CHF nötig
 - **Kurse lokal cachen** (Dict oder JSON-Datei `fx_cache.json`) — kein wiederholter API-Call für gleichen Tag
 - Bei API-Fehler: Fehlermeldung mit betroffener Transaktion ausgeben, nicht stillschweigend 0 einsetzen

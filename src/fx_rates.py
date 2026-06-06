@@ -1,4 +1,4 @@
-"""Historische EUR-Wechselkurse via frankfurter.app API mit lokalem Cache."""
+"""Historische EUR-Wechselkurse via frankfurter API (frankfurter.dev) mit lokalem Cache."""
 from __future__ import annotations
 import json
 from datetime import date
@@ -51,7 +51,9 @@ def eur_rate_for_date(d: date, from_currency: str) -> Decimal:
     if cache_key in _cache:
         return _cache[cache_key]
 
-    url = f"https://api.frankfurter.app/{d.isoformat()}?from={from_currency}&to=EUR"
+    # frankfurter ist 2026 von api.frankfurter.app auf api.frankfurter.dev/v1/ umgezogen
+    # (alte Domain liefert nur noch 301 — Redirect scheitert im Browser an CSP/CORS)
+    url = f"https://api.frankfurter.dev/v1/{d.isoformat()}?from={from_currency}&to=EUR"
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()

@@ -358,7 +358,7 @@ Vorgang.
 
 **Swissquote hat manche Käufe in USD — ist das ein Problem?**
 Nein. Das Tool fragt automatisch einen historischen EUR/USD-Kurs ab (von
-frankfurter.app, der offiziellen EZB-Datenquelle) und rechnet um. Der Kurs wird
+frankfurter.dev, der offiziellen EZB-Datenquelle) und rechnet um. Der Kurs wird
 lokal in `fx_cache.json` gespeichert, damit er nicht jedes Mal neu abgerufen werden muss.
 
 **Kann ich dem Ergebnis vertrauen?**

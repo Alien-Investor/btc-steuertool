@@ -14,7 +14,7 @@ steuerrelevante Jahresberichte für das deutsche Finanzamt.
 - **noKYC-Käufe** via Bisq-CSV-Direktimport (`Broker/bisq.csv`) oder manuell via `manual_buys.csv`
 - **noKYC strikt getrennt** — erscheint nie in `steuerreport_*.txt` oder `steuernachweis_*.txt`, sondern nur in der separaten `nokyc_intern_*.txt` (mit Warnhinweis)
 - **Private Verkäufe** via `manual_sales.csv` — für P2P-Verkäufe ohne Broker
-- Historische Wechselkurse via EZB (frankfurter.app) für USD/CHF-Käufe bei Swissquote
+- Historische Wechselkurse via EZB (frankfurter.dev) für USD/CHF-Käufe bei Swissquote
 - Formaler Steuernachweis für Steuerberater und Finanzamt (`--nachweis`)
 - CSV-Export für Excel (`--csv`)
 - Mehrere Datenverzeichnisse möglich (`--data-dir`) — praktisch für getrennte Portfolios
