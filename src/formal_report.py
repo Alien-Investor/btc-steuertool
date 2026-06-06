@@ -6,11 +6,16 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from .models import Transaction, TxType, SellResult, Lot
 from .tax_report import _freigrenze
 
 CENT = Decimal("0.01")
+
+# Deutsche Zeit explizit (Steuerdokument!) — unabhängig von der System-Zeitzone,
+# damit CLI und Browser-Version (läuft in UTC) identische Nachweise erzeugen
+_TZ_DE = ZoneInfo("Europe/Berlin")
 
 
 def _r(val) -> Decimal:
@@ -135,7 +140,7 @@ def generate_tax_free_proof(
         blank()
         lines.append(f"  Veräußerung {i} von {len(sells_in_year)}")
         sep("-")
-        lines.append(f"  Datum:              {tx.date.astimezone().strftime('%d.%m.%Y %H:%M Uhr')} (UTC: {tx.date.strftime('%d.%m.%Y %H:%M')})")
+        lines.append(f"  Datum:              {tx.date.astimezone(_TZ_DE).strftime('%d.%m.%Y %H:%M Uhr')} (UTC: {tx.date.strftime('%d.%m.%Y %H:%M')})")
         lines.append(f"  Handelsplattform:   {tx.source.upper()}")
         lines.append(f"  Veräußerte Menge:   {_btc(tx.btc_amount)}")
         lines.append(f"  Veräußerungserlös:  {_eur(tx.eur_amount)}")
