@@ -32,7 +32,7 @@ def sat_to_btc(satoshi: int | str) -> Decimal:
 
 @dataclass
 class Transaction:
-    date: datetime          # timezone-aware, UTC
+    date: datetime          # timezone-aware (UTC; Swissquote/Bisq: Europe/Berlin) — Steuerjahr/Haltefrist via de_date()
     type: TxType
     btc_amount: Decimal     # immer positiv, in BTC
     eur_amount: Decimal     # Kaufpreis oder Verkaufserlös vor Gebühren; 0 bei Transfer

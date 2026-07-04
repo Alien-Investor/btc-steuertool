@@ -8,7 +8,15 @@ steuerrelevante Jahresberichte für das deutsche Finanzamt.
 ## Features
 
 - FiFo-Engine mit 365-Tage-Haltefrist (steuerfrei / steuerpflichtig)
-- Freigrenze automatisch berücksichtigt (600 EUR bis 2023 / 1.000 EUR ab 2024)
+- Freigrenze automatisch berücksichtigt (600 EUR bis 2023 / 1.000 EUR ab 2024;
+  steuerfrei bleibt nur ein Gesamtgewinn **unter** der Grenze, § 23 Abs. 3 EStG)
+- **Kein stiller Datenverlust:** Zeilen, die ein Parser nicht verarbeiten kann
+  (z.B. ein noch nicht unterstützter Verkaufstyp), erzeugen eine deutliche
+  Warnung im Report — statt kommentarlos zu fehlen
+- **Dedup:** identische Transaktionen in überlappenden Exporten desselben
+  Brokers (Jahres- + Gesamtexport) werden erkannt und nur einmal gezählt
+- Steuerjahr und Haltefrist nach **deutschem Kalenderdatum** (Europe/Berlin),
+  nicht UTC — relevant bei Käufen/Verkäufen um Mitternacht bzw. am Jahreswechsel
 - Unterstützte Broker: **21bitcoin, Bison, Swissquote, Strike, Pocket, Bisq**
 - Unterstützte Wallets: **BitBox** (alle Wallet-CSVs werden automatisch eingelesen)
 - **noKYC-Käufe** via Bisq-CSV-Direktimport (`Broker/bisq.csv`) oder manuell via `manual_buys.csv`
@@ -66,7 +74,10 @@ eingetragen und werden nie versehentlich committed.
 
 - Methode: FiFo (First In, First Out)
 - Haltefrist: Gewinne nach > 365 Tagen Haltedauer sind steuerfrei (§ 23 Abs. 1 Nr. 2 EStG)
-- Freigrenze: 600 EUR (bis 2023) / 1.000 EUR (ab 2024) — bei Überschreitung voller Betrag steuerpflichtig
+- Freigrenze: 600 EUR (bis 2023) / 1.000 EUR (ab 2024) — steuerfrei nur, wenn der
+  Gesamtgewinn im Kalenderjahr **weniger** als die Grenze beträgt (§ 23 Abs. 3 EStG);
+  ab exakt der Grenze ist der volle Betrag steuerpflichtig. Die Freigrenze gilt für
+  alle privaten Veräußerungsgeschäfte eines Jahres zusammen, nicht nur für Bitcoin
 - Überträge zwischen eigenen Wallets/Konten: steuerlich neutral
 
 ## Unterstützung
