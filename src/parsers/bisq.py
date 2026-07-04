@@ -15,37 +15,70 @@ Gebühren:
 
 Timestamps:
     Bisq exportiert lokale Systemzeit ohne Timezone-Angabe.
-    Wird als UTC behandelt (±1-2h Abweichung irrelevant für Tagesberechnung).
+    Wird als Europe/Berlin behandelt — maßgeblich für Steuerjahr und Haltefrist
+    ist das deutsche Kalenderdatum.
 """
 from __future__ import annotations
 import csv
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
-from ..models import Transaction, TxType
+from ..models import Transaction, TxType, TZ_DE
+from . import warn
 
 
 def parse(filepath: Path) -> list[Transaction]:
     transactions = []
+    rows_seen = 0
+    skipped: dict[str, int] = {}
     with open(filepath, encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            tx = _parse_row(row)
+            rows_seen += 1
+            tx = _parse_row(row, filepath.name, skipped)
             if tx is not None:
                 transactions.append(tx)
+    for reason, count in skipped.items():
+        warn(f"{filepath.name}: {count} Zeile(n) {reason}")
+    if rows_seen and not transactions and not skipped:
+        warn(
+            f"{filepath.name}: keine Bisq-Transaktion erkannt ({rows_seen} Zeilen) — "
+            f"englischsprachiger Export? Der Parser erwartet den deutschsprachigen Export."
+        )
     return transactions
 
 
-def _parse_row(row: dict) -> Transaction | None:
+def _parse_row(row: dict, filename: str, skipped: dict[str, int]) -> Transaction | None:
     if row.get("Status", "").strip() != "Abgeschlossen":
-        return None
-    if row.get("Angebotstyp", "").strip() != "BTC kaufen":
+        return None  # nicht abgeschlossene Trades sind steuerlich irrelevant
+    offer_type = row.get("Angebotstyp", "").strip()
+    if offer_type != "BTC kaufen":
+        # Nicht stillschweigend verwerfen — ein Verkauf wäre steuerlich relevant!
+        if offer_type == "BTC verkaufen":
+            warn(
+                f"{filename}: Bisq-Verkauf am {row.get('Datum/Zeit', '?')} wird vom Parser "
+                f"noch nicht unterstützt — bitte als manual_sales.csv (no_kyc=ja) erfassen, "
+                f"sonst ist die noKYC-Übersicht unvollständig."
+            )
+        else:
+            reason = f"mit Angebotstyp '{offer_type}' nicht verarbeitet"
+            skipped[reason] = skipped.get(reason, 0) + 1
         return None
 
     trade_id = row.get("Handels-ID", "").strip()
     date_str = row.get("Datum/Zeit", "").strip()
-    date = datetime.strptime(date_str, "%d.%m.%Y %H:%M:%S").replace(tzinfo=timezone.utc)
+    # Bisq exportiert lokale Systemzeit ohne Timezone — als Europe/Berlin stempeln,
+    # damit das Kalenderdatum für Steuerjahr/Haltefrist stimmt.
+    date = datetime.strptime(date_str, "%d.%m.%Y %H:%M:%S").replace(tzinfo=TZ_DE)
+
+    currency = row.get("Währung", "").strip().upper()
+    if currency and currency != "EUR":
+        warn(
+            f"{filename}: Bisq-Trade {trade_id} in {currency} statt EUR — nicht verarbeitet. "
+            f"Bitte als manual_buys.csv mit EUR-Umrechnung zum Kaufdatum erfassen."
+        )
+        return None
 
     btc_amount = _decimal(row.get("Betrag in BTC", "0"))
     eur_amount = _decimal(row.get("Betrag", "0"))

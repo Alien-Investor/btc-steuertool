@@ -1,8 +1,19 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from decimal import Decimal
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
+from zoneinfo import ZoneInfo
+
+# Deutsche Zeitzone — maßgeblich für Steuerjahr und Haltefrist ist das
+# Kalenderdatum in deutscher Zeit, nicht UTC (ein Verkauf am 31.12. um 23:30 UTC
+# gehört steuerlich schon ins Folgejahr).
+TZ_DE = ZoneInfo("Europe/Berlin")
+
+
+def de_date(dt: datetime) -> date:
+    """Kalenderdatum in deutscher Zeit — für Steuerjahr, Haltefrist und Anzeige."""
+    return dt.astimezone(TZ_DE).date()
 
 
 class TxType(Enum):
@@ -38,6 +49,15 @@ class Transaction:
             val = getattr(self, f)
             if not isinstance(val, Decimal):
                 object.__setattr__(self, f, Decimal(str(val)))
+        # Negative Beträge hart ablehnen — ein Vorzeichen-Tippfehler (z.B. in
+        # manual_buys.csv) würde sonst die FiFo-Kette lautlos korrumpieren
+        if self.type in (TxType.BUY, TxType.SELL):
+            if self.btc_amount < 0 or self.eur_amount < 0 or self.fee_eur < 0:
+                raise ValueError(
+                    f"{self.source} {de_date(self.date)}: negativer Betrag bei {self.type.value} "
+                    f"(btc={self.btc_amount}, eur={self.eur_amount}, fee={self.fee_eur}) — "
+                    f"Beträge immer positiv angeben."
+                )
 
 
 @dataclass

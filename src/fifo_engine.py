@@ -9,10 +9,10 @@ Finanzamt-Dokuments auftauchen.
 """
 from __future__ import annotations
 from collections import deque
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
-from .models import Transaction, TxType, Lot, DisposalMatch, SellResult
+from .models import Transaction, TxType, Lot, DisposalMatch, SellResult, de_date
 
 CENT = Decimal("0.01")
 
@@ -28,14 +28,15 @@ def _is_tax_free(purchase: datetime, sale: datetime) -> bool:
     Anschaffungstag entspricht. Steuerfrei ist erst die Veräußerung DANACH.
     Kalenderdatum-Vergleich statt Tageszählung — korrekt auch in Schaltjahren
     (366 Tage können genau ein Jahr sein, nicht mehr als ein Jahr).
+    Maßgeblich ist das deutsche Kalenderdatum (Europe/Berlin), nicht UTC.
     """
-    p = purchase.date()
+    p = de_date(purchase)
     try:
         anniversary = p.replace(year=p.year + 1)
     except ValueError:
         # 29. Februar: Frist endet mit Ablauf des 28. Februar (§ 188 Abs. 3 BGB)
         anniversary = p.replace(year=p.year + 1, day=28)
-    return sale.date() > anniversary
+    return de_date(sale) > anniversary
 
 
 class FifoEngine:
@@ -83,7 +84,7 @@ class FifoEngine:
         while remaining > Decimal("0"):
             if not pool:
                 self.warnings.append(
-                    f"WARNUNG: {pool_label}-Verkauf am {tx.date.date()} über {remaining:.8f} BTC "
+                    f"WARNUNG: {pool_label}-Verkauf am {de_date(tx.date)} über {remaining:.8f} BTC "
                     f"kann nicht vollständig FiFo-Lots zugeordnet werden. "
                     f"Fehlende Menge: {remaining:.8f} BTC. "
                     f"Prüfe ob alle Käufe in den CSV-Dateien vorhanden sind."
@@ -101,7 +102,9 @@ class FifoEngine:
                 used = remaining
                 lot.btc_amount -= used
 
-            holding_days = (tx.date.replace(tzinfo=timezone.utc) - lot.purchase_date).days
+            # Beide Zeitstempel sind timezone-aware — direkte Differenz.
+            # (KEIN replace(tzinfo=...): das würde Nicht-UTC-Zeitstempel verfälschen.)
+            holding_days = (tx.date - lot.purchase_date).days
             tax_free = _is_tax_free(lot.purchase_date, tx.date)
             gain = _round((net_sell_price_per_btc - lot.cost_per_btc) * used)
 

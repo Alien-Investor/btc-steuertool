@@ -6,6 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, TxType
+from . import warn
 
 
 def parse(filepath: Path) -> list[Transaction]:
@@ -16,13 +17,13 @@ def parse(filepath: Path) -> list[Transaction]:
         for row in reader:
             # Alle Keys und Values trimmen (Bison hat Leerzeichen nach dem Semikolon)
             row = {k.strip(): v.strip() for k, v in row.items() if k is not None}
-            tx = _parse_row(row)
+            tx = _parse_row(row, filepath.name)
             if tx is not None:
                 transactions.append(tx)
     return transactions
 
 
-def _parse_row(row: dict) -> Transaction | None:
+def _parse_row(row: dict, filename: str) -> Transaction | None:
     tx_type_raw = row.get("Transaction type", "").strip()
     asset = row.get("Asset", "").strip().upper()
     currency = row.get("Currency", "").strip().upper()
@@ -83,7 +84,26 @@ def _parse_row(row: dict) -> Transaction | None:
             note="BTC-Eingang von eigener Wallet",
         )
 
-    # Deposit EUR, Withdraw EUR, ETH-Transaktionen → ignorieren
+    elif tx_type_raw == "Withdraw" and asset == "BTC":
+        # BTC-Auszahlung an eigene Wallet (Gegenstück zu Deposit; Fee in BTC, wie
+        # bei BitBox-Transfers nicht in EUR umgerechnet — Transfers sind steuerneutral)
+        btc_amount = _decimal(row.get("Asset (amount)", "0"))
+        return Transaction(
+            date=date,
+            type=TxType.TRANSFER_OUT,
+            btc_amount=btc_amount,
+            eur_amount=Decimal("0"),
+            eur_price_per_btc=Decimal("0"),
+            fee_eur=Decimal("0"),
+            source="bison",
+            tx_id=tx_id,
+            note="BTC-Auszahlung an eigene Wallet",
+        )
+
+    # EUR-Ein-/Auszahlungen und andere Assets (ETH etc.) sind bekannt irrelevant —
+    # unbekannte BTC-Zeilen aber melden (z.B. 'Withdraw' BTC oder neue Typen)
+    if asset == "BTC":
+        warn(f"{filename}: Transaktionstyp '{tx_type_raw}' (BTC) am {date.date()} nicht verarbeitet.")
     return None
 
 

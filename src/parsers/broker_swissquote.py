@@ -1,13 +1,14 @@
 """Parser für Swissquote CSV-Exporte."""
 from __future__ import annotations
 import csv
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from collections import defaultdict
 
-from ..models import Transaction, TxType
+from ..models import Transaction, TxType, TZ_DE
 from ..fx_rates import eur_rate_for_date
+from . import warn
 
 
 def parse(filepath: Path) -> list[Transaction]:
@@ -30,10 +31,22 @@ def parse(filepath: Path) -> list[Transaction]:
         if symbol != "BTC":
             continue  # nur BTC relevant
 
-        if tx_type == "Kauf" and order_id:
-            orders[order_id].append(row)
+        if tx_type == "Kauf":
+            if order_id:
+                orders[order_id].append(row)
+            else:
+                warn(f"{filepath.name}: Kauf-Zeile vom {row.get('Datum', '?')} ohne Auftragsnummer nicht verarbeitet.")
         elif tx_type in ("Crypto Withdrawal", "Crypto Deposit"):
             other_rows.append(row)
+        elif tx_type == "Verkauf":
+            # Nicht stillschweigend verwerfen — Verkauf ist steuerlich relevant!
+            warn(
+                f"{filepath.name}: BTC-Verkauf vom {row.get('Datum', '?')} wird vom "
+                f"Swissquote-Parser noch nicht unterstützt — bitte als manual_sales.csv "
+                f"erfassen, sonst ist der Report unvollständig."
+            )
+        else:
+            warn(f"{filepath.name}: unbekannter Transaktionstyp '{tx_type}' vom {row.get('Datum', '?')} nicht verarbeitet.")
 
     transactions = []
 
@@ -53,8 +66,11 @@ def parse(filepath: Path) -> list[Transaction]:
 
 
 def _parse_date(date_str: str) -> datetime:
-    # Format: "DD-MM-YYYY HH:MM:SS"
-    return datetime.strptime(date_str.strip(), "%d-%m-%Y %H:%M:%S").replace(tzinfo=timezone.utc)
+    # Format: "DD-MM-YYYY HH:MM:SS" — Swissquote exportiert Schweizer Lokalzeit
+    # ohne Timezone-Angabe. CH und DE teilen die Zeitzone (CET/CEST), darum als
+    # Europe/Berlin stempeln — so stimmt das Kalenderdatum für Steuerjahr/Haltefrist
+    # auch bei Abend-Transaktionen (als UTC gestempelt wäre es um 1-2h verschoben).
+    return datetime.strptime(date_str.strip(), "%d-%m-%Y %H:%M:%S").replace(tzinfo=TZ_DE)
 
 
 def _merge_buy_rows(order_id: str, rows: list[dict]) -> Transaction | None:

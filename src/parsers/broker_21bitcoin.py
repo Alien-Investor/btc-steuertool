@@ -6,6 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, TxType
+from . import warn
 
 
 def parse(filepath: Path) -> list[Transaction]:
@@ -13,13 +14,13 @@ def parse(filepath: Path) -> list[Transaction]:
     with open(filepath, encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            tx = _parse_row(row)
+            tx = _parse_row(row, filepath.name)
             if tx is not None:
                 transactions.append(tx)
     return transactions
 
 
-def _parse_row(row: dict) -> Transaction | None:
+def _parse_row(row: dict, filename: str) -> Transaction | None:
     tx_type_raw = row["transaction_type"].strip().lower()
 
     # Datum: "DD.MM.YYYY HH:MM:SS" — 21bitcoin gibt keine Timezone an,
@@ -35,7 +36,16 @@ def _parse_row(row: dict) -> Transaction | None:
         buy_asset = row.get("buy_asset", "").strip().upper()
         sell_asset = row.get("sell_asset", "").strip().upper()
         if buy_asset != "BTC" or sell_asset != "EUR":
-            return None  # Kein BTC-Kauf (sollte nicht vorkommen)
+            # Nicht stillschweigend verwerfen — ein BTC-Verkauf wäre steuerlich relevant!
+            if sell_asset == "BTC":
+                warn(
+                    f"{filename}: BTC-Verkauf am {date.date()} wird vom 21bitcoin-Parser "
+                    f"noch nicht unterstützt — bitte als manual_sales.csv erfassen, "
+                    f"sonst ist der Report unvollständig."
+                )
+            else:
+                warn(f"{filename}: Trade-Zeile mit {sell_asset}→{buy_asset} nicht verarbeitet.")
+            return None
 
         btc_amount = Decimal(row["buy_amount"].strip())
         eur_amount = Decimal(row["sell_amount"].strip())
@@ -75,5 +85,7 @@ def _parse_row(row: dict) -> Transaction | None:
             note=note,
         )
 
-    # deposit (EUR-Einzahlung) und alles andere ignorieren
+    # deposit (EUR-Einzahlung) ist bekannt irrelevant — alles Unbekannte melden
+    if tx_type_raw != "deposit":
+        warn(f"{filename}: unbekannter Transaktionstyp '{tx_type_raw}' am {date.date()} nicht verarbeitet.")
     return None

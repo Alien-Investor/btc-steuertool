@@ -6,6 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, TxType, sat_to_btc
+from . import warn
 
 
 def parse(filepath: Path) -> list[Transaction]:
@@ -22,32 +23,38 @@ def parse(filepath: Path) -> list[Transaction]:
     with open(filepath, encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            tx = _parse_row(row, source, no_kyc=no_kyc)
+            tx = _parse_row(row, source, filepath.name, no_kyc=no_kyc)
             if tx is not None:
                 transactions.append(tx)
 
     return transactions
 
 
-def _parse_row(row: dict, source: str, no_kyc: bool = False) -> Transaction | None:
+def _parse_row(row: dict, source: str, filename: str, no_kyc: bool = False) -> Transaction | None:
     tx_type_raw = row["Type"].strip().lower()
     if tx_type_raw == "sent":
         tx_type = TxType.TRANSFER_OUT
     elif tx_type_raw == "received":
         tx_type = TxType.TRANSFER_IN
+    elif tx_type_raw == "sent_to_yourself":
+        # Interner Transfer innerhalb derselben Wallet (z.B. UTXO-Management):
+        # kein Zu-/Abfluss, kein steuerlicher Vorgang — bekannt irrelevant
+        return None
     else:
-        return None  # unbekannter Typ
+        warn(f"{filename}: unbekannter Typ '{tx_type_raw}' nicht verarbeitet.")
+        return None
 
     # Datum parsen (ISO 8601 mit Timezone-Offset)
     date = datetime.fromisoformat(row["Time"].strip()).astimezone(timezone.utc)
 
-    # Betrag von Satoshi in BTC
-    btc_amount = sat_to_btc(row["Amount"].strip())
+    # Betrag von Satoshi in BTC (abs: Vorzeichen steckt schon im Typ sent/received)
+    btc_amount = abs(sat_to_btc(row["Amount"].strip()))
 
-    # Gebühr (nur bei sent, bei received meist leer)
+    # Gebühr (nur bei sent, bei received meist leer) — Unit heißt je nach
+    # BitBox-Version "satoshi" oder "sat"
     fee_raw = row.get("Fee", "").strip()
     fee_unit = row.get("Fee Unit", "").strip().lower()
-    if fee_raw and fee_unit == "satoshi":
+    if fee_raw and fee_unit in ("satoshi", "sat"):
         fee_btc = sat_to_btc(fee_raw)
     else:
         fee_btc = Decimal("0")

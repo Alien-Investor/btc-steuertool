@@ -16,6 +16,7 @@ from pathlib import Path
 
 from ..models import Transaction, TxType
 from ..fx_rates import eur_rate_for_date
+from . import warn
 
 FIAT = ("EUR", "CHF", "USD")
 
@@ -56,6 +57,8 @@ def parse(filepath: Path) -> list[Transaction]:
         elif cost_currency in FIAT:
             tx = _parse_buy(row, deposit)
         else:
+            # Nicht stillschweigend verwerfen — jede exchange-Zeile ist ein Trade
+            warn(f"{filepath.name}: exchange-Zeile am {row.get('date', '?')} mit cost.currency '{cost_currency}' nicht verarbeitet.")
             continue
 
         if tx:
@@ -94,7 +97,8 @@ def _parse_sell(exchange: dict, deposit: dict | None) -> Transaction | None:
         eur_price_per_btc=eur_price_per_btc,
         fee_eur=Decimal("0"),  # Gebühr in BTC abgezogen, bereits in eur_amount reflektiert
         source="pocket",
-        tx_id=f"pocket-{exchange['date']}",
+        # Betrag im Schlüssel: zwei Trades in derselben Sekunde bleiben unterscheidbar
+        tx_id=f"pocket-{exchange['date']}-{exchange.get('value.amount', '')}",
         note=note,
     )
 
@@ -127,7 +131,8 @@ def _parse_buy(exchange: dict, deposit: dict | None) -> Transaction | None:
         eur_price_per_btc=eur_price_per_btc,
         fee_eur=Decimal("0"),  # Gebühr in eur_amount enthalten
         source="pocket",
-        tx_id=f"pocket-{exchange['date']}",
+        # Betrag im Schlüssel: zwei Trades in derselben Sekunde bleiben unterscheidbar
+        tx_id=f"pocket-{exchange['date']}-{exchange.get('value.amount', '')}",
         note=note,
     )
 

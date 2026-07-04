@@ -17,6 +17,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, TxType
+from . import warn
 
 
 def parse(filepath: Path) -> list[Transaction]:
@@ -24,13 +25,13 @@ def parse(filepath: Path) -> list[Transaction]:
     with open(filepath, encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            tx = _parse_row(row)
+            tx = _parse_row(row, filepath.name)
             if tx is not None:
                 transactions.append(tx)
     return transactions
 
 
-def _parse_row(row: dict) -> Transaction | None:
+def _parse_row(row: dict, filename: str) -> Transaction | None:
     status = row.get("Status", "").strip()
     if status != "Completed":
         return None
@@ -105,7 +106,10 @@ def _parse_row(row: dict) -> Transaction | None:
             note=description or "Strike Eingang (kein Kauf)",
         )
 
-    # Deposit (EUR-Einzahlung) und alles andere ignorieren
+    # Deposit/Withdrawal (EUR-Bewegungen) sind bekannt irrelevant — alles
+    # Unbekannte melden (z.B. ein künftiger Verkaufstyp wäre steuerlich relevant!)
+    if tx_type_raw not in ("Deposit", "Withdrawal"):
+        warn(f"{filename}: unbekannter Transaktionstyp '{tx_type_raw}' am {date.date()} nicht verarbeitet.")
     return None
 
 

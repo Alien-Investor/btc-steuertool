@@ -1,11 +1,11 @@
 """Generierung des Steuerreports (Text + CSV) aus FiFo-Ergebnissen."""
 from __future__ import annotations
 import csv
-from datetime import date, timezone
+from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
-from .models import Transaction, TxType, SellResult, Lot
+from .models import Transaction, TxType, SellResult, Lot, de_date
 
 CENT = Decimal("0.01")
 SATOSHI_8 = Decimal("0.00000001")
@@ -49,10 +49,10 @@ class TaxReport:
         self.warnings = warnings
         self.year = year
 
-        # Filterung auf gewünschtes Jahr — noKYC immer separat halten
+        # Filterung auf gewünschtes Jahr (deutsches Kalenderjahr!) — noKYC immer separat halten
         if year:
-            all_buys = [t for t in all_transactions if t.type == TxType.BUY and t.date.year == year]
-            all_sells = [sr for sr in sell_results if sr.sell_tx.date.year == year]
+            all_buys = [t for t in all_transactions if t.type == TxType.BUY and de_date(t.date).year == year]
+            all_sells = [sr for sr in sell_results if de_date(sr.sell_tx.date).year == year]
         else:
             all_buys = [t for t in all_transactions if t.type == TxType.BUY]
             all_sells = sell_results
@@ -76,7 +76,7 @@ class TaxReport:
         # noKYC-Wallet-Transfers (TRANSFER_IN/OUT aus bitbox/nokyc/)
         transfer_types = (TxType.TRANSFER_IN, TxType.TRANSFER_OUT)
         if year:
-            all_transfers = [t for t in all_transactions if t.type in transfer_types and t.date.year == year]
+            all_transfers = [t for t in all_transactions if t.type in transfer_types and de_date(t.date).year == year]
         else:
             all_transfers = [t for t in all_transactions if t.type in transfer_types]
         self.no_kyc_transfers = [t for t in all_transfers if t.no_kyc]
@@ -110,7 +110,7 @@ class TaxReport:
         for tx in sorted(self.buys, key=lambda t: t.date):
             einstand = _r(tx.eur_amount + tx.fee_eur)
             lines.append(
-                f"  {tx.date.date()!s:<12} {tx.source:<14} {tx.btc_amount:>14.8f} "
+                f"  {de_date(tx.date)!s:<12} {tx.source:<14} {tx.btc_amount:>14.8f} "
                 f"{_r(tx.eur_price_per_btc):>16,.2f} {_r(tx.fee_eur):>12,.2f} {einstand:>14,.2f}"
             )
             total_buy_btc += tx.btc_amount
@@ -185,10 +185,12 @@ class TaxReport:
 
         if freigrenze is not None:
             if total_gain_taxable > 0:
-                if total_gain_taxable > freigrenze:
-                    status = f"ÜBERSCHRITTEN (Grenze: {_r(freigrenze):,.2f} EUR) → voller Betrag steuerpflichtig"
+                # § 23 Abs. 3 EStG: steuerfrei nur, wenn der Gesamtgewinn WENIGER als
+                # die Freigrenze beträgt — exakt 1.000,00 EUR ist bereits voll steuerpflichtig
+                if total_gain_taxable >= freigrenze:
+                    status = f"ERREICHT/ÜBERSCHRITTEN (Grenze: {_r(freigrenze):,.2f} EUR) → voller Betrag steuerpflichtig"
                 else:
-                    status = f"NICHT ÜBERSCHRITTEN (Grenze: {_r(freigrenze):,.2f} EUR) → steuerfrei"
+                    status = f"NICHT ERREICHT (steuerfrei bleibt nur ein Gesamtgewinn unter {_r(freigrenze):,.2f} EUR) → steuerfrei"
             else:
                 status = "kein steuerpflichtiger Gewinn"
 
@@ -196,6 +198,8 @@ class TaxReport:
             lines.append(f"  Gewinn steuerpflichtig (≤ 365 Tage): {_r(total_gain_taxable):>10,.2f} EUR")
             lines.append(f"  Gewinn steuerfrei (> 365 Tage):      {_r(total_gain_tax_free):>10,.2f} EUR")
             lines.append(f"  Freigrenze {self.year} ({_r(freigrenze):,.0f} EUR): {status}")
+            lines.append(f"  Hinweis: Die Freigrenze gilt für ALLE privaten Veräußerungsgeschäfte")
+            lines.append(f"  des Jahres zusammen (§ 23 EStG) — nicht nur für Bitcoin.")
         else:
             lines.append(f"  ─────────────────────────────────────────────────────────────────")
             lines.append(f"  Gewinn steuerpflichtig (≤ 365 Tage): {_r(total_gain_taxable):>10,.2f} EUR")
@@ -218,7 +222,7 @@ class TaxReport:
         for lot in sorted(self.remaining_lots, key=lambda l: l.purchase_date):
             wert = _r(lot.btc_amount * lot.cost_per_btc)
             lines.append(
-                f"  {lot.purchase_date.date()!s:<12} {lot.source:<14} {lot.btc_amount:>14.8f} "
+                f"  {de_date(lot.purchase_date)!s:<12} {lot.source:<14} {lot.btc_amount:>14.8f} "
                 f"{lot.cost_per_btc:>18,.2f} {wert:>12,.2f}"
             )
             total_btc += lot.btc_amount
@@ -246,7 +250,7 @@ class TaxReport:
             for tx in sorted(self.no_kyc_buys, key=lambda t: t.date):
                 einstand = _r(tx.eur_amount + tx.fee_eur)
                 lines.append(
-                    f"  {tx.date.date()!s:<12} {tx.source:<10} {tx.btc_amount:>14.8f} "
+                    f"  {de_date(tx.date)!s:<12} {tx.source:<10} {tx.btc_amount:>14.8f} "
                     f"{_r(tx.eur_price_per_btc):>16,.2f} {_r(tx.fee_eur):>12,.2f} {einstand:>14,.2f}"
                 )
                 total_btc += tx.btc_amount
@@ -264,13 +268,13 @@ class TaxReport:
                 tx = sr.sell_tx
                 lines.append("")
                 lines.append(
-                    f"  Verkauf: {tx.date.date()}  {tx.btc_amount:.8f} BTC  "
+                    f"  Verkauf: {de_date(tx.date)}  {tx.btc_amount:.8f} BTC  "
                     f"@  {_r(tx.eur_price_per_btc):,.2f} EUR/BTC  =  {_r(tx.eur_amount):,.2f} EUR  ({tx.note})"
                 )
                 for m in sr.matches:
                     status = "haltefrist abgelaufen" if m.is_tax_free else f"{m.holding_days} Tage — innerhalb Haltefrist"
                     lines.append(
-                        f"    Lot: Kauf {m.lot_purchase_date.date()}  ({m.lot_source})  "
+                        f"    Lot: Kauf {de_date(m.lot_purchase_date)}  ({m.lot_source})  "
                         f"{m.btc_used:.8f} BTC  @  {m.cost_per_btc:,.2f} EUR/BTC"
                         f"  →  {'+' if m.gain_eur >= 0 else ''}{_r(m.gain_eur):,.2f} EUR  [{status}]"
                     )
@@ -284,7 +288,7 @@ class TaxReport:
             total_btc = Decimal("0")
             for lot in sorted(self.no_kyc_lots, key=lambda l: l.purchase_date):
                 lines.append(
-                    f"  {lot.purchase_date.date()!s:<12} {lot.source:<10} {lot.btc_amount:>14.8f} "
+                    f"  {de_date(lot.purchase_date)!s:<12} {lot.source:<10} {lot.btc_amount:>14.8f} "
                     f"{lot.cost_per_btc:>18,.2f}"
                 )
                 total_btc += lot.btc_amount
@@ -302,7 +306,7 @@ class TaxReport:
                 typ = "empfangen" if tx.type == TxType.TRANSFER_IN else "gesendet "
                 wallet = tx.source.replace("bitbox:", "")
                 lines.append(
-                    f"  {tx.date.date()!s:<12} {wallet:<20} {typ:<12} {tx.btc_amount:>14.8f}  {tx.note}"
+                    f"  {de_date(tx.date)!s:<12} {wallet:<20} {typ:<12} {tx.btc_amount:>14.8f}  {tx.note}"
                 )
                 if tx.type == TxType.TRANSFER_IN:
                     total_in += tx.btc_amount
@@ -329,7 +333,7 @@ class TaxReport:
             w.writerow(["Datum", "Quelle", "BTC-Menge", "Kurs_EUR_per_BTC", "Gebuehr_EUR", "Einstand_EUR"])
             for tx in sorted(self.buys, key=lambda t: t.date):
                 w.writerow([
-                    tx.date.date(),
+                    de_date(tx.date),
                     tx.source,
                     f"{tx.btc_amount:.8f}",
                     f"{_r(tx.eur_price_per_btc):.2f}",
@@ -350,11 +354,11 @@ class TaxReport:
             for sr in self.sells:
                 for m in sr.matches:
                     w.writerow([
-                        sr.sell_tx.date.date(),
+                        de_date(sr.sell_tx.date),
                         sr.sell_tx.source,
                         f"{sr.sell_tx.btc_amount:.8f}",
                         f"{_r(sr.sell_tx.eur_amount):.2f}",
-                        m.lot_purchase_date.date(),
+                        de_date(m.lot_purchase_date),
                         m.lot_source,
                         f"{m.btc_used:.8f}",
                         f"{m.cost_per_btc:.2f}",
@@ -372,7 +376,7 @@ def _format_sell(sr: SellResult, only_taxable: bool) -> list[str]:
     lines = []
     tx = sr.sell_tx
     lines.append(
-        f"  Verkauf: {tx.date.date()}  {tx.source}  "
+        f"  Verkauf: {de_date(tx.date)}  {tx.source}  "
         f"{tx.btc_amount:.8f} BTC  @  {_r(tx.eur_price_per_btc):,.2f} EUR/BTC  =  {_r(tx.eur_amount):,.2f} EUR"
     )
     if tx.fee_eur > 0:
@@ -383,7 +387,7 @@ def _format_sell(sr: SellResult, only_taxable: bool) -> list[str]:
         status = "STEUERFREI" if m.is_tax_free else f"{m.holding_days} Tage"
         gain_str = f"{'+' if m.gain_eur >= 0 else ''}{_r(m.gain_eur):,.2f} EUR"
         lines.append(
-            f"    Lot: Kauf {m.lot_purchase_date.date()}  ({m.lot_source})  "
+            f"    Lot: Kauf {de_date(m.lot_purchase_date)}  ({m.lot_source})  "
             f"{m.btc_used:.8f} BTC  @  {m.cost_per_btc:,.2f} EUR/BTC"
             f"  →  {gain_str}  [{status}]"
         )

@@ -48,8 +48,14 @@ def _parse_row(row: dict, line: int) -> Transaction | None:
     btc_str = row.get("btc_amount", "").strip()
     eur_str = row.get("eur_amount", "").strip()
 
+    if not date_str and not btc_str and not eur_str:
+        return None  # komplett leere Zeile (z.B. Leerzeile am Dateiende)
     if not date_str or not btc_str or not eur_str:
-        return None
+        # Teilweise gefüllte Zeile NICHT still überspringen — fehlender Kauf = falsche FiFo-Kette
+        raise ValueError(
+            f"manual_buys.csv Zeile {line}: Pflichtfeld fehlt "
+            f"(date='{date_str}', btc_amount='{btc_str}', eur_amount='{eur_str}')"
+        )
 
     try:
         date = datetime.strptime(date_str, "%Y-%m-%d").replace(

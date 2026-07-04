@@ -8,7 +8,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from .models import Transaction, TxType, SellResult, Lot
+from .models import Transaction, TxType, SellResult, Lot, de_date
 from .tax_report import _freigrenze
 
 CENT = Decimal("0.01")
@@ -37,15 +37,17 @@ def generate_tax_free_proof(
     remaining_lots: list[Lot],
     year: int,
     output_path: Path,
+    warnings: list[str] | None = None,
 ) -> None:
     """Erzeugt einen formalen Steuernachweis als Textdatei."""
 
+    # Jahres-Zuordnung nach deutschem Kalenderdatum (Europe/Berlin), nicht UTC
     sells_in_year = [
         sr for sr in sell_results
-        if sr.sell_tx.date.year == year and not sr.sell_tx.no_kyc
+        if de_date(sr.sell_tx.date).year == year and not sr.sell_tx.no_kyc
     ]
     buys_in_year = sorted(
-        [t for t in all_transactions if t.type == TxType.BUY and t.date.year == year and not t.no_kyc],
+        [t for t in all_transactions if t.type == TxType.BUY and de_date(t.date).year == year and not t.no_kyc],
         key=lambda t: t.date,
     )
     kyc_transactions = [t for t in all_transactions if not t.no_kyc]
@@ -95,6 +97,24 @@ def generate_tax_free_proof(
     blank()
 
     # =========================================================
+    # WICHTIGE HINWEISE (Warnungen aus Einlesen/Berechnung)
+    # =========================================================
+    if warnings:
+        sep()
+        lines.append("  WICHTIGE HINWEISE — BITTE VOR VERWENDUNG PRÜFEN")
+        sep()
+        blank()
+        para(
+            "Beim Einlesen der Daten bzw. bei der Berechnung sind Hinweise "
+            "aufgetreten. Dieser Nachweis ist möglicherweise unvollständig, "
+            "solange die folgenden Punkte nicht geklärt sind:"
+        )
+        blank()
+        for w in warnings:
+            para(f"  - {w}")
+        blank()
+
+    # =========================================================
     # ERGEBNIS-ZUSAMMENFASSUNG
     # =========================================================
     sep()
@@ -112,7 +132,13 @@ def generate_tax_free_proof(
     )
     blank()
 
-    if total_taxable == Decimal("0"):
+    # "Alle steuerfrei" nur behaupten, wenn wirklich JEDES Lot außerhalb der
+    # Haltefrist lag — nicht wenn steuerbare Vorgänge sich zufällig auf 0 saldieren
+    all_matches_tax_free = all(
+        m.is_tax_free for sr in sells_in_year for m in sr.matches
+    )
+
+    if all_matches_tax_free:
         para(
             f"ALLE Veräußerungen sind gemäß § 23 Abs. 1 Satz 1 Nr. 2 EStG STEUERFREI, "
             f"da die veräußerten Bitcoin-Einheiten jeweils länger als 365 Tage gehalten "
@@ -121,7 +147,9 @@ def generate_tax_free_proof(
         blank()
         lines.append(f"  Steuerpflichtiger Gewinn {year}:    {_eur(total_taxable)}")
         lines.append(f"  Steuerfreier Gewinn {year}:         {_eur(total_free)}")
-        lines.append(f"  In Anlage SO anzugeben:           NEIN (kein steuerpflichtiger Vorgang)")
+        lines.append(f"  In Anlage SO anzugeben:           NEIN (kein steuerpflichtiger Vorgang,")
+        lines.append(f"                                    sofern keine weiteren privaten")
+        lines.append(f"                                    Veräußerungsgeschäfte vorliegen)")
     else:
         lines.append(f"  Steuerpflichtiger Gewinn {year}:    {_eur(total_taxable)}")
         lines.append(f"  Steuerfreier Gewinn {year}:         {_eur(total_free)}")
@@ -140,7 +168,7 @@ def generate_tax_free_proof(
         blank()
         lines.append(f"  Veräußerung {i} von {len(sells_in_year)}")
         sep("-")
-        lines.append(f"  Datum:              {tx.date.astimezone(_TZ_DE).strftime('%d.%m.%Y %H:%M Uhr')} (UTC: {tx.date.strftime('%d.%m.%Y %H:%M')})")
+        lines.append(f"  Datum:              {tx.date.astimezone(_TZ_DE).strftime('%d.%m.%Y %H:%M Uhr')} (UTC: {tx.date.astimezone(timezone.utc).strftime('%d.%m.%Y %H:%M')})")
         lines.append(f"  Handelsplattform:   {tx.source.upper()}")
         lines.append(f"  Veräußerte Menge:   {_btc(tx.btc_amount)}")
         lines.append(f"  Veräußerungserlös:  {_eur(tx.eur_amount)}")
@@ -156,7 +184,7 @@ def generate_tax_free_proof(
         for j, m in enumerate(sr.matches, 1):
             status = "STEUERFREI" if m.is_tax_free else f"PFLICHTIG"
             lines.append(
-                f"  {j:<4} {m.lot_purchase_date.strftime('%d.%m.%Y'):<12} "
+                f"  {j:<4} {de_date(m.lot_purchase_date).strftime('%d.%m.%Y'):<12} "
                 f"{m.lot_source:<14} {m.btc_used:>14.8f} "
                 f"{m.cost_per_btc:>14,.2f} {m.holding_days:>6} {status:<12}"
             )
@@ -170,7 +198,9 @@ def generate_tax_free_proof(
         lines.append(f"  davon steuerfrei (>365d): {_eur(gain_tax_free):>20}")
         lines.append(f"  davon steuerpflichtig:    {_eur(gain_taxable):>20}")
 
-        if gain_taxable == Decimal("0"):
+        # Nur behaupten, wenn wirklich jedes Lot außerhalb der Haltefrist lag —
+        # nicht wenn ein steuerbarer Vorgang zufällig Gewinn 0,00 hat
+        if all(m.is_tax_free for m in sr.matches):
             blank()
             lines.append("  → Diese Veräußerung ist vollständig STEUERFREI.")
             lines.append("    Alle veräußerten Einheiten wurden vor mehr als 365 Tagen erworben.")
@@ -201,7 +231,7 @@ def generate_tax_free_proof(
     for tx in buys_in_year:
         einstand = _r(tx.eur_amount + tx.fee_eur)
         lines.append(
-            f"  {tx.date.strftime('%d.%m.%Y'):<12} {tx.source:<14} "
+            f"  {de_date(tx.date).strftime('%d.%m.%Y'):<12} {tx.source:<14} "
             f"{tx.btc_amount:>14.8f} {_r(tx.eur_price_per_btc):>14,.2f} "
             f"{_r(tx.fee_eur):>10,.2f} {einstand:>12,.2f}"
         )
