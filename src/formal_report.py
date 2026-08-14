@@ -297,9 +297,15 @@ def generate_tax_free_proof(
     sources = set(t.source for t in kyc_transactions)
     bitbox_wallets = sorted(s.replace("bitbox:", "") for s in sources if s.startswith("bitbox:"))
     if bitbox_wallets:
+        # Nur die ANZAHL, nie die Wallet-Namen: die Namen sind private Labels aus
+        # der lokalen Dateiablage des Nutzers und haben in einem Dokument, das
+        # unter Klarnamen ans Finanzamt geht, nichts zu suchen. Die Anzahl ist
+        # die prüfbare Angabe; welche Wallets eingelesen wurden, steht im Log
+        # bzw. in der Dateitabelle der GUI — dort, wo Vollständigkeit
+        # tatsächlich kontrolliert wird (ein nie exportiertes Wallet kann
+        # ohnehin in keinem erzeugten Dokument auftauchen).
         count = len(bitbox_wallets)
-        names = ", ".join(bitbox_wallets)
-        lines.append(f"    - BitBox Hardware Wallet CSV-Exporte ({count} {'Wallet' if count == 1 else 'Wallets'}: {names})")
+        lines.append(f"    - BitBox Hardware Wallet CSV-Exporte ({count} {'Wallet' if count == 1 else 'Wallets'})")
     _BROKER_DISPLAY = {
         "21bitcoin": "21bitcoin", "bison": "Bison", "swissquote": "Swissquote",
         "strike": "Strike", "pocket": "Pocket", "manual": "Manuell (P2P)",
