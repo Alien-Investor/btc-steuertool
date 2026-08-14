@@ -16,8 +16,10 @@ FREIGRENZE_DEFAULT_AB_2024 = Decimal("1000")
 FREIGRENZE_DEFAULT_BIS_2023 = Decimal("600")
 
 
-def _r(val: Decimal) -> Decimal:
-    return val.quantize(CENT, rounding=ROUND_HALF_UP)
+def _r(val) -> Decimal:
+    # Decimal(str(val)) statt val.quantize(): leere Summen liefern int 0,
+    # das kein quantize() kennt (siehe SellResult-Aggregate in models.py).
+    return Decimal(str(val)).quantize(CENT, rounding=ROUND_HALF_UP)
 
 
 def _eur(val: Decimal) -> str:
@@ -40,13 +42,15 @@ class TaxReport:
         all_transactions: list[Transaction],
         sell_results: list[SellResult],
         remaining_lots: list[Lot],
-        warnings: list[str],
+        warnings: list,
         year: int | None = None,
+        internal_warnings: list | None = None,
     ):
         self.all_transactions = all_transactions
         self.sell_results = sell_results
         self.remaining_lots = remaining_lots
-        self.warnings = warnings
+        self.warnings = warnings                       # nur Finanzamt-taugliche
+        self.internal_warnings = internal_warnings or []  # noKYC — nur intern
         self.year = year
 
         # Filterung auf gewünschtes Jahr (deutsches Kalenderjahr!) — noKYC immer separat halten
@@ -123,6 +127,25 @@ class TaxReport:
         # --- Verkäufe ---
         taxable_sells = [sr for sr in self.sells if any(not m.is_tax_free for m in sr.matches)]
         tax_free_sells = [sr for sr in self.sells if any(m.is_tax_free for m in sr.matches)]
+        # Verkäufe ohne jede Lot-Zuordnung fallen durch BEIDE any()-Filter und
+        # würden sonst spurlos aus dem Report verschwinden
+        unmatched_sells = [sr for sr in self.sells if not sr.matches]
+
+        if unmatched_sells:
+            lines.append("")
+            lines.append("NICHT ZUGEORDNETE VERÄUSSERUNGEN — ANSCHAFFUNG FEHLT")
+            lines.append("-" * 72)
+            for sr in unmatched_sells:
+                tx = sr.sell_tx
+                lines.append(
+                    f"  Verkauf: {de_date(tx.date)}  {tx.source}  "
+                    f"{tx.btc_amount:.8f} BTC  =  {_r(tx.eur_amount):,.2f} EUR"
+                )
+                lines.append(
+                    "    ACHTUNG: kein Anschaffungsgeschäft zugeordnet — Haltedauer und "
+                    "Steuerfreiheit NICHT nachgewiesen."
+                )
+            lines.append("")
 
         if taxable_sells:
             lines.append("")
@@ -150,7 +173,8 @@ class TaxReport:
     def nokyc_report(self) -> str | None:
         """Gibt den noKYC-Intern-Report zurück, oder None wenn keine noKYC-Daten vorhanden."""
         if (not self.no_kyc_buys and not self.no_kyc_lots
-                and not self.no_kyc_transfers and not self.no_kyc_sells):
+                and not self.no_kyc_transfers and not self.no_kyc_sells
+                and not self.internal_warnings):
             return None
         year_label = str(self.year) if self.year else "Gesamt"
         lines = []
@@ -164,6 +188,14 @@ class TaxReport:
         lines.append(f"  Für das Finanzamt:  steuerreport_{year_label}.txt")
         lines.append(f"  Formaler Nachweis:  steuernachweis_{year_label}.txt")
         lines.append("=" * 72)
+        # Warnungen, die noKYC-Vorgänge betreffen: stehen bewusst NUR hier,
+        # nicht im Steuerreport und nicht im Nachweis.
+        if self.internal_warnings:
+            lines.append("")
+            lines.append("!! HINWEISE ZU noKYC-VORGÄNGEN !!")
+            for w in self.internal_warnings:
+                lines.append(f"  {w}")
+            lines.append("")
         lines.extend(self._no_kyc_section())
         return "\n".join(lines)
 
@@ -392,7 +424,10 @@ def _format_sell(sr: SellResult, only_taxable: bool) -> list[str]:
             f"  →  {gain_str}  [{status}]"
         )
 
-    sell_gain = sum(m.gain_eur for m in sr.matches if m.is_tax_free != only_taxable)
+    sell_gain = sum(
+        (m.gain_eur for m in sr.matches if m.is_tax_free != only_taxable),
+        start=Decimal("0"),
+    )
     lines.append(f"    Gewinn: {_r(sell_gain):+,.2f} EUR")
     lines.append("")
     return lines

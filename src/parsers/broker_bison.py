@@ -31,6 +31,14 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
     # Datum: "YYYY-MM-DD HH:MM:SS" UTC
     date_str = row.get("Date (UTC - Coordinated Universal Time)", "").strip()
     if not date_str:
+        # Leerzeilen filtert csv.DictReader schon vorher weg — hier landen nur
+        # echte Zeilen ohne Datum. Bei BTC-Bewegungen ist das steuerlich
+        # relevant und darf nicht stillschweigend verschwinden.
+        if asset == "BTC":
+            warn(
+                f"{filename}: {tx_type_raw or 'Zeile'} über "
+                f"{row.get('Asset (amount)', '?')} BTC ohne Datum — nicht verarbeitet."
+            )
         return None
     date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
 

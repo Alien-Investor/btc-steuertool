@@ -34,6 +34,13 @@ def parse(filepath: Path) -> list[Transaction]:
 def _parse_row(row: dict, filename: str) -> Transaction | None:
     status = row.get("Status", "").strip()
     if status != "Completed":
+        # Nur abgeschlossene Vorgänge zählen — aber nicht stillschweigend
+        # verwerfen: Purchase/Send/Receive sind steuerlich relevant.
+        if row.get("Transaction Type", "").strip() in ("Purchase", "Send", "Receive"):
+            warn(
+                f"{filename}: {row.get('Transaction Type', '').strip()} vom "
+                f"{row.get('Time (UTC)', '?')} mit Status '{status}' nicht verarbeitet."
+            )
         return None
 
     tx_type_raw = row.get("Transaction Type", "").strip()

@@ -19,7 +19,7 @@ from src.models import TxType, de_date
 import src.fx_rates as fx_rates
 
 
-def _dedup_files(per_file: list[tuple[str, list]], label: str) -> list:
+def _dedup_files(per_file: list[tuple[str, list]], label: str, internal: bool = False) -> list:
     """Erkennt identische Transaktionen über mehrere Export-Dateien desselben
     Brokers (überlappende Exporte, z.B. Jahres- + Gesamtexport) und zählt sie
     nur einmal. Innerhalb EINER Datei wird nicht dedupliziert — dort sind
@@ -41,7 +41,8 @@ def _dedup_files(per_file: list[tuple[str, list]], label: str) -> list:
             parsers.warn(
                 f"{label}: {dropped} Transaktion(en) aus {fname} übersprungen — "
                 f"identisch mit einer bereits geladenen Datei (überlappende Exporte?). "
-                f"Bitte pro Broker nur einen lückenlosen Export verwenden."
+                f"Bitte pro Broker nur einen lückenlosen Export verwenden.",
+                internal=internal,
             )
     return result
 
@@ -68,7 +69,7 @@ def load_all_transactions(data_dir: Path):
             txs = bitbox.parse(csv_file)
             per_file.append((csv_file.name, txs))
             print(f"  BitBox noKYC {csv_file.stem}: {len(txs)} Transaktionen")
-        nokyc_txs = _dedup_files(per_file, "BitBox noKYC")
+        nokyc_txs = _dedup_files(per_file, "BitBox noKYC", internal=True)
         if nokyc_txs:
             transactions.extend(nokyc_txs)
             print(f"  → {len(nokyc_txs)} noKYC-Wallet-Transaktionen (intern, nicht für Finanzamt)")
@@ -111,9 +112,19 @@ def load_all_transactions(data_dir: Path):
     # Broker: Bisq (noKYC P2P, mehrere CSV-Dateien möglich)
     bisq_files = sorted((data_dir / "Broker").glob("bisq*.csv"))
     if bisq_files:
-        bisq_txs = _dedup_files([(bf.name, bisq.parse(bf)) for bf in bisq_files], "Bisq")
+        bisq_txs = _dedup_files([(bf.name, bisq.parse(bf)) for bf in bisq_files], "Bisq", internal=True)
         transactions.extend(bisq_txs)
         print(f"  Bisq (noKYC): {len(bisq_txs)} Transaktionen ({len(bisq_files)} Dateien)")
+
+    # Manuelle Käufe (noKYC: Robosats, P2P, Bargeld etc.)
+    # BEWUSST vor den Verkäufen geladen: beide Parser stempeln 12:00 UTC, also
+    # entscheidet bei gleichem Kalendertag sonst die Ladereihenfolge, und ein
+    # gleichtägiger Verkauf liefe vor seinem Kauf.
+    manual_buys_file = data_dir / "manual_buys.csv"
+    if manual_buys_file.exists():
+        txs = manual_buys.parse(manual_buys_file)
+        transactions.extend(txs)
+        print(f"  Manuell (Käufe):   {len(txs)} Transaktionen")
 
     # Manuelle Verkäufe (private Peer-to-Peer Transaktionen)
     manual_file = data_dir / "manual_sales.csv"
@@ -121,13 +132,6 @@ def load_all_transactions(data_dir: Path):
         txs = manual_sales.parse(manual_file)
         transactions.extend(txs)
         print(f"  Manuell (Verkäufe): {len(txs)} Transaktionen")
-
-    # Manuelle Käufe (noKYC: Robosats, P2P, Bargeld etc.)
-    manual_buys_file = data_dir / "manual_buys.csv"
-    if manual_buys_file.exists():
-        txs = manual_buys.parse(manual_buys_file)
-        transactions.extend(txs)
-        print(f"  Manuell (Käufe):   {len(txs)} Transaktionen")
 
     # Nicht zugeordnete CSVs im Broker-Ordner melden — CLI-Pendant zum GUI-Prinzip
     # "nicht erkannte Dateien sperren die Berechnung" (z.B. falsch benannte
@@ -186,11 +190,25 @@ def main():
 def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir):
     # Parser-Warnungen (still verworfene Zeilen wären falsche Reports!) + Engine-Warnungen
     all_warnings = list(parsers.parser_warnings) + list(engine.warnings)
+
+    # Vertraulichkeit: Warnungen zu noKYC-Vorgängen dürfen NICHT in die
+    # Dokumente für Steuerberater/Finanzamt. Sie nennen Dateinamen, Daten,
+    # Mengen und teils das Wort "noKYC" selbst. Offizielle Dokumente bekommen
+    # nur einen neutralen Zähl-Hinweis, die Details stehen im internen Report.
+    internal_warnings = [w for w in all_warnings if getattr(w, "internal", False)]
+    official_warnings = [w for w in all_warnings if not getattr(w, "internal", False)]
+    if internal_warnings:
+        official_warnings.append(parsers.ParserWarning(
+            f"{len(internal_warnings)} weitere(r) Hinweis(e) betreffen ausschließlich "
+            f"die interne Übersicht und sind dort dokumentiert."
+        ))
+
     report = TaxReport(
         all_transactions=transactions,
         sell_results=engine.sell_results,
         remaining_lots=engine.remaining_lots(),
-        warnings=all_warnings,
+        warnings=official_warnings,
+        internal_warnings=internal_warnings,
         year=year,
     )
 
@@ -225,7 +243,7 @@ def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir
             remaining_lots=engine.remaining_lots(),
             year=year,
             output_path=nachweis_path,
-            warnings=all_warnings,
+            warnings=official_warnings,
         )
         print(f"  Nachweis gespeichert: {nachweis_path}")
 

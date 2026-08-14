@@ -52,7 +52,7 @@ def parse(filepath: Path) -> list[Transaction]:
 
     # Käufe (ggf. mehrere Teilausführungen pro Order zusammenfassen)
     for order_id, order_rows in orders.items():
-        tx = _merge_buy_rows(order_id, order_rows)
+        tx = _merge_buy_rows(order_id, order_rows, filepath.name)
         if tx is not None:
             transactions.append(tx)
 
@@ -73,13 +73,24 @@ def _parse_date(date_str: str) -> datetime:
     return datetime.strptime(date_str.strip(), "%d-%m-%Y %H:%M:%S").replace(tzinfo=TZ_DE)
 
 
-def _merge_buy_rows(order_id: str, rows: list[dict]) -> Transaction | None:
+def _merge_buy_rows(order_id: str, rows: list[dict], filename: str = "Swissquote") -> Transaction | None:
     """Fasst mehrere Teilausführungen einer Order zu einer Transaktion zusammen."""
     if not rows:
         return None
 
-    # Datum der ersten Teilausführung
-    date = _parse_date(rows[0]["Datum"])
+    # Datum der ersten Teilausführung.
+    # Teilausführungen einer Order liegen dicht beieinander. Spannen die Zeilen
+    # mehr als einen Tag, ist die Auftragsnummer mehrfach vergeben (oder die
+    # Datei manipuliert) — dann würde das Lot ein falsches Anschaffungsdatum
+    # erben und die Haltefrist kippen. Lieber melden als still zusammenfassen.
+    dates = [_parse_date(r["Datum"]) for r in rows]
+    if (max(dates) - min(dates)).days > 1:
+        warn(
+            f"{filename}: Order {order_id} enthält Zeilen von {min(dates).date()} "
+            f"bis {max(dates).date()} — nicht zusammengefasst, bitte prüfen."
+        )
+        return None
+    date = min(dates)
     currency = rows[0].get("Währung", "EUR").strip().upper()
 
     total_btc = Decimal("0")

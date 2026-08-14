@@ -40,18 +40,25 @@ def parse(filepath: Path) -> list[Transaction]:
             if tx is not None:
                 transactions.append(tx)
     for reason, count in skipped.items():
-        warn(f"{filepath.name}: {count} Zeile(n) {reason}")
+        warn(f"{filepath.name}: {count} Zeile(n) {reason}", internal=True)
     if rows_seen and not transactions and not skipped:
         warn(
             f"{filepath.name}: keine Bisq-Transaktion erkannt ({rows_seen} Zeilen) — "
-            f"englischsprachiger Export? Der Parser erwartet den deutschsprachigen Export."
+            f"englischsprachiger Export? Der Parser erwartet den deutschsprachigen Export.",
+            internal=True,
         )
     return transactions
 
 
 def _parse_row(row: dict, filename: str, skipped: dict[str, int]) -> Transaction | None:
-    if row.get("Status", "").strip() != "Abgeschlossen":
-        return None  # nicht abgeschlossene Trades sind steuerlich irrelevant
+    status = row.get("Status", "").strip()
+    if status != "Abgeschlossen":
+        # Nicht abgeschlossene Trades sind steuerlich irrelevant — aber mitzählen,
+        # sonst greift der Sammel-Fallback bei teilweisem Verlust nicht.
+        skipped[f"mit Status '{status}' übersprungen"] = (
+            skipped.get(f"mit Status '{status}' übersprungen", 0) + 1
+        )
+        return None
     offer_type = row.get("Angebotstyp", "").strip()
     if offer_type != "BTC kaufen":
         # Nicht stillschweigend verwerfen — ein Verkauf wäre steuerlich relevant!
@@ -59,7 +66,8 @@ def _parse_row(row: dict, filename: str, skipped: dict[str, int]) -> Transaction
             warn(
                 f"{filename}: Bisq-Verkauf am {row.get('Datum/Zeit', '?')} wird vom Parser "
                 f"noch nicht unterstützt — bitte als manual_sales.csv (no_kyc=ja) erfassen, "
-                f"sonst ist die noKYC-Übersicht unvollständig."
+                f"sonst ist die noKYC-Übersicht unvollständig.",
+                internal=True,
             )
         else:
             reason = f"mit Angebotstyp '{offer_type}' nicht verarbeitet"
@@ -76,7 +84,8 @@ def _parse_row(row: dict, filename: str, skipped: dict[str, int]) -> Transaction
     if currency and currency != "EUR":
         warn(
             f"{filename}: Bisq-Trade {trade_id} in {currency} statt EUR — nicht verarbeitet. "
-            f"Bitte als manual_buys.csv mit EUR-Umrechnung zum Kaufdatum erfassen."
+            f"Bitte als manual_buys.csv mit EUR-Umrechnung zum Kaufdatum erfassen.",
+            internal=True,
         )
         return None
 

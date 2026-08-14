@@ -42,14 +42,25 @@ def parse(filepath: Path) -> list[Transaction]:
         if row.get("type") != "exchange":
             continue
 
-        # Deposit-Zeile mit gleichem Zeitstempel (Minute) suchen
+        # Deposit-Zeile mit gleichem Zeitstempel (Minute) suchen.
+        # i-1 ZUERST: Pocket exportiert deposit / exchange / withdrawal, die
+        # echte deposit-Zeile steht also davor. Passen mehrere Zeilen, ist die
+        # Zuordnung nicht eindeutig — dann lieber melden als raten, sonst
+        # bestimmt eine eingeschmuggelte Zeile Preis oder Menge des Trades.
         exchange_ts = row["date"][:16]
-        deposit = None
-        for j in [i + 1, i - 1, i + 2, i - 2]:
-            if 0 <= j < len(rows) and rows[j].get("type") == "deposit":
-                if rows[j]["date"][:16] == exchange_ts:
-                    deposit = rows[j]
-                    break
+        candidates = [
+            rows[j] for j in (i - 1, i + 1, i - 2, i + 2)
+            if 0 <= j < len(rows)
+            and rows[j].get("type") == "deposit"
+            and rows[j]["date"][:16] == exchange_ts
+        ]
+        if len(candidates) > 1:
+            warn(
+                f"{filepath.name}: mehrere deposit-Zeilen zur exchange-Zeile "
+                f"{exchange_ts} — Zuordnung nicht eindeutig, Trade NICHT verarbeitet."
+            )
+            continue
+        deposit = candidates[0] if candidates else None
 
         cost_currency = row.get("cost.currency", "").upper()
         if cost_currency == "BTC":

@@ -134,11 +134,39 @@ def generate_tax_free_proof(
 
     # "Alle steuerfrei" nur behaupten, wenn wirklich JEDES Lot außerhalb der
     # Haltefrist lag — nicht wenn steuerbare Vorgänge sich zufällig auf 0 saldieren
-    all_matches_tax_free = all(
-        m.is_tax_free for sr in sells_in_year for m in sr.matches
+    # und NICHT, wenn einem Verkauf gar kein Lot zugeordnet werden konnte:
+    # all() über eine leere Liste ist True und würde eine Haltedauer bescheinigen,
+    # die nie berechnet wurde.
+    unmatched_sells = [sr for sr in sells_in_year if not sr.matches]
+    all_matches_tax_free = (
+        bool(sells_in_year)
+        and not unmatched_sells
+        and all(m.is_tax_free for sr in sells_in_year for m in sr.matches)
     )
 
-    if all_matches_tax_free:
+    if unmatched_sells:
+        para(
+            f"ACHTUNG: Für {len(unmatched_sells)} Veräußerung(en) konnte KEIN "
+            f"Anschaffungsgeschäft zugeordnet werden. Haltedauer und Steuerfreiheit "
+            f"sind für diese Vorgänge NICHT nachgewiesen. Dieser Nachweis ist "
+            f"insoweit unvollständig — bitte fehlende Anschaffungsdaten ergänzen."
+        )
+        blank()
+
+    if not sells_in_year:
+        # Kein Verkauf im Jahr — die Aussage "alle steuerfrei" wäre inhaltsleer,
+        # der Hinweis zur Anlage SO ist hier aber korrekt und nützlich.
+        para(
+            f"Im Steuerjahr {year} wurden keine Bitcoin-Veräußerungen getätigt. "
+            f"Es liegt kein privates Veräußerungsgeschäft gemäß § 23 EStG vor."
+        )
+        blank()
+        lines.append(f"  Steuerpflichtiger Gewinn {year}:    {_eur(total_taxable)}")
+        lines.append(f"  Steuerfreier Gewinn {year}:         {_eur(total_free)}")
+        lines.append(f"  In Anlage SO anzugeben:           NEIN (keine Veräußerung,")
+        lines.append(f"                                    sofern keine weiteren privaten")
+        lines.append(f"                                    Veräußerungsgeschäfte vorliegen)")
+    elif all_matches_tax_free:
         para(
             f"ALLE Veräußerungen sind gemäß § 23 Abs. 1 Satz 1 Nr. 2 EStG STEUERFREI, "
             f"da die veräußerten Bitcoin-Einheiten jeweils länger als 365 Tage gehalten "
@@ -199,8 +227,14 @@ def generate_tax_free_proof(
         lines.append(f"  davon steuerpflichtig:    {_eur(gain_taxable):>20}")
 
         # Nur behaupten, wenn wirklich jedes Lot außerhalb der Haltefrist lag —
-        # nicht wenn ein steuerbarer Vorgang zufällig Gewinn 0,00 hat
-        if all(m.is_tax_free for m in sr.matches):
+        # nicht wenn ein steuerbarer Vorgang zufällig Gewinn 0,00 hat, und nicht
+        # bei leerer Zuordnung (all() über [] ist True)
+        if not sr.matches:
+            blank()
+            lines.append("  ACHTUNG: Für diese Veräußerung konnte KEIN Anschaffungsgeschäft")
+            lines.append("           zugeordnet werden. Haltedauer und Steuerfreiheit sind")
+            lines.append("           NICHT nachgewiesen.")
+        elif all(m.is_tax_free for m in sr.matches):
             blank()
             lines.append("  → Diese Veräußerung ist vollständig STEUERFREI.")
             lines.append("    Alle veräußerten Einheiten wurden vor mehr als 365 Tagen erworben.")

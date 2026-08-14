@@ -90,14 +90,17 @@ class SellResult:
     sell_tx: Transaction
     matches: list[DisposalMatch] = field(default_factory=list)
 
+    # start=Decimal("0") ist Pflicht: ohne ihn liefert sum() bei leerer
+    # matches-Liste den int 0, und _r()/quantize() in tax_report.py stirbt
+    # dann mit AttributeError (unzugeordneter Verkauf → kein Report).
     @property
     def total_gain_taxable(self) -> Decimal:
-        return sum(m.gain_eur for m in self.matches if not m.is_tax_free)
+        return sum((m.gain_eur for m in self.matches if not m.is_tax_free), start=Decimal("0"))
 
     @property
     def total_gain_tax_free(self) -> Decimal:
-        return sum(m.gain_eur for m in self.matches if m.is_tax_free)
+        return sum((m.gain_eur for m in self.matches if m.is_tax_free), start=Decimal("0"))
 
     @property
     def total_gain(self) -> Decimal:
-        return sum(m.gain_eur for m in self.matches)
+        return sum((m.gain_eur for m in self.matches), start=Decimal("0"))

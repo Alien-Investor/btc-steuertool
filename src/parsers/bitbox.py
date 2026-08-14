@@ -15,7 +15,7 @@ def parse(filepath: Path) -> list[Transaction]:
     Liegt die Datei in einem 'nokyc'-Unterordner (bitbox/nokyc/), werden alle
     Transaktionen mit no_kyc=True markiert und erscheinen nicht im Finanzamt-Report.
     """
-    wallet_name = filepath.stem  # z.B. "valhalla"
+    wallet_name = filepath.stem  # z.B. "wallet1"
     source = f"bitbox:{wallet_name}"
     no_kyc = filepath.parent.name == "nokyc"
     transactions = []
@@ -41,7 +41,9 @@ def _parse_row(row: dict, source: str, filename: str, no_kyc: bool = False) -> T
         # kein Zu-/Abfluss, kein steuerlicher Vorgang — bekannt irrelevant
         return None
     else:
-        warn(f"{filename}: unbekannter Typ '{tx_type_raw}' nicht verarbeitet.")
+        # internal bei noKYC-Wallets: der Dateiname allein verrät sonst dem
+        # Finanzamt die Existenz einer noKYC-Wallet
+        warn(f"{filename}: unbekannter Typ '{tx_type_raw}' nicht verarbeitet.", internal=no_kyc)
         return None
 
     # Datum parsen (ISO 8601 mit Timezone-Offset)
