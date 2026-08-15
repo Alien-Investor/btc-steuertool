@@ -89,6 +89,25 @@ class SellResult:
     """Komplettes Ergebnis eines Verkaufs nach FiFo-Auflösung."""
     sell_tx: Transaction
     matches: list[DisposalMatch] = field(default_factory=list)
+    # Restmenge, der KEIN Anschaffungsgeschäft zugeordnet werden konnte (FiFo-Pool
+    # lief mitten im Verkauf leer). > 0 heißt: für diesen Teil existiert weder
+    # Anschaffungsdatum noch Einstandspreis — Haltedauer also unbekannt.
+    unmatched_btc: Decimal = Decimal("0")
+
+    @property
+    def is_fully_covered(self) -> bool:
+        """True nur, wenn die GESAMTE veräußerte Menge FiFo-Lots zugeordnet wurde.
+
+        Ein Leere-Test auf matches reicht nicht: läuft der Pool mitten im Verkauf
+        leer, ist matches nicht leer, aber zu kurz — und all(m.is_tax_free) über
+        die vorhandenen Lots würde eine Steuerfreiheit bescheinigen, die für die
+        fehlende Menge nie berechnet wurde.
+        """
+        return bool(self.matches) and self.unmatched_btc <= Decimal("0")
+
+    @property
+    def total_btc_matched(self) -> Decimal:
+        return sum((m.btc_used for m in self.matches), start=Decimal("0"))
 
     # start=Decimal("0") ist Pflicht: ohne ihn liefert sum() bei leerer
     # matches-Liste den int 0, und _r()/quantize() in tax_report.py stirbt

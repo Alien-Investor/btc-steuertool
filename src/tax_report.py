@@ -127,24 +127,35 @@ class TaxReport:
         # --- Verkäufe ---
         taxable_sells = [sr for sr in self.sells if any(not m.is_tax_free for m in sr.matches)]
         tax_free_sells = [sr for sr in self.sells if any(m.is_tax_free for m in sr.matches)]
-        # Verkäufe ohne jede Lot-Zuordnung fallen durch BEIDE any()-Filter und
-        # würden sonst spurlos aus dem Report verschwinden
-        unmatched_sells = [sr for sr in self.sells if not sr.matches]
+        # Deckungstest, kein Leere-Test: Verkäufe ohne JEDE Lot-Zuordnung fallen
+        # durch BEIDE any()-Filter und würden spurlos verschwinden; nur TEILWEISE
+        # gedeckte Verkäufe stehen zwar oben, aber die ungedeckte Menge bliebe
+        # sonst unerwähnt und würde als steuerfrei mitgezählt.
+        uncovered_sells = [sr for sr in self.sells if not sr.is_fully_covered]
 
-        if unmatched_sells:
+        if uncovered_sells:
             lines.append("")
-            lines.append("NICHT ZUGEORDNETE VERÄUSSERUNGEN — ANSCHAFFUNG FEHLT")
+            lines.append("VERÄUSSERUNGEN OHNE VOLLSTÄNDIGE ANSCHAFFUNGS-ZUORDNUNG")
             lines.append("-" * 72)
-            for sr in unmatched_sells:
+            for sr in uncovered_sells:
                 tx = sr.sell_tx
                 lines.append(
                     f"  Verkauf: {de_date(tx.date)}  {tx.source}  "
                     f"{tx.btc_amount:.8f} BTC  =  {_r(tx.eur_amount):,.2f} EUR"
                 )
-                lines.append(
-                    "    ACHTUNG: kein Anschaffungsgeschäft zugeordnet — Haltedauer und "
-                    "Steuerfreiheit NICHT nachgewiesen."
-                )
+                if sr.matches:
+                    lines.append(
+                        f"    ACHTUNG: nur {sr.total_btc_matched:.8f} BTC konnten zugeordnet werden."
+                    )
+                    lines.append(
+                        f"    Für {sr.unmatched_btc:.8f} BTC sind Haltedauer und Steuerfreiheit "
+                        "NICHT nachgewiesen."
+                    )
+                else:
+                    lines.append(
+                        "    ACHTUNG: kein Anschaffungsgeschäft zugeordnet — Haltedauer und "
+                        "Steuerfreiheit NICHT nachgewiesen."
+                    )
             lines.append("")
 
         if taxable_sells:
@@ -238,6 +249,16 @@ class TaxReport:
             lines.append(f"  Gewinn steuerfrei (> 365 Tage):      {_r(total_gain_tax_free):>10,.2f} EUR")
 
         lines.append(f"  Gesamtgewinn/-verlust:            {_r(total_gain_taxable + total_gain_tax_free):>14,.2f} EUR")
+
+        # Ohne diesen Hinweis liest sich die Summe als vollständig — sie enthält
+        # aber nur die Mengen, für die überhaupt ein Einstandspreis existiert.
+        uncovered_btc = sum((sr.unmatched_btc for sr in self.sells), Decimal("0"))
+        if uncovered_btc > 0:
+            lines.append(f"  {'─'*65}")
+            lines.append(f"  ACHTUNG: {uncovered_btc:.8f} BTC ohne Anschaffungs-Zuordnung.")
+            lines.append(f"  Für diese Menge sind Haltedauer und Steuerfreiheit NICHT")
+            lines.append(f"  nachgewiesen; sie sind in den Gewinnsummen NICHT enthalten.")
+
         lines.append("=" * 72)
         return lines
 
@@ -381,9 +402,15 @@ class TaxReport:
             w.writerow([
                 "Verkauf_Datum", "Verkauf_Quelle", "Verkauf_BTC", "Verkauf_EUR",
                 "Kauf_Datum", "Kauf_Quelle", "BTC_Menge", "Einstand_EUR_per_BTC",
-                "Verkaufspreis_EUR_per_BTC", "Gewinn_EUR", "Haltedauer_Tage", "Steuerfrei"
+                "Verkaufspreis_EUR_per_BTC", "Gewinn_EUR", "Haltedauer_Tage", "Steuerfrei",
+                # Pro Verkauf konstant (wie Verkauf_BTC/Verkauf_EUR): die Menge
+                # dieses Verkaufs, der kein Anschaffungsgeschäft zugeordnet werden
+                # konnte. Ohne die Spalte steht in einer Zeile Verkauf_BTC=2.0
+                # neben BTC_Menge=0.5 und Steuerfrei=Ja — die Lücke wäre unsichtbar.
+                "Nicht_zugeordnet_BTC",
             ])
             for sr in self.sells:
+                unmatched = f"{sr.unmatched_btc:.8f}"
                 for m in sr.matches:
                     w.writerow([
                         de_date(sr.sell_tx.date),
@@ -398,6 +425,23 @@ class TaxReport:
                         f"{_r(m.gain_eur):.2f}",
                         m.holding_days,
                         "Ja" if m.is_tax_free else "Nein",
+                        unmatched,
+                    ])
+                # Restzeile für die ungedeckte Menge. Ohne sie erscheint ein
+                # komplett unzugeordneter Verkauf GAR NICHT in der Datei (die
+                # Schleife über matches läuft leer) und BTC_Menge summiert sich
+                # bei Teildeckung nicht auf Verkauf_BTC.
+                if sr.unmatched_btc > 0:
+                    w.writerow([
+                        de_date(sr.sell_tx.date),
+                        sr.sell_tx.source,
+                        f"{sr.sell_tx.btc_amount:.8f}",
+                        f"{_r(sr.sell_tx.eur_amount):.2f}",
+                        "", "",
+                        unmatched,
+                        "", "", "", "",
+                        "NICHT NACHGEWIESEN",
+                        unmatched,
                     ])
         saved.append(sells_path)
 

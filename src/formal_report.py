@@ -134,22 +134,26 @@ def generate_tax_free_proof(
 
     # "Alle steuerfrei" nur behaupten, wenn wirklich JEDES Lot außerhalb der
     # Haltefrist lag — nicht wenn steuerbare Vorgänge sich zufällig auf 0 saldieren
-    # und NICHT, wenn einem Verkauf gar kein Lot zugeordnet werden konnte:
-    # all() über eine leere Liste ist True und würde eine Haltedauer bescheinigen,
-    # die nie berechnet wurde.
-    unmatched_sells = [sr for sr in sells_in_year if not sr.matches]
+    # und NICHT, wenn die veräußerte Menge nicht vollständig zugeordnet werden
+    # konnte. Deckungstest, kein Leere-Test: läuft der FiFo-Pool MITTEN im Verkauf
+    # leer, ist matches nicht leer, aber zu kurz — all() über die vorhandenen Lots
+    # bescheinigt dann eine Haltedauer, die für die fehlende Menge nie berechnet
+    # wurde (und all() über eine leere Liste ist ohnehin True).
+    uncovered_sells = [sr for sr in sells_in_year if not sr.is_fully_covered]
+    uncovered_btc: Decimal = sum((sr.unmatched_btc for sr in uncovered_sells), Decimal("0"))
     all_matches_tax_free = (
         bool(sells_in_year)
-        and not unmatched_sells
+        and not uncovered_sells
         and all(m.is_tax_free for sr in sells_in_year for m in sr.matches)
     )
 
-    if unmatched_sells:
+    if uncovered_sells:
         para(
-            f"ACHTUNG: Für {len(unmatched_sells)} Veräußerung(en) konnte KEIN "
-            f"Anschaffungsgeschäft zugeordnet werden. Haltedauer und Steuerfreiheit "
-            f"sind für diese Vorgänge NICHT nachgewiesen. Dieser Nachweis ist "
-            f"insoweit unvollständig — bitte fehlende Anschaffungsdaten ergänzen."
+            f"ACHTUNG: Bei {len(uncovered_sells)} Veräußerung(en) konnte die veräußerte "
+            f"Menge nicht (vollständig) einem Anschaffungsgeschäft zugeordnet werden. "
+            f"Ohne Zuordnung bleiben insgesamt {_btc(uncovered_btc)}. Haltedauer und "
+            f"Steuerfreiheit sind für diese Menge NICHT nachgewiesen. Dieser Nachweis "
+            f"ist insoweit unvollständig — bitte fehlende Anschaffungsdaten ergänzen."
         )
         blank()
 
@@ -217,6 +221,14 @@ def generate_tax_free_proof(
                 f"{m.cost_per_btc:>14,.2f} {m.holding_days:>6} {status:<12}"
             )
 
+        # Nicht zugeordnete Restmenge als eigene Zeile — sonst summiert sich die
+        # Mengenspalte nicht auf die veräußerte Menge und die Lücke bliebe unsichtbar
+        if sr.unmatched_btc > 0:
+            lines.append(
+                f"  {'—':<4} {'unbekannt':<12} {'NICHT ZUGEORD':<14} {sr.unmatched_btc:>14.8f} "
+                f"{'—':>14} {'—':>6} {'UNGEKLÄRT':<12}"
+            )
+
         blank()
         gain_total = sr.total_gain
         gain_tax_free = sr.total_gain_tax_free
@@ -228,12 +240,20 @@ def generate_tax_free_proof(
 
         # Nur behaupten, wenn wirklich jedes Lot außerhalb der Haltefrist lag —
         # nicht wenn ein steuerbarer Vorgang zufällig Gewinn 0,00 hat, und nicht
-        # bei leerer Zuordnung (all() über [] ist True)
-        if not sr.matches:
+        # bei unvollständiger Zuordnung (all() über [] ist True, und über eine
+        # zu kurze matches-Liste sagt es nichts über die fehlende Menge aus).
+        if not sr.is_fully_covered:
             blank()
-            lines.append("  ACHTUNG: Für diese Veräußerung konnte KEIN Anschaffungsgeschäft")
-            lines.append("           zugeordnet werden. Haltedauer und Steuerfreiheit sind")
-            lines.append("           NICHT nachgewiesen.")
+            if sr.matches:
+                lines.append(f"  ACHTUNG: Für {_btc(sr.unmatched_btc)} dieser Veräußerung konnte KEIN")
+                lines.append("           Anschaffungsgeschäft zugeordnet werden. Haltedauer und")
+                lines.append("           Steuerfreiheit sind für diese Teilmenge NICHT nachgewiesen.")
+                lines.append("           Die Veräußerung ist daher NICHT vollständig als steuerfrei")
+                lines.append("           nachgewiesen.")
+            else:
+                lines.append("  ACHTUNG: Für diese Veräußerung konnte KEIN Anschaffungsgeschäft")
+                lines.append("           zugeordnet werden. Haltedauer und Steuerfreiheit sind")
+                lines.append("           NICHT nachgewiesen.")
         elif all(m.is_tax_free for m in sr.matches):
             blank()
             lines.append("  → Diese Veräußerung ist vollständig STEUERFREI.")

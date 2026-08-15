@@ -135,7 +135,14 @@ class FifoEngine:
 
             remaining -= used
 
-        self.sell_results.append(SellResult(sell_tx=tx, matches=matches))
+        # remaining NICHT verwerfen: > 0 heißt, dass ein Teil der veräußerten
+        # Menge ohne Anschaffungsgeschäft dasteht. Die Reports müssen das sehen,
+        # sonst bescheinigen sie Steuerfreiheit für eine nie berechnete Haltedauer.
+        self.sell_results.append(SellResult(
+            sell_tx=tx,
+            matches=matches,
+            unmatched_btc=max(remaining, Decimal("0")),
+        ))
 
     def remaining_lots(self) -> list[Lot]:
         """Alle verbleibenden Lots (KYC + noKYC) — Filterung übernimmt der Report."""
