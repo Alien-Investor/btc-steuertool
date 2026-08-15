@@ -271,6 +271,27 @@ def main():
         _generate_report(transactions, engine, args.year, args.csv, args.nachweis, reports_dir)
 
 
+def _lots_at_year_end(transactions, engine, year):
+    """Bestand zum 31.12. des Berichtsjahres (SA2-14).
+
+    Vorher zeigte der Report die Bestände nur, wenn `year == date.today().year` —
+    derselbe 2024er-Report sah 2024 anders aus als 2026, und für ein
+    abgeschlossenes Jahr fehlte die Bestandsliste ganz. Ein Steuerdokument muss
+    aus den Daten allein reproduzierbar sein.
+
+    Ein bloßes Filtern der Rest-Lots nach Kaufdatum reicht NICHT: ein Lot, das
+    2025 verkauft wurde, war zum 31.12.2024 noch vorhanden, taucht aber in
+    `engine.remaining_lots()` gar nicht mehr auf. Deshalb ein eigener FiFo-Lauf
+    über die Transaktionen bis zum Stichtag. Dessen Warnungen werden verworfen —
+    sie sind eine Teilmenge des Hauptlaufs und würden sonst doppelt erscheinen.
+    """
+    if not year:
+        return engine.remaining_lots()
+    scoped = FifoEngine()
+    scoped.process([t for t in transactions if de_date(t.date).year <= year])
+    return scoped.remaining_lots()
+
+
 def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir):
     # Parser-Warnungen (still verworfene Zeilen wären falsche Reports!) + Engine-Warnungen
     all_warnings = list(parsers.parser_warnings) + list(engine.warnings)
@@ -296,10 +317,12 @@ def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir
     # naheliegende Rückfrage "welche Hinweise?" gibt es keine vorzeigbare Antwort.
     # Der Nutzer sieht diese Warnungen ohnehin im GUI-Log und im internen Report.
 
+    lots_at_cutoff = _lots_at_year_end(transactions, engine, year)
+
     report = TaxReport(
         all_transactions=transactions,
         sell_results=engine.sell_results,
-        remaining_lots=engine.remaining_lots(),
+        remaining_lots=lots_at_cutoff,
         warnings=official_warnings,
         internal_warnings=internal_warnings,
         year=year,
@@ -333,7 +356,7 @@ def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir
         generate_tax_free_proof(
             all_transactions=transactions,
             sell_results=engine.sell_results,
-            remaining_lots=engine.remaining_lots(),
+            remaining_lots=lots_at_cutoff,
             year=year,
             output_path=nachweis_path,
             warnings=official_warnings,

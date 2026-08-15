@@ -3,7 +3,7 @@ Formaler Steuernachweis für Steuerberater und Finanzamt.
 Erzeugt ein selbsterklärendes Dokument das ohne Kenntnis des Tools lesbar ist.
 """
 from __future__ import annotations
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -90,9 +90,13 @@ def generate_tax_free_proof(
     blank()
     sep()
     blank()
-    lines.append(f"  Erstellt am:        {date.today().strftime('%d.%m.%Y')}")
+    # Explizit Europe/Berlin, nicht die System-Zeitzone: die Browser-Version läuft
+    # in UTC, und am Jahreswechsel stünde sonst ein anderes Erstellungsdatum im
+    # Dokument als in der CLI-Fassung derselben Daten (SA2-14).
+    lines.append(f"  Erstellt am:        {datetime.now(_TZ_DE).strftime('%d.%m.%Y')}")
     lines.append(f"  Berechnungsmethode: First In, First Out (FiFo)")
-    lines.append(f"  Haltefrist:         365 Tage (§ 23 Abs. 1 Satz 1 Nr. 2 EStG)")
+    lines.append(f"  Veräußerungsfrist:  ein Jahr (§ 23 Abs. 1 Satz 1 Nr. 2 EStG i.V.m.")
+    lines.append(f"                      §§ 187 Abs. 1, 188 Abs. 2 BGB)")
     lines.append(f"  Freigrenze {year}:    {_eur(_freigrenze(year))}")
     blank()
 
@@ -173,7 +177,7 @@ def generate_tax_free_proof(
     elif all_matches_tax_free:
         para(
             f"ALLE Veräußerungen sind gemäß § 23 Abs. 1 Satz 1 Nr. 2 EStG STEUERFREI, "
-            f"da die veräußerten Bitcoin-Einheiten jeweils länger als 365 Tage gehalten "
+            f"da die veräußerten Bitcoin-Einheiten jeweils länger als ein Jahr gehalten "
             f"wurden (Haltedauer > 1 Jahr)."
         )
         blank()
@@ -210,7 +214,7 @@ def generate_tax_free_proof(
             lines.append(f"  Nettoerlös:         {_eur(tx.eur_amount - tx.fee_eur)}")
         blank()
         lines.append("  FiFo-Zuordnung (Anschaffungsgeschäfte):")
-        lines.append(f"  {'Nr.':<4} {'Anschaffung':<12} {'Quelle':<14} {'Menge BTC':>14} {'Kurs EUR/BTC':>14} {'Tage':>6} {'Status':<12}")
+        lines.append(f"  {'Nr.':<4} {'Anschaffung':<12} {'Quelle':<14} {'Menge BTC':>14} {'Kurs EUR/BTC':>14} {'Tage*':>6} {'Status':<12}")
         lines.append(f"  {'─'*4} {'─'*12} {'─'*14} {'─'*14} {'─'*14} {'─'*6} {'─'*12}")
 
         for j, m in enumerate(sr.matches, 1):
@@ -235,7 +239,7 @@ def generate_tax_free_proof(
         gain_taxable = sr.total_gain_taxable
 
         lines.append(f"  Gewinn gesamt:            {_eur(gain_total):>20}")
-        lines.append(f"  davon steuerfrei (>365d): {_eur(gain_tax_free):>20}")
+        lines.append(f"  davon steuerfrei (>1 Jahr): {_eur(gain_tax_free):>18}")
         lines.append(f"  davon steuerpflichtig:    {_eur(gain_taxable):>20}")
 
         # Nur behaupten, wenn wirklich jedes Lot außerhalb der Haltefrist lag —
@@ -257,7 +261,7 @@ def generate_tax_free_proof(
         elif all(m.is_tax_free for m in sr.matches):
             blank()
             lines.append("  → Diese Veräußerung ist vollständig STEUERFREI.")
-            lines.append("    Alle veräußerten Einheiten wurden vor mehr als 365 Tagen erworben.")
+            lines.append("    Alle veräußerten Einheiten wurden vor mehr als einem Jahr erworben.")
 
         blank()
         sep("-")
@@ -272,7 +276,7 @@ def generate_tax_free_proof(
     blank()
     para(
         f"Die folgenden Anschaffungen wurden im Jahr {year} getätigt. "
-        f"Sie begründen neue Haltefristen und sind erst nach Ablauf von 365 Tagen "
+        f"Sie begründen neue Veräußerungsfristen und sind erst nach Ablauf eines Jahres "
         f"steuerfrei veräußerbar."
     )
     blank()
@@ -307,10 +311,23 @@ def generate_tax_free_proof(
     para(
         "    Die Berechnung erfolgt nach der FiFo-Methode (First In, First Out). "
         "Die zuerst erworbenen Bitcoin-Einheiten werden bei einer Veräußerung "
-        "zuerst als veräußert betrachtet. Maßgeblich für die Haltefrist ist "
-        "§ 23 Abs. 1 Satz 1 Nr. 2 EStG: Gewinne aus der Veräußerung von "
+        "zuerst als veräußert betrachtet. Maßgeblich für die Veräußerungsfrist "
+        "ist § 23 Abs. 1 Satz 1 Nr. 2 EStG: Gewinne aus der Veräußerung von "
         "Kryptowährungen sind steuerfrei, wenn zwischen Anschaffung und "
         "Veräußerung mehr als ein Jahr liegt."
+    )
+    blank()
+    para(
+        "    Die Jahresfrist wird nach §§ 187 Abs. 1, 188 Abs. 2 BGB berechnet: der "
+        "Tag der Anschaffung zählt nicht mit, die Frist endet mit Ablauf des Tages "
+        "des Folgejahres, der dem Anschaffungstag durch seine Zahl entspricht. "
+        "Steuerfrei ist erst eine Veräußerung nach diesem Tag."
+    )
+    blank()
+    para(
+        "    * Die Spalte \"Tage\" in der FiFo-Zuordnung ist eine nachrichtliche "
+        "Angabe zur Orientierung. Rechtlich maßgeblich ist der Kalendervergleich "
+        "nach den vorgenannten Vorschriften, nicht eine Anzahl von Tagen."
     )
     blank()
     lines.append("  Datenquellen:")

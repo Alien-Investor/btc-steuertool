@@ -1,7 +1,8 @@
 """Generierung des Steuerreports (Text + CSV) aus FiFo-Ergebnissen."""
 from __future__ import annotations
 import csv
-from datetime import date
+# datetime wird hier nicht mehr gebraucht: die Bestandsliste haengt seit SA2-14
+# am Berichtsjahr, nicht mehr an date.today()
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
@@ -22,12 +23,19 @@ def _r(val) -> Decimal:
     return Decimal(str(val)).quantize(CENT, rounding=ROUND_HALF_UP)
 
 
-def _eur(val: Decimal) -> str:
-    return f"{_r(val):,.2f} EUR".replace(",", "X").replace(".", ",").replace("X", ".")
+def _signed(val) -> str:
+    """Betrag mit erzwungenem Vorzeichen — der einzige Weg für Gewinn/Verlust.
 
-
-def _btc(val: Decimal) -> str:
-    return f"{val:.8f} BTC"
+    Handgebaute Vorzeichen (`'+' if v >= 0 else ''`) erzeugten bei negativer
+    Null die Ausgabe `+-0.00`: Decimal("-0.000") ist >= 0, rundet aber auf
+    -0.00. Reines `:+,.2f` behebt nur die Hälfte — es liefert dann `-0.00`,
+    also „minus null Euro" in einem Steuerdokument. Deshalb wird die Null hier
+    zusätzlich auf ihr positives Vorzeichen normalisiert.
+    """
+    r = _r(val)
+    if r == 0:
+        r = abs(r)
+    return f"{r:+,.2f}"
 
 
 def _freigrenze(year: int) -> Decimal:
@@ -68,14 +76,14 @@ class TaxReport:
         self.sells = [sr for sr in all_sells if not sr.sell_tx.no_kyc]
         self.no_kyc_sells = [sr for sr in all_sells if sr.sell_tx.no_kyc]
 
-        # Verbleibende Lots ebenfalls aufteilen
+        # Verbleibende Lots ebenfalls aufteilen. Der Aufrufer liefert bei einem
+        # Jahresreport den Bestand zum 31.12. dieses Jahres (SA2-14) — vorher hing
+        # die Anzeige an date.today(): derselbe Report für 2024, zweimal erzeugt,
+        # sah 2024 anders aus als 2026. Ein Steuerdokument muss aus den Daten
+        # allein reproduzierbar sein, nicht aus dem Erstellungszeitpunkt.
         self._all_remaining_lots = remaining_lots
         self.remaining_lots = [l for l in remaining_lots if not l.no_kyc]
-        # noKYC-Bestände nur im Gesamt- oder aktuellen Jahresreport (wie KYC-Bestände)
-        if not year or year == date.today().year:
-            self.no_kyc_lots = [l for l in remaining_lots if l.no_kyc]
-        else:
-            self.no_kyc_lots = []
+        self.no_kyc_lots = [l for l in remaining_lots if l.no_kyc]
 
         # noKYC-Wallet-Transfers (TRANSFER_IN/OUT aus bitbox/nokyc/)
         transfer_types = (TxType.TRANSFER_IN, TxType.TRANSFER_OUT)
@@ -91,7 +99,7 @@ class TaxReport:
 
         lines.append("=" * 72)
         lines.append(f"  Bitcoin Steuerreport Deutschland — {year_label}")
-        lines.append(f"  Methode: FiFo  |  Haltefrist: 365 Tage  |  § 23 EStG")
+        lines.append(f"  Methode: FiFo  |  Veräußerungsfrist: ein Jahr  |  § 23 EStG")
         lines.append("=" * 72)
 
         if self.warnings:
@@ -160,14 +168,14 @@ class TaxReport:
 
         if taxable_sells:
             lines.append("")
-            lines.append("STEUERPFLICHTIGE VERÄUSSERUNGEN (Haltedauer ≤ 365 Tage)")
+            lines.append("STEUERPFLICHTIGE VERÄUSSERUNGEN (Veräußerung innerhalb eines Jahres)")
             lines.append("-" * 72)
             for sr in taxable_sells:
                 lines.extend(_format_sell(sr, only_taxable=True))
 
         if tax_free_sells:
             lines.append("")
-            lines.append("STEUERFREIE VERÄUSSERUNGEN (Haltedauer > 365 Tage)")
+            lines.append("STEUERFREIE VERÄUSSERUNGEN (Veräußerung nach mehr als einem Jahr)")
             lines.append("-" * 72)
             for sr in tax_free_sells:
                 lines.extend(_format_sell(sr, only_taxable=False))
@@ -175,9 +183,8 @@ class TaxReport:
         # --- Jahres-Zusammenfassung ---
         lines.extend(self._summary_section())
 
-        # --- Verbleibende Bestände (nur bei Gesamtreport oder letztem Jahr) ---
-        if not self.year or self.year == date.today().year:
-            lines.extend(self._remaining_lots_section())
+        # --- Verbleibende Bestände (Stichtag: 31.12. des Berichtsjahres) ---
+        lines.extend(self._remaining_lots_section())
 
         return "\n".join(lines)
 
@@ -240,15 +247,15 @@ class TaxReport:
                 status = "kein steuerpflichtiger Gewinn"
 
             lines.append(f"  ─────────────────────────────────────────────────────────────────")
-            lines.append(f"  Gewinn steuerpflichtig (≤ 365 Tage): {_r(total_gain_taxable):>10,.2f} EUR")
-            lines.append(f"  Gewinn steuerfrei (> 365 Tage):      {_r(total_gain_tax_free):>10,.2f} EUR")
+            lines.append(f"  Gewinn steuerpflichtig (bis 1 Jahr): {_r(total_gain_taxable):>10,.2f} EUR")
+            lines.append(f"  Gewinn steuerfrei (über 1 Jahr):     {_r(total_gain_tax_free):>10,.2f} EUR")
             lines.append(f"  Freigrenze {self.year} ({_r(freigrenze):,.0f} EUR): {status}")
             lines.append(f"  Hinweis: Die Freigrenze gilt für ALLE privaten Veräußerungsgeschäfte")
             lines.append(f"  des Jahres zusammen (§ 23 EStG) — nicht nur für Bitcoin.")
         else:
             lines.append(f"  ─────────────────────────────────────────────────────────────────")
-            lines.append(f"  Gewinn steuerpflichtig (≤ 365 Tage): {_r(total_gain_taxable):>10,.2f} EUR")
-            lines.append(f"  Gewinn steuerfrei (> 365 Tage):      {_r(total_gain_tax_free):>10,.2f} EUR")
+            lines.append(f"  Gewinn steuerpflichtig (bis 1 Jahr): {_r(total_gain_taxable):>10,.2f} EUR")
+            lines.append(f"  Gewinn steuerfrei (über 1 Jahr):     {_r(total_gain_tax_free):>10,.2f} EUR")
 
         lines.append(f"  Gesamtgewinn/-verlust:            {_r(total_gain_taxable + total_gain_tax_free):>14,.2f} EUR")
 
@@ -269,7 +276,8 @@ class TaxReport:
             return []
         lines = []
         lines.append("")
-        lines.append("VERBLEIBENDE BTC-BESTÄNDE (noch nicht veräußert)")
+        stichtag = f" — Stand 31.12.{self.year}" if self.year else ""
+        lines.append(f"VERBLEIBENDE BTC-BESTÄNDE (noch nicht veräußert){stichtag}")
         lines.append("-" * 72)
         lines.append(f"  {'Kaufdatum':<12} {'Quelle':<14} {'BTC-Bestand':>14} {'Einstand EUR/BTC':>18} {'Wert EUR':>12}")
         lines.append(f"  {'-'*12} {'-'*14} {'-'*14} {'-'*18} {'-'*12}")
@@ -331,13 +339,14 @@ class TaxReport:
                     lines.append(
                         f"    Lot: Kauf {de_date(m.lot_purchase_date)}  ({m.lot_source})  "
                         f"{m.btc_used:.8f} BTC  @  {m.cost_per_btc:,.2f} EUR/BTC"
-                        f"  →  {'+' if m.gain_eur >= 0 else ''}{_r(m.gain_eur):,.2f} EUR  [{status}]"
+                        f"  →  {_signed(m.gain_eur)} EUR  [{status}]"
                     )
-                lines.append(f"    Gewinn gesamt: {_r(sr.total_gain):+,.2f} EUR")
+                lines.append(f"    Gewinn gesamt: {_signed(sr.total_gain)} EUR")
 
         if self.no_kyc_lots:
+            stichtag_nokyc = f" — Stand 31.12.{self.year}" if self.year else ""
             lines.append("")
-            lines.append("  VERBLEIBENDE noKYC-BESTÄNDE")
+            lines.append(f"  VERBLEIBENDE noKYC-BESTÄNDE{stichtag_nokyc}")
             lines.append(f"  {'Kaufdatum':<12} {'Quelle':<10} {'BTC-Bestand':>14} {'Einstand EUR/BTC':>18}")
             lines.append(f"  {'-'*12} {'-'*10} {'-'*14} {'-'*18}")
             total_btc = Decimal("0")
@@ -463,7 +472,7 @@ def _format_sell(sr: SellResult, only_taxable: bool) -> list[str]:
     relevant_matches = [m for m in sr.matches if m.is_tax_free != only_taxable]
     for m in relevant_matches:
         status = "STEUERFREI" if m.is_tax_free else f"{m.holding_days} Tage"
-        gain_str = f"{'+' if m.gain_eur >= 0 else ''}{_r(m.gain_eur):,.2f} EUR"
+        gain_str = f"{_signed(m.gain_eur)} EUR"
         lines.append(
             f"    Lot: Kauf {de_date(m.lot_purchase_date)}  ({m.lot_source})  "
             f"{m.btc_used:.8f} BTC  @  {m.cost_per_btc:,.2f} EUR/BTC"
@@ -474,6 +483,6 @@ def _format_sell(sr: SellResult, only_taxable: bool) -> list[str]:
         (m.gain_eur for m in sr.matches if m.is_tax_free != only_taxable),
         start=Decimal("0"),
     )
-    lines.append(f"    Gewinn: {_r(sell_gain):+,.2f} EUR")
+    lines.append(f"    Gewinn: {_signed(sell_gain)} EUR")
     lines.append("")
     return lines
