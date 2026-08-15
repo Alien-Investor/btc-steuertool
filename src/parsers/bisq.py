@@ -31,7 +31,7 @@ from . import warn
 def parse(filepath: Path) -> list[Transaction]:
     transactions = []
     rows_seen = 0
-    skipped: dict[str, int] = {}
+    skipped: dict[tuple[str, int | None], int] = {}
     with open(filepath, encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -39,8 +39,10 @@ def parse(filepath: Path) -> list[Transaction]:
             tx = _parse_row(row, filepath.name, skipped)
             if tx is not None:
                 transactions.append(tx)
-    for reason, count in skipped.items():
-        warn(f"{filepath.name}: {count} Zeile(n) {reason}", internal=True)
+    for (reason, year), count in sorted(skipped.items(), key=lambda kv: (kv[0][1] or 0, kv[0][0])):
+        # Jahr mitfuehren, sonst taucht eine abgebrochene Zeile aus 2021 im
+        # 2024er-Report auf und erzeugt dort einen internen Report (SA2-09)
+        warn(f"{filepath.name}: {count} Zeile(n) {reason}", internal=True, year=year)
     if rows_seen and not transactions and not skipped:
         warn(
             f"{filepath.name}: keine Bisq-Transaktion erkannt ({rows_seen} Zeilen) — "
@@ -50,14 +52,23 @@ def parse(filepath: Path) -> list[Transaction]:
     return transactions
 
 
-def _parse_row(row: dict, filename: str, skipped: dict[str, int]) -> Transaction | None:
+def _row_year(row: dict) -> int | None:
+    """Steuerjahr einer Bisq-Zeile, tolerant — nur fuer die Jahres-Zuordnung
+    von Warnungen. Bisq stempelt lokale Zeit, die als Europe/Berlin gilt."""
+    raw = row.get("Datum/Zeit", "").strip()
+    try:
+        return datetime.strptime(raw, "%d.%m.%Y %H:%M:%S").year
+    except (ValueError, TypeError):
+        return None
+
+
+def _parse_row(row: dict, filename: str, skipped: dict) -> Transaction | None:
     status = row.get("Status", "").strip()
     if status != "Abgeschlossen":
         # Nicht abgeschlossene Trades sind steuerlich irrelevant — aber mitzählen,
         # sonst greift der Sammel-Fallback bei teilweisem Verlust nicht.
-        skipped[f"mit Status '{status}' übersprungen"] = (
-            skipped.get(f"mit Status '{status}' übersprungen", 0) + 1
-        )
+        key = (f"mit Status '{status}' übersprungen", _row_year(row))
+        skipped[key] = skipped.get(key, 0) + 1
         return None
     offer_type = row.get("Angebotstyp", "").strip()
     if offer_type != "BTC kaufen":
@@ -67,11 +78,11 @@ def _parse_row(row: dict, filename: str, skipped: dict[str, int]) -> Transaction
                 f"{filename}: Bisq-Verkauf am {row.get('Datum/Zeit', '?')} wird vom Parser "
                 f"noch nicht unterstützt — bitte als manual_sales.csv (no_kyc=ja) erfassen, "
                 f"sonst ist die noKYC-Übersicht unvollständig.",
-                internal=True,
+                internal=True, year=_row_year(row),
             )
         else:
-            reason = f"mit Angebotstyp '{offer_type}' nicht verarbeitet"
-            skipped[reason] = skipped.get(reason, 0) + 1
+            key = (f"mit Angebotstyp '{offer_type}' nicht verarbeitet", _row_year(row))
+            skipped[key] = skipped.get(key, 0) + 1
         return None
 
     trade_id = row.get("Handels-ID", "").strip()
@@ -85,7 +96,7 @@ def _parse_row(row: dict, filename: str, skipped: dict[str, int]) -> Transaction
         warn(
             f"{filename}: Bisq-Trade {trade_id} in {currency} statt EUR — nicht verarbeitet. "
             f"Bitte als manual_buys.csv mit EUR-Umrechnung zum Kaufdatum erfassen.",
-            internal=True,
+            internal=True, year=date.year,
         )
         return None
 

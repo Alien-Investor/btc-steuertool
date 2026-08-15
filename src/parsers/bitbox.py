@@ -6,7 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, TxType, sat_to_btc
-from . import warn
+from . import warn, warn_fmt, FileRef
 
 
 def parse(filepath: Path) -> list[Transaction]:
@@ -44,8 +44,13 @@ def _parse_row(row: dict, source: str, filename: str, no_kyc: bool = False) -> T
         return None
     else:
         # internal bei noKYC-Wallets: der Dateiname allein verrät sonst dem
-        # Finanzamt die Existenz einer noKYC-Wallet
-        warn(f"{filename}: unbekannter Typ '{tx_type_raw}' nicht verarbeitet.", internal=no_kyc)
+        # Finanzamt die Existenz einer noKYC-Wallet. Bei KYC-Wallets bleibt die
+        # Warnung offiziell, der Wallet-Name wird aber redigiert — er ist ein
+        # privates Label und gehört nicht in den Nachweis.
+        warn_fmt(
+            "{file}: unbekannter Typ '{typ}' nicht verarbeitet.",
+            internal=no_kyc, file=FileRef(filename), typ=tx_type_raw,
+        )
         return None
 
     # Datum parsen (ISO 8601 mit Timezone-Offset)

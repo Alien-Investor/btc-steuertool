@@ -78,11 +78,15 @@ def _dedup_files(per_file: list[tuple[str, list]], label: str, internal: bool = 
             file_keys.append(key)
         seen.update(file_keys)
         if dropped:
-            parsers.warn(
-                f"{label}: {dropped} Transaktion(en) aus {fname} übersprungen — "
-                f"identisch mit einer bereits geladenen Datei (überlappende Exporte?). "
-                f"Bitte pro Broker nur einen lückenlosen Export verwenden.",
-                internal=internal,
+            # Der Dateiname ist hier ein privates Label (Wallet-Name!) und wird im
+            # Finanzamt-Kanal redigiert — die Warnung selbst bleibt aber sichtbar,
+            # sie ist eine methodisch relevante Angabe (SA2-06).
+            parsers.warn_fmt(
+                "{label}: {n} Transaktion(en) aus {file} übersprungen — "
+                "identisch mit einer bereits geladenen Datei (überlappende Exporte?). "
+                "Bitte pro Broker nur einen lückenlosen Export verwenden.",
+                internal=internal, label=label, n=dropped,
+                file=parsers.FileRef(fname, "einer weiteren Datei desselben Brokers"),
             )
     return result
 
@@ -206,19 +210,24 @@ def load_all_transactions(data_dir: Path):
                 continue
             # Dateiname unterhalb von nokyc/ nennt ein noKYC-Wallet → nur intern
             in_nokyc = nokyc_dir is not None and nokyc_dir in p.parents
-            parsers.warn(
-                f"bitbox/{rel}: Datei NICHT geladen — keine BitBox-CSV am erwarteten Ort. "
-                f"Erwartet werden CSV-Dateien direkt in bitbox/ bzw. bitbox/nokyc/. "
-                f"Bitte prüfen, ob hier ein Wallet-Export fehlt.",
+            parsers.warn_fmt(
+                "{file}: NICHT geladen — keine BitBox-CSV am erwarteten Ort. "
+                "Erwartet werden CSV-Dateien direkt in bitbox/ bzw. bitbox/nokyc/. "
+                "Bitte prüfen, ob hier ein Wallet-Export fehlt.",
                 internal=in_nokyc,
+                file=parsers.FileRef(f"bitbox/{rel}", "Eine Datei im Ordner bitbox/"),
             )
 
     for p in _find(broker_dir, "*.csv"):
         if p.name not in consumed:
-            parsers.warn(
-                f"Broker/{p.name}: Datei keinem Parser zugeordnet — NICHT geladen. "
-                f"Erwartete Namen: 21bitcoin*.csv, Bison-CSV-Gesamt.csv, "
-                f"Swissquote_CSV-Gesamt.csv, strike_*.csv, Pocket*.csv, bisq*.csv."
+            # Der Dateiname kann eine noKYC-Plattform benennen (robosats-export.csv)
+            # → im Finanzamt-Kanal redigiert. Die Liste der erwarteten Namen ist
+            # unser eigener Textbaustein und bleibt vollständig stehen.
+            parsers.warn_fmt(
+                "{file}: keinem Parser zugeordnet — NICHT geladen. "
+                "Erwartete Namen: 21bitcoin*.csv, Bison-CSV-Gesamt.csv, "
+                "Swissquote_CSV-Gesamt.csv, strike_*.csv, Pocket*.csv, bisq*.csv.",
+                file=parsers.FileRef(f"Broker/{p.name}", "Eine Datei im Ordner Broker/"),
             )
 
     return sorted(transactions, key=lambda t: t.date)
@@ -266,17 +275,26 @@ def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir
     # Parser-Warnungen (still verworfene Zeilen wären falsche Reports!) + Engine-Warnungen
     all_warnings = list(parsers.parser_warnings) + list(engine.warnings)
 
+    # Jahresfilter: die Warnungsliste ist global, die Reports sind pro Jahr.
+    # Ohne den Filter markierte eine abgebrochene Bisq-Zeile aus 2021 den
+    # 2024er-Nachweis als "möglicherweise unvollständig" und erzeugte einen
+    # internen Report für ein Jahr ganz ohne noKYC-Vorgänge (SA2-09).
+    # year=None heißt "betrifft alle Jahre" (Datei-Ebene, z.B. nicht geladen).
+    if year:
+        all_warnings = [w for w in all_warnings
+                        if getattr(w, "year", None) in (None, year)]
+
     # Vertraulichkeit: Warnungen zu noKYC-Vorgängen dürfen NICHT in die
     # Dokumente für Steuerberater/Finanzamt. Sie nennen Dateinamen, Daten,
-    # Mengen und teils das Wort "noKYC" selbst. Offizielle Dokumente bekommen
-    # nur einen neutralen Zähl-Hinweis, die Details stehen im internen Report.
+    # Mengen und teils das Wort "noKYC" selbst.
     internal_warnings = [w for w in all_warnings if getattr(w, "internal", False)]
     official_warnings = [w for w in all_warnings if not getattr(w, "internal", False)]
-    if internal_warnings:
-        official_warnings.append(parsers.ParserWarning(
-            f"{len(internal_warnings)} weitere(r) Hinweis(e) betreffen ausschließlich "
-            f"die interne Übersicht und sind dort dokumentiert."
-        ))
+    # KEIN Zähl-Hinweis mehr im offiziellen Kanal: jeder Erzeuger einer internen
+    # Warnung setzt noKYC-Daten voraus, die Zeile war also ein Ein-Weg-Indikator.
+    # Schwerer wog, dass sie unter "WICHTIGE HINWEISE — BITTE VOR VERWENDUNG
+    # PRÜFEN" stand und den Nachweis selbst als ungeklärt markierte — auf die
+    # naheliegende Rückfrage "welche Hinweise?" gibt es keine vorzeigbare Antwort.
+    # Der Nutzer sieht diese Warnungen ohnehin im GUI-Log und im internen Report.
 
     report = TaxReport(
         all_transactions=transactions,

@@ -74,25 +74,63 @@ def _sanitize(msg: str) -> str:
     return text
 
 
-class ParserWarning:
-    """Warnung mit Vertraulichkeits-Flag.
+class FileRef:
+    """Ein Dateiname, der nur im internen Kanal ausgeschrieben werden darf (SA2-06).
 
-    Verhält sich in jeder String-Verwendung (f-Strings, str(), print) wie die
-    reine Meldung — bestehende Konsumenten in tax_report/formal_report und der
-    GUI-Bootstrap bleiben dadurch unverändert lauffähig.
+    Dateinamen sind private Labels aus der Ablage des Nutzers: Wallet-Namen,
+    aber auch Broker-Namen wie `robosats-export.csv`, die allein schon eine
+    noKYC-Plattform benennen. In einem Dokument, das unter Klarnamen ans
+    Finanzamt geht, haben sie nichts zu suchen — dieselbe Begründung, mit der
+    die BitBox-Wallet-Namen aus dem Steuernachweis geflogen sind (SA-016).
+
+    Bewusst KEINE pauschale Regex über die fertige Meldung: die würde auch die
+    eigenen Textbausteine treffen („bitte als manual_sales.csv erfassen", die
+    Liste der erwarteten Dateinamen) und genau deren einzigen nützlichen Inhalt
+    zerstören. Redigiert wird nur der eingesetzte Wert, nie unser eigener Text.
     """
 
-    __slots__ = ("msg", "internal")
+    __slots__ = ("name", "placeholder")
 
-    def __init__(self, msg: str, internal: bool = False) -> None:
-        self.msg = msg
-        self.internal = internal
+    def __init__(self, name, placeholder: str = "eine der eingelesenen Dateien") -> None:
+        self.name = str(name)
+        self.placeholder = placeholder
 
     def __str__(self) -> str:
+        return self.name
+
+
+class ParserWarning:
+    """Warnung mit Vertraulichkeits-Flag und redigierter Zweitfassung.
+
+    `str()` liefert die REDIGIERTE Fassung — absichtlich fail-safe: wer eine
+    Senke übersieht, verliert einen Dateinamen in der Anzeige, statt ihn ins
+    Finanzamt-Dokument zu schreiben. Die volle Fassung gibt es nur über `.full`
+    (interner Report, GUI-Log, CLI-Ausgabe — alles Kanäle, die nur der Nutzer
+    selbst sieht).
+
+    `year` grenzt eine Warnung auf ein Steuerjahr ein; None heißt „betrifft
+    alle Jahre" (Datei-Ebene, z.B. eine nicht geladene Datei).
+    """
+
+    __slots__ = ("msg", "internal", "msg_public", "year")
+
+    def __init__(self, msg: str, internal: bool = False,
+                 msg_public: str | None = None, year: int | None = None) -> None:
+        self.msg = msg
+        self.internal = internal
+        self.msg_public = msg if msg_public is None else msg_public
+        self.year = year
+
+    def __str__(self) -> str:
+        return self.msg_public
+
+    @property
+    def full(self) -> str:
+        """Fassung mit Dateinamen — nur für Kanäle, die der Nutzer selbst sieht."""
         return self.msg
 
     def __repr__(self) -> str:
-        return f"ParserWarning({self.msg!r}, internal={self.internal})"
+        return f"ParserWarning({self.msg!r}, internal={self.internal}, year={self.year})"
 
     def __eq__(self, other) -> bool:
         if isinstance(other, ParserWarning):
@@ -106,14 +144,31 @@ class ParserWarning:
 parser_warnings: list[ParserWarning] = []
 
 
-def warn(msg: str, internal: bool = False) -> None:
+def warn(msg: str, internal: bool = False, year: int | None = None) -> None:
     """internal=True → nur interner noKYC-Report + GUI-Log, nie Finanzamt.
 
     Sanitisiert hier am Choke-Point, nicht in den Senken: jede Warnung geht
     durch diese Funktion, die Senken (tax_report, formal_report, GUI-Log) sind
     mehrere und würden auseinanderlaufen.
     """
-    parser_warnings.append(ParserWarning(_sanitize(msg), internal))
+    parser_warnings.append(ParserWarning(_sanitize(msg), internal, year=year))
+
+
+def warn_fmt(template: str, internal: bool = False, year: int | None = None, **values) -> None:
+    """Wie warn(), aber FileRef-Werte werden im offiziellen Kanal neutralisiert.
+
+    Die Vorlage wird zweimal gefüllt: einmal mit den echten Werten (interner
+    Kanal), einmal mit den Platzhaltern der FileRefs (Finanzamt-Kanal). Alles,
+    was kein FileRef ist, bleibt in beiden Fassungen identisch — unsere eigenen
+    Textbausteine werden also nie angetastet.
+    """
+    public = {k: (v.placeholder if isinstance(v, FileRef) else v) for k, v in values.items()}
+    parser_warnings.append(ParserWarning(
+        _sanitize(template.format(**values)),
+        internal,
+        msg_public=_sanitize(template.format(**public)),
+        year=year,
+    ))
 
 
 def reset_warnings() -> None:

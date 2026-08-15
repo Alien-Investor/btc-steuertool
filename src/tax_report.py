@@ -205,7 +205,9 @@ class TaxReport:
             lines.append("")
             lines.append("!! HINWEISE ZU noKYC-VORGÄNGEN !!")
             for w in self.internal_warnings:
-                lines.append(f"  {w}")
+                # .full: dieser Report ist ausdrücklich NICHT für das Finanzamt,
+                # hier ist der Dateiname die eigentlich nützliche Angabe
+                lines.append(f"  {getattr(w, 'full', w)}")
             lines.append("")
         lines.extend(self._no_kyc_section())
         return "\n".join(lines)

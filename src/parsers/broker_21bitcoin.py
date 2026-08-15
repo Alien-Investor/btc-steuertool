@@ -6,7 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, TxType
-from . import warn
+from . import warn, warn_fmt, FileRef
 
 
 def parse(filepath: Path) -> list[Transaction]:
@@ -38,13 +38,19 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
         if buy_asset != "BTC" or sell_asset != "EUR":
             # Nicht stillschweigend verwerfen — ein BTC-Verkauf wäre steuerlich relevant!
             if sell_asset == "BTC":
-                warn(
-                    f"{filename}: BTC-Verkauf am {date.date()} wird vom 21bitcoin-Parser "
-                    f"noch nicht unterstützt — bitte als manual_sales.csv erfassen, "
-                    f"sonst ist der Report unvollständig."
+                # manual_sales.csv ist unser eigener Textbaustein und bleibt stehen —
+                # redigiert wird nur der eingesetzte Dateiname (SA2-06)
+                warn_fmt(
+                    "{file}: BTC-Verkauf am {tag} wird vom 21bitcoin-Parser "
+                    "noch nicht unterstützt — bitte als manual_sales.csv erfassen, "
+                    "sonst ist der Report unvollständig.",
+                    file=FileRef(filename), tag=date.date(), year=date.year,
                 )
             else:
-                warn(f"{filename}: Trade-Zeile mit {sell_asset}→{buy_asset} nicht verarbeitet.")
+                warn_fmt(
+                    "{file}: Trade-Zeile mit {a}→{b} nicht verarbeitet.",
+                    file=FileRef(filename), a=sell_asset, b=buy_asset, year=date.year,
+                )
             return None
 
         btc_amount = Decimal(row["buy_amount"].strip())
@@ -87,5 +93,8 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
 
     # deposit (EUR-Einzahlung) ist bekannt irrelevant — alles Unbekannte melden
     if tx_type_raw != "deposit":
-        warn(f"{filename}: unbekannter Transaktionstyp '{tx_type_raw}' am {date.date()} nicht verarbeitet.")
+        warn_fmt(
+            "{file}: unbekannter Transaktionstyp '{typ}' am {tag} nicht verarbeitet.",
+            file=FileRef(filename), typ=tx_type_raw, tag=date.date(), year=date.year,
+        )
     return None
