@@ -1,6 +1,6 @@
 ========================================================================
   Bitcoin Steuerreport Deutschland — 2024
-  Methode: FiFo  |  Haltefrist: 365 Tage  |  § 23 EStG
+  Methode: FiFo  |  Veräußerungsfrist: ein Jahr  |  § 23 EStG
 ========================================================================
 
 KÄUFE
@@ -10,10 +10,18 @@ KÄUFE
   2024-03-01   bison              0.00500000        60,000.00         0.00         300.00
   2024-03-15   strike             0.00300000        63,000.00         1.89         190.89
   2024-06-01   pocket             0.00100000        65,000.00         0.00          65.00
+  2024-12-01   manual             0.00200000        95,000.00         0.00         190.00
   ────────────────────────────────────────────────────────────────────────
-  SUMME                            0.00900000                          1.89         555.89
+  SUMME                            0.01100000                          1.89         745.89
 
-STEUERFREIE VERÄUSSERUNGEN (Haltedauer > 365 Tage)
+STEUERPFLICHTIGE VERÄUSSERUNGEN (Veräußerung innerhalb eines Jahres)
+------------------------------------------------------------------------
+  Verkauf: 2024-10-15  bison  0.00300000 BTC  @  66,666.67 EUR/BTC  =  200.00 EUR
+    Lot: Kauf 2024-03-01  (bison)  0.00000700 BTC  @  60,000.00 EUR/BTC  →  +0.05 EUR  [227 Tage]
+    Gewinn: +0.05 EUR
+
+
+STEUERFREIE VERÄUSSERUNGEN (Veräußerung nach mehr als einem Jahr)
 ------------------------------------------------------------------------
   Verkauf: 2024-06-15  manual  0.00500000 BTC  @  65,000.00 EUR/BTC  =  325.00 EUR
     Lot: Kauf 2022-05-01  (21bitcoin)  0.00500000 BTC  @  30,300.00 EUR/BTC  →  +173.50 EUR  [STEUERFREI]
@@ -24,18 +32,67 @@ STEUERFREIE VERÄUSSERUNGEN (Haltedauer > 365 Tage)
     Gewinn: +138.80 EUR
 
   Verkauf: 2024-10-15  bison  0.00300000 BTC  @  66,666.67 EUR/BTC  =  200.00 EUR
-    Lot: Kauf 2022-05-01  (21bitcoin)  0.00100000 BTC  @  30,300.00 EUR/BTC  →  +36.37 EUR  [STEUERFREI]
+    Lot: Kauf 2022-05-01  (21bitcoin)  0.00099300 BTC  @  30,300.00 EUR/BTC  →  +36.11 EUR  [STEUERFREI]
     Lot: Kauf 2023-08-15  (swissquote)  0.00200000 BTC  @  26,807.67 EUR/BTC  →  +79.72 EUR  [STEUERFREI]
-    Gewinn: +116.09 EUR
+    Gewinn: +115.83 EUR
 
+
+GEBÜHREN IN BITCOIN — Veräußerung des Gebührenanteils
+------------------------------------------------------------------------
+  Netzwerk- und Auszahlungsgebühren, die in Bitcoin entrichtet wurden, sind ein
+  Tausch gegen eine Dienstleistung und damit eine Veräußerung des Gebührenanteils
+  (BMF-Schreiben v. 06.03.2025, Rn. 54, 60). Der übertragene Bestand selbst bleibt
+  bei Überträgen zwischen eigenen Wallets steuerneutral. Bewertung: Tagesschluss-
+  kurs BTC/EUR (Bitstamp) des Kalendertags (Rn. 43, 91).
+
+  Datum        Quelle           Gebühr BTC  Kurs EUR/BTC     Erlös  Einstand    Gewinn  Status
+  ------------ -------------- ------------ ------------- --------- --------- ---------  ----------------
+  2024-08-31   BitBox-Wallet    0.00000400     53,396.00      0.21      0.12     +0.09  steuerfrei
+  2024-10-14   BitBox-Wallet    0.00000300     60,501.00      0.18      0.09     +0.09  steuerfrei
+  2024-11-20   BitBox-Wallet    0.00000210     89,222.00      0.19      0.13     +0.06  263 Tage
+  2024-12-20   BitBox-Wallet    0.00000250     93,911.00      0.23      0.15     +0.08  294 Tage
+  ───────────────────────────────────────────────────────────────────────────────────────────────────
+  SUMME                         0.00001160                    0.81      0.49     +0.32
+  davon steuerpflichtig (bis 1 Jahr): +0.14 EUR   steuerfrei (über 1 Jahr): +0.18 EUR
+
+UNENTGELTLICHE ÜBERTRAGUNGEN (Schenkung/Spende) — kein Veräußerungsgeschäft
+------------------------------------------------------------------------
+  Keine Veräußerung i.S.d. § 23 EStG, da keine entgeltliche Übertragung; der
+  Bestand vermindert sich um die übertragene Menge. Für den Empfänger gelten
+  Anschaffungszeitpunkt und -kosten des Übertragenden fort (§ 23 Abs. 1 Satz 3
+  EStG). Einstufung: Wallet-Notiz enthält ein Schenkungs-/Spendenwort.
+
+  Datum        Quelle            Menge BTC Anschaffung   Einstand/BTC   Einstand      Wert*
+  ------------ -------------- ------------ ------------ ------------- ---------- ----------
+  2024-12-20   BitBox-Wallet    0.00050000 2024-03-01       60,000.00      30.00      46.96
+  ─────────────────────────────────────────────────────────────────────────────────────────
+  SUMME                         0.00050000                                 30.00      46.96
+  * Wert zum Tagesschlusskurs des Übertragungstags — nachrichtlich (z.B. für eine
+    Zuwendungsbestätigung), ohne Bedeutung für § 23 EStG.
 
 ZUSAMMENFASSUNG 2024
 ========================================================================
   Veräußerungserlöse (gesamt):              785.00 EUR
   Verkaufsgebühren:                           0.00 EUR
+  Gebühren in BTC (Wert, veräußert):          0.81 EUR  (4 Vorgänge)
   ─────────────────────────────────────────────────────────────────
-  Gewinn steuerpflichtig (≤ 365 Tage):       0.00 EUR
-  Gewinn steuerfrei (> 365 Tage):          428.39 EUR
-  Freigrenze 2024 (1,000 EUR): kein steuerpflichtiger Gewinn
-  Gesamtgewinn/-verlust:                    428.39 EUR
+  Gewinn steuerpflichtig (bis 1 Jahr):       0.19 EUR
+    davon aus Gebühren in BTC:               0.14 EUR
+  Gewinn steuerfrei (über 1 Jahr):         428.31 EUR
+    davon aus Gebühren in BTC:               0.18 EUR
+  Freigrenze 2024 (1,000 EUR): NICHT ERREICHT (steuerfrei bleibt nur ein Gesamtgewinn unter 1,000.00 EUR) → steuerfrei
+  Hinweis: Die Freigrenze gilt für ALLE privaten Veräußerungsgeschäfte
+  des Jahres zusammen (§ 23 EStG) — nicht nur für Bitcoin.
+  Gesamtgewinn/-verlust:                    428.50 EUR
 ========================================================================
+
+VERBLEIBENDE BTC-BESTÄNDE (noch nicht veräußert) — Stand 31.12.2024
+------------------------------------------------------------------------
+  Kaufdatum    Quelle            BTC-Bestand   Einstand EUR/BTC     Wert EUR
+  ------------ -------------- -------------- ------------------ ------------
+  2024-03-01   bison              0.00448840          60,000.00       269.30
+  2024-03-15   strike             0.00300000          63,630.00       190.89
+  2024-06-01   pocket             0.00100000          65,000.00        65.00
+  2024-12-01   manual             0.00200000          95,000.00       190.00
+  ────────────────────────────────────────────────────────────────────────
+  GESAMT                           0.01048840

@@ -21,6 +21,18 @@ class TxType(Enum):
     SELL         = "sell"          # BTC-Verkauf bei Broker (BTC → EUR)
     TRANSFER_OUT = "transfer_out"  # BTC von Broker/Wallet weggeschickt (eigene Wallet)
     TRANSFER_IN  = "transfer_in"   # BTC auf Broker/Wallet empfangen (eigene Wallet)
+    # Unentgeltliche Übertragung an Dritte (Schenkung/Spende): keine Veräußerung
+    # i.S.d. § 23 EStG (keine entgeltliche Übertragung, BMF 06.03.2025 Rn. 54),
+    # aber ein Bestandsabgang — die FiFo-Lots verlassen den Pool ohne Gewinn.
+    GIFT_OUT     = "gift_out"
+
+
+class DisposalKind(Enum):
+    """Warum ein FiFo-Lot (teilweise) verbraucht wurde."""
+    SELL = "sell"   # Verkauf gegen EUR
+    FEE  = "fee"    # in BTC entrichtete Gebühr (Netzwerk-/Auszahlungsgebühr):
+                    # Tausch gegen Dienstleistung = Veräußerung (BMF 06.03.2025 Rn. 33, 54, 60)
+    GIFT = "gift"   # unentgeltliche Übertragung: kein Veräußerungsgeschäft, nur Bestandsabgang
 
 
 SATOSHI = Decimal("100000000")
@@ -42,10 +54,17 @@ class Transaction:
     tx_id: str
     note: str
     no_kyc: bool = False    # True = P2P-Kauf (Bisq/Robosats/manual) — nicht im Finanzamt-Report
+    # In BTC entrichtete Gebühr (Miner-Fee bei Wallet-Transfers, Auszahlungsgebühr
+    # des Brokers in BTC, Bisq-Handelsgebühr). Sie verlässt den Bestand ZUSÄTZLICH
+    # zu btc_amount und wird von der FiFo-Engine als eigene Veräußerung des
+    # Gebührenanteils zum Tageskurs verbucht (H8). 0 = keine oder unbekannt.
+    fee_btc: Decimal = Decimal("0")
+
+    _DECIMAL_FIELDS = ("btc_amount", "eur_amount", "eur_price_per_btc", "fee_eur", "fee_btc")
 
     def __post_init__(self):
         # Sicherstellen dass alle Decimal-Felder auch Decimal sind
-        for f in ("btc_amount", "eur_amount", "eur_price_per_btc", "fee_eur"):
+        for f in self._DECIMAL_FIELDS:
             val = getattr(self, f)
             if not isinstance(val, Decimal):
                 object.__setattr__(self, f, Decimal(str(val)))
@@ -53,7 +72,7 @@ class Transaction:
         # manual_buys.csv) würde sonst die FiFo-Kette lautlos korrumpieren
         # Infinity und NaN passieren jeden Vorzeichentest (Infinity < 0 ist False)
         # und würden die FiFo-Kette verseuchen, statt laut zu scheitern (H9).
-        for f in ("btc_amount", "eur_amount", "eur_price_per_btc", "fee_eur"):
+        for f in self._DECIMAL_FIELDS:
             val = getattr(self, f)
             if not val.is_finite():
                 raise ValueError(
@@ -67,6 +86,12 @@ class Transaction:
                     f"(btc={self.btc_amount}, eur={self.eur_amount}, fee={self.fee_eur}) — "
                     f"Beträge immer positiv angeben."
                 )
+        # Eine negative Gebühr würde in der Engine Bestand ERZEUGEN statt verbrauchen.
+        if self.fee_btc < 0:
+            raise ValueError(
+                f"{self.source} {de_date(self.date)}: negative Gebühr fee_btc={self.fee_btc} — "
+                f"Beträge immer positiv angeben."
+            )
 
 
 @dataclass
@@ -95,13 +120,55 @@ class DisposalMatch:
 
 @dataclass
 class SellResult:
-    """Komplettes Ergebnis eines Verkaufs nach FiFo-Auflösung."""
+    """Komplettes Ergebnis eines Bestandsabgangs nach FiFo-Auflösung.
+
+    Der Name stammt aus der Zeit, als nur Verkäufe Lots verbrauchten. Seit H8
+    gilt dasselbe für in BTC entrichtete Gebühren (kind=FEE, Veräußerung des
+    Gebührenanteils) und für unentgeltliche Übertragungen (kind=GIFT, kein
+    Veräußerungsgeschäft, gain_eur je Match = 0). Reports lesen Menge, Erlös und
+    Kurs über die Properties unten — nicht direkt aus sell_tx, denn bei einer
+    Gebühr ist die abgegangene Menge sell_tx.fee_btc, nicht sell_tx.btc_amount.
+    """
     sell_tx: Transaction
     matches: list[DisposalMatch] = field(default_factory=list)
     # Restmenge, der KEIN Anschaffungsgeschäft zugeordnet werden konnte (FiFo-Pool
     # lief mitten im Verkauf leer). > 0 heißt: für diesen Teil existiert weder
     # Anschaffungsdatum noch Einstandspreis — Haltedauer also unbekannt.
     unmatched_btc: Decimal = Decimal("0")
+    kind: DisposalKind = DisposalKind.SELL
+    # Nur bei kind=FEE: Tageskurs, zu dem der Gebührenanteil bewertet wurde.
+    # None = kein Kurs verfügbar (Kurstabelle endet vor dem Datum) — dann ist der
+    # Bestandsabgang gebucht, Erlös und Gewinn aber NICHT ermittelt.
+    fee_price_per_btc: Decimal | None = None
+
+    @property
+    def disposed_btc(self) -> Decimal:
+        """Menge, die den Bestand verlassen hat (bei Gebühren: die Gebühr selbst)."""
+        return self.sell_tx.fee_btc if self.kind == DisposalKind.FEE else self.sell_tx.btc_amount
+
+    @property
+    def is_priced(self) -> bool:
+        """False nur bei einer Gebühr ohne Kurs — Gewinn/Verlust dann nicht ermittelt."""
+        return self.kind != DisposalKind.FEE or self.fee_price_per_btc is not None
+
+    @property
+    def price_per_btc(self) -> Decimal:
+        """Kurs, zu dem der Abgang bewertet ist (0 = unentgeltlich oder unbekannt)."""
+        if self.kind == DisposalKind.SELL:
+            return self.sell_tx.eur_price_per_btc
+        if self.kind == DisposalKind.FEE and self.fee_price_per_btc is not None:
+            return self.fee_price_per_btc
+        return Decimal("0")
+
+    @property
+    def proceeds_eur(self) -> Decimal:
+        """Veräußerungserlös vor Gebühren (Verkauf) bzw. Wert des Gebührenanteils.
+        0 bei unentgeltlicher Übertragung und bei Gebühr ohne Kurs."""
+        if self.kind == DisposalKind.SELL:
+            return self.sell_tx.eur_amount
+        if self.kind == DisposalKind.FEE and self.fee_price_per_btc is not None:
+            return self.sell_tx.fee_btc * self.fee_price_per_btc
+        return Decimal("0")
 
     @property
     def is_fully_covered(self) -> bool:

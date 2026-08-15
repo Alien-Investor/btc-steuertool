@@ -1,6 +1,6 @@
 ========================================================================
   Bitcoin Steuerreport Deutschland — 2023
-  Methode: FiFo  |  Haltefrist: 365 Tage  |  § 23 EStG
+  Methode: FiFo  |  Veräußerungsfrist: ein Jahr  |  § 23 EStG
 ========================================================================
 
 KÄUFE
@@ -16,8 +16,19 @@ ZUSAMMENFASSUNG 2023
   Veräußerungserlöse (gesamt):                0.00 EUR
   Verkaufsgebühren:                           0.00 EUR
   ─────────────────────────────────────────────────────────────────
-  Gewinn steuerpflichtig (≤ 365 Tage):       0.00 EUR
-  Gewinn steuerfrei (> 365 Tage):            0.00 EUR
+  Gewinn steuerpflichtig (bis 1 Jahr):       0.00 EUR
+  Gewinn steuerfrei (über 1 Jahr):           0.00 EUR
   Freigrenze 2023 (600 EUR): kein steuerpflichtiger Gewinn
+  Hinweis: Die Freigrenze gilt für ALLE privaten Veräußerungsgeschäfte
+  des Jahres zusammen (§ 23 EStG) — nicht nur für Bitcoin.
   Gesamtgewinn/-verlust:                      0.00 EUR
 ========================================================================
+
+VERBLEIBENDE BTC-BESTÄNDE (noch nicht veräußert) — Stand 31.12.2023
+------------------------------------------------------------------------
+  Kaufdatum    Quelle            BTC-Bestand   Einstand EUR/BTC     Wert EUR
+  ------------ -------------- -------------- ------------------ ------------
+  2022-05-01   21bitcoin          0.01000000          30,300.00       303.00
+  2023-08-15   swissquote         0.00200000          26,807.67        53.62
+  ────────────────────────────────────────────────────────────────────────
+  GESAMT                           0.01200000

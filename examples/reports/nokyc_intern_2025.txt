@@ -5,8 +5,8 @@
   Sie dient ausschließlich der eigenen Buchführung.
   NICHT an Steuerberater oder Finanzamt weitergeben.
 
-  Für das Finanzamt:  steuerreport_2024.txt
-  Formaler Nachweis:  steuernachweis_2024.txt
+  Für das Finanzamt:  steuerreport_2025.txt
+  Formaler Nachweis:  steuernachweis_2025.txt
 ========================================================================
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -14,46 +14,32 @@
   Nicht für Finanzamt — nur für interne Kalkulation und Rückfragen
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  Datum        Quelle          BTC-Menge     Kurs EUR/BTC       Gebühr       Einstand
-  ------------ ---------- -------------- ---------------- ------------ --------------
-  2024-03-10   manual         0.01000000        55,000.00         0.00         550.00
-  2024-03-15   bisq           0.01000000        61,500.00         7.38         622.38
-  2024-07-20   bisq           0.00500000        58,200.00         4.66         295.66
-  2024-07-22   manual         0.00500000        56,000.00         0.00         280.00
-  2024-11-05   manual         0.00250000        59,400.00         0.00         148.50
-  2024-11-05   bisq           0.00250000        72,000.00         3.96         183.96
-  ────────────────────────────────────────────────────────────────────────
-  SUMME                        0.03500000                         16.00       2,080.50
-
   noKYC-GEBÜHREN IN BTC (Veräußerung des Gebührenanteils, aus noKYC-Pool)
   Datum        Quelle           Gebühr BTC  Kurs EUR/BTC     Erlös  Einstand    Gewinn  Status
   ------------ -------------- ------------ ------------- --------- --------- ---------  ----------------
-  2024-03-15   bisq             0.00012000     63,864.00      7.66      6.60     +1.06  5 Tage
-  2024-07-20   bisq             0.00008000     61,665.00      4.93      4.40     +0.53  131 Tage
-  2024-11-05   bisq             0.00005500     63,476.00      3.49      3.03     +0.47  240 Tage
+  2025-02-14   nokyc_wallet     0.00000500     93,004.00      0.47      0.28     +0.19  341 Tage
   ───────────────────────────────────────────────────────────────────────────────────────────────────
-  SUMME                         0.00025500                   16.08     14.03     +2.06
-  davon steuerpflichtig (bis 1 Jahr): +2.06 EUR   steuerfrei (über 1 Jahr): +0.00 EUR
+  SUMME                         0.00000500                    0.47      0.28     +0.19
+  davon steuerpflichtig (bis 1 Jahr): +0.19 EUR   steuerfrei (über 1 Jahr): +0.00 EUR
 
-  VERBLEIBENDE noKYC-BESTÄNDE — Stand 31.12.2024
+  VERBLEIBENDE noKYC-BESTÄNDE — Stand 31.12.2025
   Kaufdatum    Quelle        BTC-Bestand   Einstand EUR/BTC
   ------------ ---------- -------------- ------------------
-  2024-03-10   manual         0.00974500          55,000.00
+  2024-03-10   manual         0.00974000          55,000.00
   2024-03-15   bisq           0.01000000          62,238.00
   2024-07-20   bisq           0.00500000          59,132.00
   2024-07-22   manual         0.00500000          56,000.00
   2024-11-05   manual         0.00250000          59,400.00
   2024-11-05   bisq           0.00250000          73,584.00
   ────────────────────────────────────────────────────────────────────────
-  GESAMT                       0.03474500
+  GESAMT                       0.03474000
 
   noKYC-WALLET-AKTIVITÄT (bitbox/nokyc/)
   Datum        Wallet               Typ              BTC-Betrag   Gebühr BTC  Note
   ------------ -------------------- ------------ -------------- ------------  --------------------
-  2024-03-11   nokyc_wallet         empfangen        0.01000000               Bisq Kauf angekommen | Adresse: bc1qnokyc1example000000000000000000000000
-  2024-07-23   nokyc_wallet         empfangen        0.00500000               Robosats Trade empfangen | Adresse: bc1qnokyc2example000000000000000000000000
+  2025-02-14   nokyc_wallet         gesendet         0.00300000   0.00000500  P2P Zahlung Lightning Swap | Adresse: bc1qpeer2peer0example000000000000000000000
   ────────────────────────────────────────────────────────────────────────
-  Gesamt empfangen:     0.01500000 BTC
-  Gesamt gesendet:      0.00000000 BTC (zzgl. Gebühren 0.00000000 BTC)
-  Netto (Saldo):        0.01500000 BTC
+  Gesamt empfangen:     0.00000000 BTC
+  Gesamt gesendet:      0.00300000 BTC (zzgl. Gebühren 0.00000500 BTC)
+  Netto (Saldo):       -0.00300500 BTC
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

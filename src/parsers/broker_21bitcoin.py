@@ -88,7 +88,19 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
             return None
 
         btc_amount = Decimal(row["sell_amount"].strip())
+        # Auszahlungsgebühr in BTC: geht an den Broker als Entgelt für die
+        # Auszahlung — Tausch gegen Dienstleistung, also Veräußerung des
+        # Gebührenanteils (H8). Die Engine bewertet fee_btc zum Tageskurs.
         fee_btc = Decimal(row["fee_amount"].strip()) if row.get("fee_amount", "").strip() else Decimal("0")
+        fee_asset = row.get("fee_asset", "").strip().upper()
+        if fee_btc > 0 and fee_asset != "BTC":
+            warn_fmt(
+                "{file}: Auszahlungsgebühr {fee} {asset} am {tag} nicht verarbeitet — "
+                "erwartet wird eine Gebühr in BTC.",
+                file=FileRef(filename), fee=fee_btc, asset=fee_asset or "?",
+                tag=date.date(), year=date.year, internal=False,
+            )
+            fee_btc = Decimal("0")
 
         return Transaction(
             date=date,
@@ -97,6 +109,7 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
             eur_amount=Decimal("0"),
             eur_price_per_btc=Decimal("0"),
             fee_eur=Decimal("0"),
+            fee_btc=fee_btc,
             source="21bitcoin",
             tx_id=f"21btc-{row_id}",
             note=note,

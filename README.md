@@ -73,12 +73,22 @@ eingetragen und werden nie versehentlich committed.
 ## Steuerrechtliche Grundlagen
 
 - Methode: FiFo (First In, First Out)
-- Haltefrist: Gewinne nach > 365 Tagen Haltedauer sind steuerfrei (§ 23 Abs. 1 Nr. 2 EStG)
+- Haltefrist: Gewinne sind steuerfrei, wenn zwischen Anschaffung und Veräußerung mehr als
+  ein Jahr liegt (§ 23 Abs. 1 Satz 1 Nr. 2 EStG i.V.m. §§ 187 Abs. 1, 188 Abs. 2 BGB)
 - Freigrenze: 600 EUR (bis 2023) / 1.000 EUR (ab 2024) — steuerfrei nur, wenn der
   Gesamtgewinn im Kalenderjahr **weniger** als die Grenze beträgt (§ 23 Abs. 3 EStG);
   ab exakt der Grenze ist der volle Betrag steuerpflichtig. Die Freigrenze gilt für
   alle privaten Veräußerungsgeschäfte eines Jahres zusammen, nicht nur für Bitcoin
-- Überträge zwischen eigenen Wallets/Konten: steuerlich neutral
+- Überträge zwischen eigenen Wallets/Konten: der übertragene Bestand ist steuerlich neutral
+- In Bitcoin entrichtete Gebühren (Netzwerk-/Auszahlungsgebühren, auch beim Übertrag
+  zwischen eigenen Wallets): Veräußerung des Gebührenanteils zum Tagesschlusskurs
+  (BMF-Schreiben vom 06.03.2025, Rn. 33, 54, 60) — Gewinn zählt in die Freigrenze,
+  die Menge verlässt den Bestand. Kursquelle: gebündelte Tabelle
+  `src/data/btc_eur_daily.csv` (Bitstamp BTC/EUR, offline, aktualisieren mit
+  `python tools/update_btc_prices.py`)
+- Schenkungen/Spenden (BitBox-Notiz enthält z.B. „Spende" oder „Schenkung"): keine
+  Veräußerung, aber Bestandsabgang; Anschaffungsdaten werden für den Empfänger
+  ausgewiesen (§ 23 Abs. 1 Satz 3 EStG)
 
 ## Unterstützung
 

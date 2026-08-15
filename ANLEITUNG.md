@@ -352,9 +352,30 @@ Ja. Das Tool kann nur auswerten was in den CSV-Dateien steht. Exportiere am
 Jahresende (oder vor der Steuererklärung) frische CSVs von allen Plattformen.
 
 **Was ist mit den Überträgen zwischen meinen Wallets?**
-Die erkennt das Tool automatisch und ignoriert sie steuerlich. Überträge zwischen
-eigenen Wallets (BitBox ↔ Bison, BitBox ↔ 21bitcoin usw.) sind kein steuerpflichtiger
-Vorgang.
+Die erkennt das Tool automatisch. Der übertragene Bestand ist kein steuerpflichtiger
+Vorgang (BitBox ↔ Bison, BitBox ↔ 21bitcoin usw.) und bleibt mit seinem alten
+Kaufdatum im Bestand. **Die Gebühr aber nicht:** Netzwerk- und Auszahlungsgebühren,
+die du in Bitcoin bezahlst, gibst du im Tausch für eine Dienstleistung her — das ist
+nach der Systematik des BMF-Schreibens vom 06.03.2025 (Rn. 33, 54, 60) eine kleine
+Veräußerung des Gebührenanteils. Das Tool bewertet sie zum Tagesschlusskurs
+(Bitstamp BTC/EUR, Tabelle liegt im Tool unter `src/data/`, offline), rechnet den
+Gewinn nach FiFo aus und weist ihn im Report unter „GEBÜHREN IN BITCOIN" aus. In der
+Regel geht es um Cent-Beträge — aber so stimmt der ausgewiesene Bestand mit deiner
+Wallet überein, und nichts wird verschwiegen.
+
+Fehlt für ein Datum der Kurs (Tabelle endet davor), bucht das Tool den Abgang trotzdem,
+markiert die Zeile mit „OHNE KURS" und warnt. Dann `python tools/update_btc_prices.py`
+ausführen.
+
+**Ich habe Bitcoin verschenkt oder gespendet — wie erfasse ich das?**
+Schreib in der BitBox-App ein Schenkungs-/Spendenwort in die Notiz der Transaktion
+(z.B. „Spende an …", „Geschenk für …", „Schenkung"), bevor du exportierst. Das Tool
+stuft solche `sent`-Zeilen als unentgeltliche Übertragung ein: keine Veräußerung, kein
+Gewinn — aber die Bitcoin verlassen deinen Bestand, und der Report listet je Lot das
+Anschaffungsdatum und den Einstand, weil beides für den Beschenkten weitergilt
+(§ 23 Abs. 1 Satz 3 EStG). Jede so eingestufte Zeile steht sichtbar unter
+„UNENTGELTLICHE ÜBERTRAGUNGEN", der Ladevorgang meldet die Anzahl — prüf sie kurz.
+Die Netzwerkgebühr der Schenkung wird wie jede andere Gebühr behandelt.
 
 **Swissquote hat manche Käufe in USD — ist das ein Problem?**
 Nein. Das Tool fragt automatisch einen historischen EUR/USD-Kurs ab (von

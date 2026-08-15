@@ -6,14 +6,25 @@ Zwei strikt getrennte FiFo-Pools:
 
 Dadurch kann ein noKYC-Lot niemals in der FiFo-Zuordnung eines offiziellen
 Finanzamt-Dokuments auftauchen.
+
+Drei Arten von Bestandsabgang (DisposalKind), alle über denselben FiFo-Verbrauch:
+- SELL: Verkauf gegen EUR — Gewinn = (Netto-Erlös − Einstand) je Lot.
+- FEE:  in BTC entrichtete Gebühr (Miner-Fee, Auszahlungsgebühr, Bisq-Handelsgebühr)
+        — Tausch gegen Dienstleistung = Veräußerung des Gebührenanteils zum
+        Tagesschlusskurs (BMF 06.03.2025 Rn. 33, 54, 60, 91). Auch beim Übertrag
+        zwischen eigenen Wallets: der Bestand bleibt, die Gebühr geht.
+- GIFT: unentgeltliche Übertragung (Schenkung/Spende) — kein Veräußerungsgeschäft
+        (Rn. 54: Veräußerung = ENTGELTLICHE Übertragung), aber die Lots verlassen
+        den Pool, sonst führt die Bestandsliste Phantom-Bestand.
 """
 from __future__ import annotations
 from collections import deque
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
-from .models import Transaction, TxType, Lot, DisposalMatch, SellResult, de_date
+from .models import Transaction, TxType, Lot, DisposalMatch, SellResult, DisposalKind, de_date
 from .parsers import make_warning
+from . import btc_prices
 
 CENT = Decimal("0.01")
 
@@ -44,7 +55,15 @@ class FifoEngine:
     def __init__(self):
         self.lots: deque[Lot] = deque()        # KYC-Pool
         self.nokyc_lots: deque[Lot] = deque()  # noKYC-Pool (strikt getrennt)
-        self.sell_results: list[SellResult] = []
+        self.sell_results: list[SellResult] = []   # Verkäufe (kind=SELL)
+        # In BTC entrichtete Gebühren = Veräußerung des Gebührenanteils (H8).
+        # Bewusst getrennt von sell_results: die Verkaufs-Abschnitte der Reports
+        # bleiben Verkäufe; Gebühren bekommen eigene Abschnitte, ihre Gewinne
+        # fließen aber in die Jahressummen und die Freigrenze ein.
+        self.fee_results: list[SellResult] = []
+        # Unentgeltliche Übertragungen (Schenkung/Spende): Bestandsabgang ohne
+        # Veräußerungsgeschäft — Gewinn je Match ist 0.
+        self.gift_results: list[SellResult] = []
         self.warnings: list = []  # ParserWarning, nicht str (H4)
 
     # Bei identischem Zeitstempel zuerst Käufe, dann Verkäufe. manual_buys /
@@ -54,6 +73,7 @@ class FifoEngine:
         TxType.BUY: 0,
         TxType.TRANSFER_IN: 1,
         TxType.TRANSFER_OUT: 2,
+        TxType.GIFT_OUT: 2,
         TxType.SELL: 3,
     }
 
@@ -65,7 +85,17 @@ class FifoEngine:
                 self._add_lot(tx)
             elif tx.type == TxType.SELL:
                 self._process_sell(tx)
-            # TRANSFER_IN / TRANSFER_OUT: keine Lot-Änderung
+            elif tx.type == TxType.GIFT_OUT:
+                self._process_gift(tx)
+            # TRANSFER_IN / TRANSFER_OUT: der übertragene Bestand bleibt im Pool
+            # (eigene Wallet ↔ eigene Wallet ist keine Veräußerung, BMF Rn. 20/54).
+
+            # Die in BTC entrichtete Gebühr verlässt den Bestand IMMER — auch beim
+            # Übertrag zwischen eigenen Wallets. Nach dem Kauf-Lot gebucht, damit
+            # eine Bisq-Handelsgebühr notfalls aus dem gerade erworbenen Lot
+            # bedient wird statt eine leere Pool-Warnung auszulösen.
+            if tx.fee_btc > 0:
+                self._process_fee(tx)
 
     def _add_lot(self, tx: Transaction) -> None:
         # Einstandspreis inkl. Kaufgebühren
@@ -81,14 +111,57 @@ class FifoEngine:
         ))
 
     def _process_sell(self, tx: Transaction) -> None:
-        # Pool nach Verkaufsart wählen — KYC-Verkäufe sehen noKYC-Lots NIE
-        pool = self.nokyc_lots if tx.no_kyc else self.lots
-
         # Netto-Verkaufspreis pro BTC (Erlös minus Verkaufsgebühren)
         net_proceeds = tx.eur_amount - tx.fee_eur
         net_sell_price_per_btc = _round(net_proceeds / tx.btc_amount) if tx.btc_amount else Decimal("0")
+        self.sell_results.append(
+            self._consume(tx, tx.btc_amount, DisposalKind.SELL, net_sell_price_per_btc)
+        )
 
-        remaining = tx.btc_amount
+    def _process_fee(self, tx: Transaction) -> None:
+        """Gebühr in BTC: Tausch gegen Dienstleistung = Veräußerung des Gebührenanteils
+        zum Tagesschlusskurs des deutschen Kalendertags (BMF 06.03.2025 Rn. 33/54/60/91).
+        Ohne Kurs (Tabelle endet vorher) wird der Bestandsabgang trotzdem gebucht,
+        Erlös und Gewinn bleiben aber unermittelt — sichtbar, nicht stillschweigend."""
+        price = btc_prices.price_for_date(de_date(tx.date))
+        if price is None:
+            rng = btc_prices.table_range()
+            ende = f"endet am {rng[1]}" if rng else "fehlt"
+            self.warnings.append(make_warning(
+                f"Gebühr von {tx.fee_btc:.8f} BTC am {de_date(tx.date)} ohne Tageskurs "
+                f"(Kurstabelle {ende}) — Bestandsabgang gebucht, Veräußerungsgewinn daraus "
+                f"NICHT ermittelt. Bitte Kurstabelle aktualisieren (tools/update_btc_prices.py).",
+                internal=tx.no_kyc,
+                year=de_date(tx.date).year,
+            ))
+        result = self._consume(tx, tx.fee_btc, DisposalKind.FEE, price)
+        result.fee_price_per_btc = price
+        self.fee_results.append(result)
+
+    def _process_gift(self, tx: Transaction) -> None:
+        """Unentgeltliche Übertragung: Lots verlassen den Pool, Gewinn = 0 (keine
+        entgeltliche Übertragung → keine Veräußerung i.S.d. § 23 EStG)."""
+        self.gift_results.append(self._consume(tx, tx.btc_amount, DisposalKind.GIFT, None))
+
+    _KIND_LABEL = {
+        DisposalKind.SELL: "Verkauf",
+        DisposalKind.FEE: "Gebühren-Abgang",
+        DisposalKind.GIFT: "Unentgeltliche Übertragung",
+    }
+
+    def _consume(self, tx: Transaction, quantity: Decimal, kind: DisposalKind,
+                 price_per_btc: Decimal | None) -> SellResult:
+        """Verbraucht `quantity` BTC FiFo aus dem passenden Pool.
+
+        price_per_btc: Netto-Erlös je BTC (SELL), Tageskurs (FEE) oder None
+        (GIFT, oder FEE ohne Kurs) — bei None ist der Gewinn je Match 0, denn
+        entweder gibt es keinen Erlös (Schenkung) oder er ist nicht ermittelbar
+        (dann trägt SellResult.is_priced == False die Information weiter).
+        """
+        # Pool nach Vorgang wählen — KYC-Vorgänge sehen noKYC-Lots NIE
+        pool = self.nokyc_lots if tx.no_kyc else self.lots
+
+        remaining = quantity
         matches: list[DisposalMatch] = []
 
         while remaining > Decimal("0"):
@@ -96,11 +169,19 @@ class FifoEngine:
                 # pool_label NICHT in die Meldung: bei noKYC-Verkäufen ginge das
                 # Wort "noKYC" sonst in steuerreport/steuernachweis ans Finanzamt.
                 # Stattdessen internal=True → nur interner Report + GUI-Log.
+                if kind == DisposalKind.SELL:
+                    hint = "Prüfe ob alle Käufe in den CSV-Dateien vorhanden sind."
+                else:
+                    # Typischer Grund bei Gebühr/Schenkung: die Wallet hält Bestand,
+                    # dessen Kauf hier nicht erfasst ist — oder sie liegt im
+                    # falschen Pool (eine Wallet unter bitbox/nokyc/, deren Coins
+                    # aus KYC-Käufen stammen, findet dort keine Lots).
+                    hint = ("Stammt der Bestand dieser Wallet aus einem hier nicht erfassten "
+                            "Kauf, oder ist die Wallet dem falschen Bestand (KYC/noKYC) zugeordnet?")
                 self.warnings.append(make_warning(
-                    f"WARNUNG: Verkauf am {de_date(tx.date)} über {remaining:.8f} BTC "
+                    f"WARNUNG: {self._KIND_LABEL[kind]} am {de_date(tx.date)} über {quantity:.8f} BTC "
                     f"kann nicht vollständig FiFo-Lots zugeordnet werden. "
-                    f"Fehlende Menge: {remaining:.8f} BTC. "
-                    f"Prüfe ob alle Käufe in den CSV-Dateien vorhanden sind.",
+                    f"Fehlende Menge: {remaining:.8f} BTC. {hint}",
                     internal=tx.no_kyc,
                     year=de_date(tx.date).year,
                 ))
@@ -121,14 +202,17 @@ class FifoEngine:
             # (KEIN replace(tzinfo=...): das würde Nicht-UTC-Zeitstempel verfälschen.)
             holding_days = (tx.date - lot.purchase_date).days
             tax_free = _is_tax_free(lot.purchase_date, tx.date)
-            gain = _round((net_sell_price_per_btc - lot.cost_per_btc) * used)
+            if price_per_btc is None:
+                gain = Decimal("0")
+            else:
+                gain = _round((price_per_btc - lot.cost_per_btc) * used)
 
             matches.append(DisposalMatch(
                 lot_purchase_date=lot.purchase_date,
                 lot_source=lot.source,
                 btc_used=used,
                 cost_per_btc=lot.cost_per_btc,
-                net_sell_price_per_btc=net_sell_price_per_btc,
+                net_sell_price_per_btc=price_per_btc if price_per_btc is not None else Decimal("0"),
                 gain_eur=gain,
                 holding_days=holding_days,
                 is_tax_free=tax_free,
@@ -139,11 +223,12 @@ class FifoEngine:
         # remaining NICHT verwerfen: > 0 heißt, dass ein Teil der veräußerten
         # Menge ohne Anschaffungsgeschäft dasteht. Die Reports müssen das sehen,
         # sonst bescheinigen sie Steuerfreiheit für eine nie berechnete Haltedauer.
-        self.sell_results.append(SellResult(
+        return SellResult(
             sell_tx=tx,
             matches=matches,
             unmatched_btc=max(remaining, Decimal("0")),
-        ))
+            kind=kind,
+        )
 
     def remaining_lots(self) -> list[Lot]:
         """Alle verbleibenden Lots (KYC + noKYC) — Filterung übernimmt der Report."""

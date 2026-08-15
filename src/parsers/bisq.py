@@ -10,7 +10,11 @@ Relevante Zeilen:
 
 Gebühren:
     Transaktionsgebühr (BTC On-Chain-Fee) + Handelsgebühr BTC werden in EUR
-    umgerechnet (Preis * Gebühr_BTC). Handelsgebühr BSQ wird ignoriert.
+    umgerechnet (Preis * Gebühr_BTC) und gehen als Anschaffungsnebenkosten in
+    den Einstand ein (BMF 06.03.2025 Rn. 59). Zusätzlich reicht der Parser die
+    Gebühr als fee_btc durch: die Sats sind aus dem Bestand abgeflossen, die
+    Engine bucht dafür einen Gebühren-Abgang aus dem noKYC-Pool (H8).
+    Handelsgebühr BSQ wird ignoriert.
     Sicherheitskautionen (Kaution) sind keine Gebühren — werden zurückgegeben.
 
 Timestamps:
@@ -115,6 +119,7 @@ def _parse_row(row: dict, filename: str, skipped: dict) -> Transaction | None:
         eur_amount=eur_amount,
         eur_price_per_btc=eur_price_per_btc,
         fee_eur=fee_eur,
+        fee_btc=fee_btc,
         source="bisq",
         tx_id=trade_id,
         note="Bisq P2P Kauf",

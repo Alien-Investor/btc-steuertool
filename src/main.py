@@ -33,6 +33,21 @@ def is_internal_report(name: str) -> bool:
     return not name.startswith(OFFICIAL_REPORT_PREFIXES)
 
 
+def report_years(transactions) -> list[int]:
+    """Steuerjahre, für die ein Report erzeugt wird (deutsches Kalenderdatum).
+
+    Ein Jahr zählt, sobald darin ein Kauf, ein Verkauf, eine unentgeltliche
+    Übertragung oder eine in BTC entrichtete Gebühr liegt — die Gebühr ist eine
+    (kleine) Veräußerung, ein Jahr nur mit Wallet-Transfers ist es nicht mehr
+    zwingend ohne steuerbaren Vorgang. Die GUI ruft dieselbe Funktion auf und
+    leitet die Jahresliste nicht selbst her (Prinzip aus H5).
+    """
+    return sorted(set(
+        de_date(t.date).year for t in transactions
+        if t.type in (TxType.BUY, TxType.SELL, TxType.GIFT_OUT) or t.fee_btc > 0
+    ))
+
+
 def _find(directory: Path, pattern: str) -> list[Path]:
     """Case-insensitive Datei-Suche (SA2-07).
 
@@ -103,6 +118,20 @@ def _dedup_files(per_file: list[tuple[str, list]], label: str, internal: bool = 
     return result
 
 
+def _bitbox_extras(txs) -> str:
+    """Log-Zusatz: was der Parser aus Notiz und Typ abgeleitet hat — die
+    Schenkungs-Einstufung hängt an einem Wort in der Wallet-Notiz und soll dem
+    Nutzer sofort ins Auge fallen, nicht erst im Report."""
+    gifts = sum(1 for t in txs if t.type == TxType.GIFT_OUT)
+    fee_only = sum(1 for t in txs if t.type == TxType.TRANSFER_OUT and t.btc_amount == 0 and t.fee_btc > 0)
+    parts = []
+    if gifts:
+        parts.append(f"{gifts} als Schenkung/Spende eingestuft (Wort in der Notiz)")
+    if fee_only:
+        parts.append(f"{fee_only} wallet-intern, nur Gebühr")
+    return f" ({', '.join(parts)})" if parts else ""
+
+
 def load_all_transactions(data_dir: Path):
     parsers.reset_warnings()
     transactions = []
@@ -118,7 +147,7 @@ def load_all_transactions(data_dir: Path):
             txs = bitbox.parse(csv_file)
             per_file.append((csv_file.name, txs))
             loaded_bitbox.add(csv_file)
-            print(f"  BitBox {csv_file.stem}: {len(txs)} Transaktionen")
+            print(f"  BitBox {csv_file.stem}: {len(txs)} Transaktionen{_bitbox_extras(txs)}")
         transactions.extend(_dedup_files(per_file, "BitBox"))
 
     # BitBox-Wallets (noKYC — bitbox/nokyc/*.csv, Ordnername case-insensitiv)
@@ -128,7 +157,7 @@ def load_all_transactions(data_dir: Path):
             txs = bitbox.parse(csv_file)
             per_file.append((csv_file.name, txs))
             loaded_bitbox.add(csv_file)
-            print(f"  BitBox noKYC {csv_file.stem}: {len(txs)} Transaktionen")
+            print(f"  BitBox noKYC {csv_file.stem}: {len(txs)} Transaktionen{_bitbox_extras(txs)}")
         nokyc_txs = _dedup_files(per_file, "BitBox noKYC", internal=True)
         if nokyc_txs:
             transactions.extend(nokyc_txs)
@@ -272,12 +301,7 @@ def main():
     reports_dir = data_dir / "reports"
 
     if args.all:
-        # Jahres-Zuordnung nach deutschem Kalenderdatum (Europe/Berlin), nicht UTC
-        years = sorted(set(
-            de_date(t.date).year for t in transactions
-            if t.type in (TxType.BUY, TxType.SELL)
-        ))
-        for year in years:
+        for year in report_years(transactions):
             _generate_report(transactions, engine, year, args.csv, args.nachweis, reports_dir)
     else:
         _generate_report(transactions, engine, args.year, args.csv, args.nachweis, reports_dir)
@@ -345,6 +369,8 @@ def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir
         warnings=official_warnings,
         internal_warnings=internal_warnings,
         year=year,
+        fee_results=engine.fee_results,
+        gift_results=engine.gift_results,
     )
 
     text = report.print_report()
@@ -379,6 +405,8 @@ def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir
             year=year,
             output_path=nachweis_path,
             warnings=official_warnings,
+            fee_results=engine.fee_results,
+            gift_results=engine.gift_results,
         )
         print(f"  Nachweis gespeichert: {nachweis_path}")
 

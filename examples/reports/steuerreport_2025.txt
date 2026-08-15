@@ -1,5 +1,5 @@
 ========================================================================
-  Bitcoin Steuerreport Deutschland — 2022
+  Bitcoin Steuerreport Deutschland — 2025
   Methode: FiFo  |  Veräußerungsfrist: ein Jahr  |  § 23 EStG
 ========================================================================
 
@@ -7,27 +7,29 @@ KÄUFE
 ------------------------------------------------------------------------
   Datum        Quelle              BTC-Menge     Kurs EUR/BTC       Gebühr       Einstand
   ------------ -------------- -------------- ---------------- ------------ --------------
-  2022-05-01   21bitcoin          0.01000000        30,000.00         3.00         303.00
   ────────────────────────────────────────────────────────────────────────
-  SUMME                            0.01000000                          3.00         303.00
+  SUMME                            0.00000000                          0.00           0.00
 
-ZUSAMMENFASSUNG 2022
+ZUSAMMENFASSUNG 2025
 ========================================================================
   Veräußerungserlöse (gesamt):                0.00 EUR
   Verkaufsgebühren:                           0.00 EUR
   ─────────────────────────────────────────────────────────────────
   Gewinn steuerpflichtig (bis 1 Jahr):       0.00 EUR
   Gewinn steuerfrei (über 1 Jahr):           0.00 EUR
-  Freigrenze 2022 (600 EUR): kein steuerpflichtiger Gewinn
+  Freigrenze 2025 (1,000 EUR): kein steuerpflichtiger Gewinn
   Hinweis: Die Freigrenze gilt für ALLE privaten Veräußerungsgeschäfte
   des Jahres zusammen (§ 23 EStG) — nicht nur für Bitcoin.
   Gesamtgewinn/-verlust:                      0.00 EUR
 ========================================================================
 
-VERBLEIBENDE BTC-BESTÄNDE (noch nicht veräußert) — Stand 31.12.2022
+VERBLEIBENDE BTC-BESTÄNDE (noch nicht veräußert) — Stand 31.12.2025
 ------------------------------------------------------------------------
   Kaufdatum    Quelle            BTC-Bestand   Einstand EUR/BTC     Wert EUR
   ------------ -------------- -------------- ------------------ ------------
-  2022-05-01   21bitcoin          0.01000000          30,300.00       303.00
+  2024-03-01   bison              0.00448840          60,000.00       269.30
+  2024-03-15   strike             0.00300000          63,630.00       190.89
+  2024-06-01   pocket             0.00100000          65,000.00        65.00
+  2024-12-01   manual             0.00200000          95,000.00       190.00
   ────────────────────────────────────────────────────────────────────────
-  GESAMT                           0.01000000
+  GESAMT                           0.01048840

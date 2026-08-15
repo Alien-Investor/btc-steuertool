@@ -6,7 +6,8 @@ import csv
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
-from .models import Transaction, TxType, SellResult, Lot, de_date
+from .models import Transaction, TxType, SellResult, Lot, DisposalKind, de_date
+from . import btc_prices
 
 CENT = Decimal("0.01")
 SATOSHI_8 = Decimal("0.00000001")
@@ -44,6 +45,105 @@ def _freigrenze(year: int) -> Decimal:
     return FREIGRENZE.get(year, FREIGRENZE_DEFAULT_BIS_2023)
 
 
+def _src_label(source: str) -> str:
+    """Quellenangabe für die offiziellen Dokumente. Wallet-Namen sind private
+    Labels aus der Dateiablage des Nutzers und gehören nicht in ein Dokument, das
+    unter Klarnamen ans Finanzamt geht (vgl. Datenquellen im Nachweis) — Broker
+    bleiben Broker."""
+    return "BitBox-Wallet" if source.startswith("bitbox:") else source
+
+
+def _cost_sum(sr: SellResult) -> Decimal:
+    return sum((_r(m.cost_per_btc * m.btc_used) for m in sr.matches), Decimal("0"))
+
+
+def _fee_status(sr: SellResult) -> str:
+    """Kurzstatus eines Gebühren-Abgangs für die Tabellenzeile."""
+    if sr.unmatched_btc > 0:
+        return "NICHT ZUGEORDNET"
+    if not sr.is_priced:
+        return "OHNE KURS"
+    if all(m.is_tax_free for m in sr.matches):
+        return "steuerfrei"
+    if not any(m.is_tax_free for m in sr.matches):
+        days = min(m.holding_days for m in sr.matches)
+        return f"{days} Tage"
+    return "gemischt"
+
+
+def _fee_table(fees: list[SellResult], show_wallet: bool) -> list[str]:
+    """Tabelle der Gebühren-Abgänge (eine Zeile je Gebühr, Lots aggregiert —
+    die Lot-Aufschlüsselung steht in verkaeufe_*.csv bzw. im Nachweis)."""
+    lines = []
+    lines.append(f"  {'Datum':<12} {'Quelle':<14} {'Gebühr BTC':>12} {'Kurs EUR/BTC':>13} {'Erlös':>9} {'Einstand':>9} {'Gewinn':>9}  Status")
+    lines.append(f"  {'-'*12} {'-'*14} {'-'*12} {'-'*13} {'-'*9} {'-'*9} {'-'*9}  {'-'*16}")
+    t_btc = Decimal("0"); t_erl = Decimal("0"); t_ak = Decimal("0"); t_gain = Decimal("0")
+    for sr in sorted(fees, key=lambda r: r.sell_tx.date):
+        tx = sr.sell_tx
+        src = tx.source.replace("bitbox:", "") if show_wallet else _src_label(tx.source)
+        kurs = f"{_r(sr.price_per_btc):,.2f}" if sr.is_priced else "—"
+        erl = f"{_r(sr.proceeds_eur):,.2f}" if sr.is_priced else "—"
+        ak = _cost_sum(sr)
+        gain = f"{_signed(sr.total_gain)}" if sr.is_priced else "—"
+        lines.append(
+            f"  {de_date(tx.date)!s:<12} {src:<14} {sr.disposed_btc:>12.8f} {kurs:>13} "
+            f"{erl:>9} {_r(ak):>9,.2f} {gain:>9}  {_fee_status(sr)}"
+        )
+        t_btc += sr.disposed_btc
+        t_ak += ak
+        if sr.is_priced:
+            t_erl += _r(sr.proceeds_eur)
+            t_gain += sr.total_gain
+    lines.append(f"  {'─'*99}")
+    lines.append(
+        f"  {'SUMME':<27} {t_btc:>12.8f} {'':>13} {_r(t_erl):>9,.2f} {_r(t_ak):>9,.2f} {_signed(t_gain):>9}"
+    )
+    taxable = sum((sr.total_gain_taxable for sr in fees), Decimal("0"))
+    free = sum((sr.total_gain_tax_free for sr in fees), Decimal("0"))
+    lines.append(f"  davon steuerpflichtig (bis 1 Jahr): {_signed(taxable)} EUR   steuerfrei (über 1 Jahr): {_signed(free)} EUR")
+    unpriced = [sr for sr in fees if not sr.is_priced]
+    if unpriced:
+        u_btc = sum((sr.disposed_btc for sr in unpriced), Decimal("0"))
+        lines.append(f"  ACHTUNG: {len(unpriced)} Gebühr(en) über {u_btc:.8f} BTC ohne Tageskurs — Bestandsabgang")
+        lines.append(f"  gebucht, Veräußerungserlös und Gewinn dafür NICHT ermittelt (siehe Warnungen).")
+    return lines
+
+
+def _gift_table(gifts: list[SellResult], show_wallet: bool) -> list[str]:
+    """Tabelle der unentgeltlichen Übertragungen, eine Zeile je Anschaffungs-Lot:
+    Für den Empfänger laufen Anschaffungszeitpunkt und -kosten weiter
+    (§ 23 Abs. 1 Satz 3 EStG), deshalb sind sie hier ausgewiesen."""
+    lines = []
+    lines.append(f"  {'Datum':<12} {'Quelle':<14} {'Menge BTC':>12} {'Anschaffung':<12} {'Einstand/BTC':>13} {'Einstand':>10} {'Wert*':>10}")
+    lines.append(f"  {'-'*12} {'-'*14} {'-'*12} {'-'*12} {'-'*13} {'-'*10} {'-'*10}")
+    t_btc = Decimal("0"); t_ak = Decimal("0"); t_val = Decimal("0"); any_val = False
+    for sr in sorted(gifts, key=lambda r: r.sell_tx.date):
+        tx = sr.sell_tx
+        src = tx.source.replace("bitbox:", "") if show_wallet else _src_label(tx.source)
+        price = btc_prices.price_for_date(de_date(tx.date))
+        for m in sr.matches:
+            ak = _r(m.cost_per_btc * m.btc_used)
+            val = f"{_r(m.btc_used * price):,.2f}" if price is not None else "—"
+            lines.append(
+                f"  {de_date(tx.date)!s:<12} {src:<14} {m.btc_used:>12.8f} {de_date(m.lot_purchase_date)!s:<12} "
+                f"{m.cost_per_btc:>13,.2f} {ak:>10,.2f} {val:>10}"
+            )
+            t_btc += m.btc_used; t_ak += ak
+            if price is not None:
+                t_val += _r(m.btc_used * price); any_val = True
+        if sr.unmatched_btc > 0:
+            lines.append(
+                f"  {de_date(tx.date)!s:<12} {src:<14} {sr.unmatched_btc:>12.8f} {'unbekannt':<12} "
+                f"{'—':>13} {'—':>10} {'—':>10}  NICHT ZUGEORDNET"
+            )
+            t_btc += sr.unmatched_btc
+    lines.append(f"  {'─'*89}")
+    lines.append(f"  {'SUMME':<27} {t_btc:>12.8f} {'':<12} {'':>13} {_r(t_ak):>10,.2f} {(f'{_r(t_val):,.2f}' if any_val else '—'):>10}")
+    lines.append("  * Wert zum Tagesschlusskurs des Übertragungstags — nachrichtlich (z.B. für eine")
+    lines.append("    Zuwendungsbestätigung), ohne Bedeutung für § 23 EStG.")
+    return lines
+
+
 class TaxReport:
     def __init__(
         self,
@@ -53,6 +153,8 @@ class TaxReport:
         warnings: list,
         year: int | None = None,
         internal_warnings: list | None = None,
+        fee_results: list[SellResult] | None = None,
+        gift_results: list[SellResult] | None = None,
     ):
         self.all_transactions = all_transactions
         self.sell_results = sell_results
@@ -60,6 +162,17 @@ class TaxReport:
         self.warnings = warnings                       # nur Finanzamt-taugliche
         self.internal_warnings = internal_warnings or []  # noKYC — nur intern
         self.year = year
+
+        # Gebühren-Abgänge (Veräußerung des Gebührenanteils) und unentgeltliche
+        # Übertragungen — wie Verkäufe nach Jahr und KYC/noKYC getrennt (H8)
+        def _in_year(sr):
+            return not year or de_date(sr.sell_tx.date).year == year
+        all_fees = [sr for sr in (fee_results or []) if _in_year(sr)]
+        all_gifts = [sr for sr in (gift_results or []) if _in_year(sr)]
+        self.fees = [sr for sr in all_fees if not sr.sell_tx.no_kyc]
+        self.no_kyc_fees = [sr for sr in all_fees if sr.sell_tx.no_kyc]
+        self.gifts = [sr for sr in all_gifts if not sr.sell_tx.no_kyc]
+        self.no_kyc_gifts = [sr for sr in all_gifts if sr.sell_tx.no_kyc]
 
         # Filterung auf gewünschtes Jahr (deutsches Kalenderjahr!) — noKYC immer separat halten
         if year:
@@ -85,8 +198,8 @@ class TaxReport:
         self.remaining_lots = [l for l in remaining_lots if not l.no_kyc]
         self.no_kyc_lots = [l for l in remaining_lots if l.no_kyc]
 
-        # noKYC-Wallet-Transfers (TRANSFER_IN/OUT aus bitbox/nokyc/)
-        transfer_types = (TxType.TRANSFER_IN, TxType.TRANSFER_OUT)
+        # noKYC-Wallet-Bewegungen (TRANSFER_IN/OUT und Schenkungen aus bitbox/nokyc/)
+        transfer_types = (TxType.TRANSFER_IN, TxType.TRANSFER_OUT, TxType.GIFT_OUT)
         if year:
             all_transfers = [t for t in all_transactions if t.type in transfer_types and de_date(t.date).year == year]
         else:
@@ -180,6 +293,31 @@ class TaxReport:
             for sr in tax_free_sells:
                 lines.extend(_format_sell(sr, only_taxable=False))
 
+        # --- Gebühren in BTC (Veräußerung des Gebührenanteils) ---
+        if self.fees:
+            lines.append("")
+            lines.append("GEBÜHREN IN BITCOIN — Veräußerung des Gebührenanteils")
+            lines.append("-" * 72)
+            lines.append("  Netzwerk- und Auszahlungsgebühren, die in Bitcoin entrichtet wurden, sind ein")
+            lines.append("  Tausch gegen eine Dienstleistung und damit eine Veräußerung des Gebührenanteils")
+            lines.append("  (BMF-Schreiben v. 06.03.2025, Rn. 54, 60). Der übertragene Bestand selbst bleibt")
+            lines.append("  bei Überträgen zwischen eigenen Wallets steuerneutral. Bewertung: Tagesschluss-")
+            lines.append("  kurs BTC/EUR (Bitstamp) des Kalendertags (Rn. 43, 91).")
+            lines.append("")
+            lines.extend(_fee_table(self.fees, show_wallet=False))
+
+        # --- Unentgeltliche Übertragungen ---
+        if self.gifts:
+            lines.append("")
+            lines.append("UNENTGELTLICHE ÜBERTRAGUNGEN (Schenkung/Spende) — kein Veräußerungsgeschäft")
+            lines.append("-" * 72)
+            lines.append("  Keine Veräußerung i.S.d. § 23 EStG, da keine entgeltliche Übertragung; der")
+            lines.append("  Bestand vermindert sich um die übertragene Menge. Für den Empfänger gelten")
+            lines.append("  Anschaffungszeitpunkt und -kosten des Übertragenden fort (§ 23 Abs. 1 Satz 3")
+            lines.append("  EStG). Einstufung: Wallet-Notiz enthält ein Schenkungs-/Spendenwort.")
+            lines.append("")
+            lines.extend(_gift_table(self.gifts, show_wallet=False))
+
         # --- Jahres-Zusammenfassung ---
         lines.extend(self._summary_section())
 
@@ -192,6 +330,7 @@ class TaxReport:
         """Gibt den noKYC-Intern-Report zurück, oder None wenn keine noKYC-Daten vorhanden."""
         if (not self.no_kyc_buys and not self.no_kyc_lots
                 and not self.no_kyc_transfers and not self.no_kyc_sells
+                and not self.no_kyc_fees and not self.no_kyc_gifts
                 and not self.internal_warnings):
             return None
         year_label = str(self.year) if self.year else "Gesamt"
@@ -226,14 +365,22 @@ class TaxReport:
 
         total_proceeds = sum((_r(sr.sell_tx.eur_amount) for sr in self.sells), Decimal("0"))
         total_fees_sell = sum((_r(sr.sell_tx.fee_eur) for sr in self.sells), Decimal("0"))
-        total_gain_taxable = sum((sr.total_gain_taxable for sr in self.sells), Decimal("0"))
-        total_gain_tax_free = sum((sr.total_gain_tax_free for sr in self.sells), Decimal("0"))
+        # Gebühren-Abgänge sind Veräußerungen: ihre Gewinne zählen mit — für die
+        # Freigrenze und für die Jahressumme (H8). Getrennt ausgewiesen, damit
+        # man sieht, wie viel davon aus Verkäufen und wie viel aus Gebühren stammt.
+        fee_gain_taxable = sum((sr.total_gain_taxable for sr in self.fees), Decimal("0"))
+        fee_gain_tax_free = sum((sr.total_gain_tax_free for sr in self.fees), Decimal("0"))
+        fee_proceeds = sum((_r(sr.proceeds_eur) for sr in self.fees if sr.is_priced), Decimal("0"))
+        total_gain_taxable = sum((sr.total_gain_taxable for sr in self.sells), Decimal("0")) + fee_gain_taxable
+        total_gain_tax_free = sum((sr.total_gain_tax_free for sr in self.sells), Decimal("0")) + fee_gain_tax_free
 
         lines.append("")
         lines.append(f"ZUSAMMENFASSUNG {year_label}")
         lines.append("=" * 72)
         lines.append(f"  Veräußerungserlöse (gesamt):      {_r(total_proceeds):>14,.2f} EUR")
         lines.append(f"  Verkaufsgebühren:                 {_r(total_fees_sell):>14,.2f} EUR")
+        if self.fees:
+            lines.append(f"  Gebühren in BTC (Wert, veräußert): {_r(fee_proceeds):>13,.2f} EUR  ({len(self.fees)} Vorgänge)")
 
         if freigrenze is not None:
             if total_gain_taxable > 0:
@@ -248,16 +395,31 @@ class TaxReport:
 
             lines.append(f"  ─────────────────────────────────────────────────────────────────")
             lines.append(f"  Gewinn steuerpflichtig (bis 1 Jahr): {_r(total_gain_taxable):>10,.2f} EUR")
+            if self.fees:
+                lines.append(f"    davon aus Gebühren in BTC:         {_r(fee_gain_taxable):>10,.2f} EUR")
             lines.append(f"  Gewinn steuerfrei (über 1 Jahr):     {_r(total_gain_tax_free):>10,.2f} EUR")
+            if self.fees:
+                lines.append(f"    davon aus Gebühren in BTC:         {_r(fee_gain_tax_free):>10,.2f} EUR")
             lines.append(f"  Freigrenze {self.year} ({_r(freigrenze):,.0f} EUR): {status}")
             lines.append(f"  Hinweis: Die Freigrenze gilt für ALLE privaten Veräußerungsgeschäfte")
             lines.append(f"  des Jahres zusammen (§ 23 EStG) — nicht nur für Bitcoin.")
         else:
             lines.append(f"  ─────────────────────────────────────────────────────────────────")
             lines.append(f"  Gewinn steuerpflichtig (bis 1 Jahr): {_r(total_gain_taxable):>10,.2f} EUR")
+            if self.fees:
+                lines.append(f"    davon aus Gebühren in BTC:         {_r(fee_gain_taxable):>10,.2f} EUR")
             lines.append(f"  Gewinn steuerfrei (über 1 Jahr):     {_r(total_gain_tax_free):>10,.2f} EUR")
+            if self.fees:
+                lines.append(f"    davon aus Gebühren in BTC:         {_r(fee_gain_tax_free):>10,.2f} EUR")
 
         lines.append(f"  Gesamtgewinn/-verlust:            {_r(total_gain_taxable + total_gain_tax_free):>14,.2f} EUR")
+
+        unpriced = [sr for sr in self.fees if not sr.is_priced]
+        if unpriced:
+            u_btc = sum((sr.disposed_btc for sr in unpriced), Decimal("0"))
+            lines.append(f"  {'─'*65}")
+            lines.append(f"  ACHTUNG: {len(unpriced)} Gebühr(en) über {u_btc:.8f} BTC ohne Tageskurs.")
+            lines.append(f"  Deren Veräußerungsgewinn ist in den Summen NICHT enthalten.")
 
         # Ohne diesen Hinweis liest sich die Summe als vollständig — sie enthält
         # aber nur die Mengen, für die überhaupt ein Einstandspreis existiert.
@@ -343,6 +505,16 @@ class TaxReport:
                     )
                 lines.append(f"    Gewinn gesamt: {_signed(sr.total_gain)} EUR")
 
+        if self.no_kyc_fees:
+            lines.append("")
+            lines.append("  noKYC-GEBÜHREN IN BTC (Veräußerung des Gebührenanteils, aus noKYC-Pool)")
+            lines.extend(_fee_table(self.no_kyc_fees, show_wallet=True))
+
+        if self.no_kyc_gifts:
+            lines.append("")
+            lines.append("  noKYC-UNENTGELTLICHE ÜBERTRAGUNGEN (Schenkung/Spende, aus noKYC-Pool)")
+            lines.extend(_gift_table(self.no_kyc_gifts, show_wallet=True))
+
         if self.no_kyc_lots:
             stichtag_nokyc = f" — Stand 31.12.{self.year}" if self.year else ""
             lines.append("")
@@ -362,24 +534,30 @@ class TaxReport:
         if self.no_kyc_transfers:
             lines.append("")
             lines.append("  noKYC-WALLET-AKTIVITÄT (bitbox/nokyc/)")
-            lines.append(f"  {'Datum':<12} {'Wallet':<20} {'Typ':<12} {'BTC-Betrag':>14} {'Note'}")
-            lines.append(f"  {'-'*12} {'-'*20} {'-'*12} {'-'*14} {'-'*20}")
+            lines.append(f"  {'Datum':<12} {'Wallet':<20} {'Typ':<12} {'BTC-Betrag':>14} {'Gebühr BTC':>12}  {'Note'}")
+            lines.append(f"  {'-'*12} {'-'*20} {'-'*12} {'-'*14} {'-'*12}  {'-'*20}")
             total_in = Decimal("0")
             total_out = Decimal("0")
+            total_fee = Decimal("0")
+            _TYP = {TxType.TRANSFER_IN: "empfangen", TxType.TRANSFER_OUT: "gesendet", TxType.GIFT_OUT: "geschenkt"}
             for tx in sorted(self.no_kyc_transfers, key=lambda t: t.date):
-                typ = "empfangen" if tx.type == TxType.TRANSFER_IN else "gesendet "
+                typ = _TYP.get(tx.type, tx.type.value)
                 wallet = tx.source.replace("bitbox:", "")
+                fee = f"{tx.fee_btc:.8f}" if tx.fee_btc else ""
                 lines.append(
-                    f"  {de_date(tx.date)!s:<12} {wallet:<20} {typ:<12} {tx.btc_amount:>14.8f}  {tx.note}"
+                    f"  {de_date(tx.date)!s:<12} {wallet:<20} {typ:<12} {tx.btc_amount:>14.8f} {fee:>12}  {tx.note}"
                 )
                 if tx.type == TxType.TRANSFER_IN:
                     total_in += tx.btc_amount
                 else:
                     total_out += tx.btc_amount
+                total_fee += tx.fee_btc
+            # Gebühren gehören zum Abgang: ohne sie stimmt der Saldo nie mit dem
+            # echten Wallet-Stand überein (H8, Amount ist OHNE Fee).
             lines.append(f"  {'─'*72}")
             lines.append(f"  Gesamt empfangen: {total_in:>14.8f} BTC")
-            lines.append(f"  Gesamt gesendet:  {total_out:>14.8f} BTC")
-            lines.append(f"  Netto (Saldo):    {total_in - total_out:>14.8f} BTC")
+            lines.append(f"  Gesamt gesendet:  {total_out:>14.8f} BTC (zzgl. Gebühren {total_fee:.8f} BTC)")
+            lines.append(f"  Netto (Saldo):    {total_in - total_out - total_fee:>14.8f} BTC")
 
         lines.append("~" * 72)
         return lines
@@ -419,24 +597,43 @@ class TaxReport:
                 # konnte. Ohne die Spalte steht in einer Zeile Verkauf_BTC=2.0
                 # neben BTC_Menge=0.5 und Steuerfrei=Ja — die Lücke wäre unsichtbar.
                 "Nicht_zugeordnet_BTC",
+                # Art des Bestandsabgangs (H8): Verkauf | Gebuehr | Schenkung.
+                # Bei Gebuehr steht in Verkauf_BTC die Gebuehrenmenge, in
+                # Verkauf_EUR ihr Wert zum Tageskurs; bei Schenkung ist der
+                # Erloes 0 und Steuerfrei "entfaellt" (kein Veraeusserungsgeschaeft).
+                "Art",
             ])
-            for sr in self.sells:
+            _ART = {DisposalKind.SELL: "Verkauf", DisposalKind.FEE: "Gebuehr", DisposalKind.GIFT: "Schenkung"}
+            all_disposals = sorted(self.sells + self.fees + self.gifts, key=lambda r: r.sell_tx.date)
+            for sr in all_disposals:
                 unmatched = f"{sr.unmatched_btc:.8f}"
+                art = _ART[sr.kind]
+                src = sr.sell_tx.source if sr.kind == DisposalKind.SELL else _src_label(sr.sell_tx.source)
+                erloes = f"{_r(sr.proceeds_eur):.2f}" if sr.is_priced else ""
                 for m in sr.matches:
+                    if sr.kind == DisposalKind.GIFT:
+                        preis, gewinn, frei = "", "", "entfaellt"
+                    elif not sr.is_priced:
+                        preis, gewinn, frei = "", "", "OHNE KURS"
+                    else:
+                        preis = f"{m.net_sell_price_per_btc:.2f}"
+                        gewinn = f"{_r(m.gain_eur):.2f}"
+                        frei = "Ja" if m.is_tax_free else "Nein"
                     w.writerow([
                         de_date(sr.sell_tx.date),
-                        sr.sell_tx.source,
-                        f"{sr.sell_tx.btc_amount:.8f}",
-                        f"{_r(sr.sell_tx.eur_amount):.2f}",
+                        src,
+                        f"{sr.disposed_btc:.8f}",
+                        erloes,
                         de_date(m.lot_purchase_date),
                         m.lot_source,
                         f"{m.btc_used:.8f}",
                         f"{m.cost_per_btc:.2f}",
-                        f"{m.net_sell_price_per_btc:.2f}",
-                        f"{_r(m.gain_eur):.2f}",
+                        preis,
+                        gewinn,
                         m.holding_days,
-                        "Ja" if m.is_tax_free else "Nein",
+                        frei,
                         unmatched,
+                        art,
                     ])
                 # Restzeile für die ungedeckte Menge. Ohne sie erscheint ein
                 # komplett unzugeordneter Verkauf GAR NICHT in der Datei (die
@@ -445,14 +642,15 @@ class TaxReport:
                 if sr.unmatched_btc > 0:
                     w.writerow([
                         de_date(sr.sell_tx.date),
-                        sr.sell_tx.source,
-                        f"{sr.sell_tx.btc_amount:.8f}",
-                        f"{_r(sr.sell_tx.eur_amount):.2f}",
+                        src,
+                        f"{sr.disposed_btc:.8f}",
+                        erloes,
                         "", "",
                         unmatched,
                         "", "", "", "",
                         "NICHT NACHGEWIESEN",
                         unmatched,
+                        art,
                     ])
         saved.append(sells_path)
 

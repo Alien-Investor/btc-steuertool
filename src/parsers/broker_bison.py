@@ -93,9 +93,18 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
         )
 
     elif tx_type_raw == "Withdraw" and asset == "BTC":
-        # BTC-Auszahlung an eigene Wallet (Gegenstück zu Deposit; Fee in BTC, wie
-        # bei BitBox-Transfers nicht in EUR umgerechnet — Transfers sind steuerneutral)
+        # BTC-Auszahlung an eigene Wallet (Gegenstück zu Deposit). Bison weist
+        # in echten Exporten Fee=0 aus (Netzwerkgebühr trägt Bison). Sollte doch
+        # eine Gebühr stehen, ist ihre Einheit aus dem Export nicht ablesbar —
+        # melden statt raten (eine Gebühr in BTC wäre ein Bestandsabgang, H8).
         btc_amount = _decimal(row.get("Asset (amount)", "0"))
+        fee_raw = _decimal(row.get("Fee", "0"))
+        if fee_raw > 0:
+            warn(
+                f"{filename}: BTC-Auszahlung am {date.date()} mit Gebühr {fee_raw} — "
+                f"Einheit im Export nicht erkennbar, Gebühr NICHT verbucht.",
+                internal=False, year=date.year,
+            )
         return Transaction(
             date=date,
             type=TxType.TRANSFER_OUT,

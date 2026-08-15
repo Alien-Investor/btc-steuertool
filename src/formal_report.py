@@ -9,7 +9,8 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from .models import Transaction, TxType, SellResult, Lot, de_date
-from .tax_report import _freigrenze
+from .tax_report import _freigrenze, _src_label
+from . import btc_prices
 
 CENT = Decimal("0.01")
 
@@ -38,6 +39,8 @@ def generate_tax_free_proof(
     year: int,
     output_path: Path,
     warnings: list[str] | None = None,
+    fee_results: list[SellResult] | None = None,
+    gift_results: list[SellResult] | None = None,
 ) -> None:
     """Erzeugt einen formalen Steuernachweis als Textdatei."""
 
@@ -46,6 +49,19 @@ def generate_tax_free_proof(
         sr for sr in sell_results
         if de_date(sr.sell_tx.date).year == year and not sr.sell_tx.no_kyc
     ]
+    # Gebühren-Abgänge (Veräußerung des Gebührenanteils, H8) und unentgeltliche
+    # Übertragungen — nur KYC, wie die Verkäufe
+    fees_in_year = sorted(
+        [sr for sr in (fee_results or [])
+         if de_date(sr.sell_tx.date).year == year and not sr.sell_tx.no_kyc],
+        key=lambda sr: sr.sell_tx.date,
+    )
+    gifts_in_year = sorted(
+        [sr for sr in (gift_results or [])
+         if de_date(sr.sell_tx.date).year == year and not sr.sell_tx.no_kyc],
+        key=lambda sr: sr.sell_tx.date,
+    )
+    unpriced_fees = [sr for sr in fees_in_year if not sr.is_priced]
     buys_in_year = sorted(
         [t for t in all_transactions if t.type == TxType.BUY and de_date(t.date).year == year and not t.no_kyc],
         key=lambda t: t.date,
@@ -126,8 +142,14 @@ def generate_tax_free_proof(
     sep()
     blank()
 
-    total_taxable: Decimal = sum((sr.total_gain_taxable for sr in sells_in_year), Decimal("0"))
-    total_free: Decimal = sum((sr.total_gain_tax_free for sr in sells_in_year), Decimal("0"))
+    fee_taxable: Decimal = sum((sr.total_gain_taxable for sr in fees_in_year), Decimal("0"))
+    fee_free: Decimal = sum((sr.total_gain_tax_free for sr in fees_in_year), Decimal("0"))
+    fee_proceeds: Decimal = sum((_r(sr.proceeds_eur) for sr in fees_in_year if sr.is_priced), Decimal("0"))
+    fee_btc_total: Decimal = sum((sr.disposed_btc for sr in fees_in_year), Decimal("0"))
+    # Gebühren-Abgänge sind Veräußerungen — ihre Gewinne zählen in die Summen
+    # und damit in die Freigrenze (H8)
+    total_taxable: Decimal = sum((sr.total_gain_taxable for sr in sells_in_year), Decimal("0")) + fee_taxable
+    total_free: Decimal = sum((sr.total_gain_tax_free for sr in sells_in_year), Decimal("0")) + fee_free
     total_proceeds: Decimal = sum((_r(sr.sell_tx.eur_amount) for sr in sells_in_year), Decimal("0"))
 
     para(
@@ -135,6 +157,33 @@ def generate_tax_free_proof(
         f"mit einem Gesamterlös von {_eur(total_proceeds)} durchgeführt."
     )
     blank()
+    if fees_in_year:
+        para(
+            f"Daneben wurden {len(fees_in_year)} in Bitcoin entrichtete Netzwerk- bzw. "
+            f"Auszahlungsgebühren über insgesamt {_btc(fee_btc_total)} als Veräußerung "
+            f"des jeweiligen Gebührenanteils erfasst (Tausch gegen eine Dienstleistung, "
+            f"BMF-Schreiben vom 06.03.2025, Rn. 54, 60); Veräußerungserlös zum Tageskurs "
+            f"insgesamt {_eur(fee_proceeds)}. Die daraus resultierenden Gewinne bzw. "
+            f"Verluste sind in den nachfolgenden Summen enthalten."
+        )
+        blank()
+    if unpriced_fees:
+        u_btc = sum((sr.disposed_btc for sr in unpriced_fees), Decimal("0"))
+        para(
+            f"ACHTUNG: Für {len(unpriced_fees)} dieser Gebühren über {_btc(u_btc)} lag "
+            f"kein Tageskurs vor. Der Bestandsabgang ist erfasst, Veräußerungserlös und "
+            f"Gewinn daraus sind NICHT ermittelt und in den Summen NICHT enthalten."
+        )
+        blank()
+    if gifts_in_year:
+        gift_btc = sum((sr.disposed_btc for sr in gifts_in_year), Decimal("0"))
+        para(
+            f"Ferner wurden {len(gifts_in_year)} unentgeltliche Übertragung(en) über "
+            f"insgesamt {_btc(gift_btc)} (Schenkung/Spende) erfasst. Sie sind keine "
+            f"Veräußerung im Sinne des § 23 EStG und in den Gewinnsummen nicht enthalten; "
+            f"sie vermindern den Bestand (Einzelheiten unten)."
+        )
+        blank()
 
     # "Alle steuerfrei" nur behaupten, wenn wirklich JEDES Lot außerhalb der
     # Haltefrist lag — nicht wenn steuerbare Vorgänge sich zufällig auf 0 saldieren
@@ -145,10 +194,15 @@ def generate_tax_free_proof(
     # wurde (und all() über eine leere Liste ist ohnehin True).
     uncovered_sells = [sr for sr in sells_in_year if not sr.is_fully_covered]
     uncovered_btc: Decimal = sum((sr.unmatched_btc for sr in uncovered_sells), Decimal("0"))
+    # Gebühren zählen mit: eine Gebühr aus einem jungen Lot ist eine steuerbare
+    # Veräußerung, auch wenn alle "richtigen" Verkäufe steuerfrei waren.
+    uncovered_fees = [sr for sr in fees_in_year if not sr.is_fully_covered]
+    all_disposals = sells_in_year + fees_in_year
     all_matches_tax_free = (
-        bool(sells_in_year)
+        bool(all_disposals)
         and not uncovered_sells
-        and all(m.is_tax_free for sr in sells_in_year for m in sr.matches)
+        and not uncovered_fees
+        and all(m.is_tax_free for sr in all_disposals for m in sr.matches)
     )
 
     if uncovered_sells:
@@ -161,9 +215,9 @@ def generate_tax_free_proof(
         )
         blank()
 
-    if not sells_in_year:
-        # Kein Verkauf im Jahr — die Aussage "alle steuerfrei" wäre inhaltsleer,
-        # der Hinweis zur Anlage SO ist hier aber korrekt und nützlich.
+    if not all_disposals:
+        # Kein Verkauf und keine Gebühr im Jahr — die Aussage "alle steuerfrei"
+        # wäre inhaltsleer, der Hinweis zur Anlage SO ist hier aber korrekt und nützlich.
         para(
             f"Im Steuerjahr {year} wurden keine Bitcoin-Veräußerungen getätigt. "
             f"Es liegt kein privates Veräußerungsgeschäft gemäß § 23 EStG vor."
@@ -176,7 +230,8 @@ def generate_tax_free_proof(
         lines.append(f"                                    Veräußerungsgeschäfte vorliegen)")
     elif all_matches_tax_free:
         para(
-            f"ALLE Veräußerungen sind gemäß § 23 Abs. 1 Satz 1 Nr. 2 EStG STEUERFREI, "
+            f"ALLE Veräußerungen{' (einschließlich der Gebührenanteile)' if fees_in_year else ''} "
+            f"sind gemäß § 23 Abs. 1 Satz 1 Nr. 2 EStG STEUERFREI, "
             f"da die veräußerten Bitcoin-Einheiten jeweils länger als ein Jahr gehalten "
             f"wurden (Haltedauer > 1 Jahr)."
         )
@@ -267,6 +322,108 @@ def generate_tax_free_proof(
         sep("-")
 
     # =========================================================
+    # GEBÜHREN IN BITCOIN (Veräußerung des Gebührenanteils, H8)
+    # =========================================================
+    if fees_in_year:
+        blank()
+        sep()
+        lines.append("  VERÄUSSERUNGEN DURCH GEBÜHRENZAHLUNG IN BITCOIN")
+        sep()
+        blank()
+        para(
+            "Bei Überträgen zwischen eigenen Wallets sowie bei Auszahlungen vom "
+            "Handelsplatz in die eigene Wallet wurden Netzwerk- bzw. Auszahlungsgebühren "
+            "in Bitcoin entrichtet. Der übertragene Bestand selbst bleibt dabei "
+            "steuerneutral (keine Veräußerung). Die Gebühr hingegen wird im Tausch für "
+            "eine Dienstleistung hingegeben (Blockerstellung bzw. Auszahlung) und ist "
+            "damit eine Veräußerung des Gebührenanteils; als Veräußerungserlös gilt der "
+            "Marktkurs der hingegebenen Einheiten (BMF-Schreiben vom 06.03.2025, "
+            "Rn. 33, 54, 60). Bewertet wurde zum Tagesschlusskurs BTC/EUR der "
+            "Handelsplattform Bitstamp am jeweiligen Kalendertag (Rn. 43, 91). Die "
+            "FiFo-Zuordnung folgt derselben Methode wie bei den Verkäufen."
+        )
+        blank()
+        lines.append(f"  {'Datum':<12} {'Quelle':<14} {'Gebühr BTC':>12} {'Kurs EUR/BTC':>13} {'Anschaffung':<12} {'Einst./BTC':>11} {'Tage*':>6} {'Gewinn EUR':>11} {'Status':<10}")
+        lines.append(f"  {'─'*12} {'─'*14} {'─'*12} {'─'*13} {'─'*12} {'─'*11} {'─'*6} {'─'*11} {'─'*10}")
+        for sr in fees_in_year:
+            tx = sr.sell_tx
+            kurs = f"{_r(sr.price_per_btc):,.2f}" if sr.is_priced else "—"
+            for m in sr.matches:
+                if not sr.is_priced:
+                    gewinn, status = "—", "OHNE KURS"
+                else:
+                    gewinn = f"{_r(m.gain_eur):+,.2f}"
+                    status = "STEUERFREI" if m.is_tax_free else "PFLICHTIG"
+                lines.append(
+                    f"  {de_date(tx.date).strftime('%d.%m.%Y'):<12} {_src_label(tx.source):<14} "
+                    f"{m.btc_used:>12.8f} {kurs:>13} {de_date(m.lot_purchase_date).strftime('%d.%m.%Y'):<12} "
+                    f"{m.cost_per_btc:>11,.2f} {m.holding_days:>6} {gewinn:>11} {status:<10}"
+                )
+            if sr.unmatched_btc > 0:
+                lines.append(
+                    f"  {de_date(tx.date).strftime('%d.%m.%Y'):<12} {_src_label(tx.source):<14} "
+                    f"{sr.unmatched_btc:>12.8f} {kurs:>13} {'unbekannt':<12} {'—':>11} {'—':>6} {'—':>11} {'UNGEKLÄRT':<10}"
+                )
+        blank()
+        lines.append(f"  Gebühren gesamt:            {_btc(fee_btc_total):>20}")
+        lines.append(f"  Veräußerungserlös gesamt:   {_eur(fee_proceeds):>20}")
+        lines.append(f"  davon Gewinn steuerfrei:    {_eur(fee_free):>20}")
+        lines.append(f"  davon Gewinn steuerpflichtig: {_eur(fee_taxable):>18}")
+        if unpriced_fees:
+            blank()
+            lines.append("  ACHTUNG: Zeilen mit Status OHNE KURS sind im Bestand abgezogen, ihr")
+            lines.append("           Veräußerungsgewinn ist NICHT ermittelt (kein Tageskurs verfügbar).")
+        blank()
+        sep("-")
+
+    # =========================================================
+    # UNENTGELTLICHE ÜBERTRAGUNGEN (Schenkung/Spende)
+    # =========================================================
+    if gifts_in_year:
+        blank()
+        sep()
+        lines.append("  UNENTGELTLICHE ÜBERTRAGUNGEN (Schenkung / Spende)")
+        sep()
+        blank()
+        para(
+            "Die folgenden Übertragungen an Dritte erfolgten ohne Gegenleistung. Sie "
+            "sind keine Veräußerung im Sinne des § 23 Abs. 1 Satz 1 Nr. 2 EStG, da es "
+            "an einer entgeltlichen Übertragung fehlt (vgl. BMF-Schreiben vom 06.03.2025, "
+            "Rn. 54), und lösen beim Übertragenden keinen Veräußerungsgewinn aus. Sie "
+            "vermindern den Bestand. Für den Empfänger sind Anschaffungszeitpunkt und "
+            "Anschaffungskosten des Übertragenden maßgeblich (§ 23 Abs. 1 Satz 3 EStG); "
+            "beides ist deshalb je übertragener Einheit ausgewiesen. Der Wert zum "
+            "Tageskurs ist eine nachrichtliche Angabe."
+        )
+        blank()
+        lines.append(f"  {'Datum':<12} {'Quelle':<14} {'Menge BTC':>12} {'Anschaffung':<12} {'Einst./BTC':>11} {'Einstand':>10} {'Wert Tagesk.':>13}")
+        lines.append(f"  {'─'*12} {'─'*14} {'─'*12} {'─'*12} {'─'*11} {'─'*10} {'─'*13}")
+        g_btc = Decimal("0"); g_ak = Decimal("0")
+        for sr in gifts_in_year:
+            tx = sr.sell_tx
+            price = btc_prices.price_for_date(de_date(tx.date))
+            for m in sr.matches:
+                ak = _r(m.cost_per_btc * m.btc_used)
+                val = f"{_r(m.btc_used * price):,.2f}" if price is not None else "—"
+                lines.append(
+                    f"  {de_date(tx.date).strftime('%d.%m.%Y'):<12} {_src_label(tx.source):<14} "
+                    f"{m.btc_used:>12.8f} {de_date(m.lot_purchase_date).strftime('%d.%m.%Y'):<12} "
+                    f"{m.cost_per_btc:>11,.2f} {ak:>10,.2f} {val:>13}"
+                )
+                g_btc += m.btc_used; g_ak += ak
+            if sr.unmatched_btc > 0:
+                lines.append(
+                    f"  {de_date(tx.date).strftime('%d.%m.%Y'):<12} {_src_label(tx.source):<14} "
+                    f"{sr.unmatched_btc:>12.8f} {'unbekannt':<12} {'—':>11} {'—':>10} {'—':>13}  UNGEKLÄRT"
+                )
+                g_btc += sr.unmatched_btc
+        blank()
+        lines.append(f"  Übertragen gesamt:          {_btc(g_btc):>20}")
+        lines.append(f"  Anschaffungskosten gesamt:  {_eur(g_ak):>20}")
+        blank()
+        sep("-")
+
+    # =========================================================
     # ALLE KÄUFE IM BERICHTSJAHR (Vollständigkeitsnachweis)
     # =========================================================
     blank()
@@ -330,6 +487,27 @@ def generate_tax_free_proof(
         "nach den vorgenannten Vorschriften, nicht eine Anzahl von Tagen."
     )
     blank()
+    lines.append("  Gebühren in Bitcoin:")
+    para(
+        "    In Bitcoin entrichtete Netzwerk- und Auszahlungsgebühren werden als "
+        "Veräußerung des Gebührenanteils behandelt (Tausch gegen eine Dienstleistung, "
+        "BMF-Schreiben vom 06.03.2025, Rn. 33, 54, 60). Veräußerungserlös ist der "
+        "Marktkurs der hingegebenen Einheiten; angesetzt wird einheitlich der "
+        f"{btc_prices.SOURCE_LABEL} am Kalendertag der Transaktion (Rn. 43, 91). "
+        "In Euro entrichtete Handelsgebühren sind Anschaffungsnebenkosten bzw. "
+        "Werbungskosten der jeweiligen Transaktion (Rn. 59)."
+    )
+    blank()
+    lines.append("  Unentgeltliche Übertragungen:")
+    para(
+        "    Übertragungen ohne Gegenleistung (Schenkung, Spende) sind keine "
+        "Veräußerung (§ 23 Abs. 1 Satz 1 Nr. 2 EStG setzt eine entgeltliche "
+        "Übertragung voraus). Die übertragenen Einheiten scheiden nach FiFo aus dem "
+        "Bestand aus; ihre Anschaffungsdaten sind ausgewiesen (§ 23 Abs. 1 Satz 3 "
+        "EStG). Die Einstufung erfolgt anhand der Notiz in der Wallet-Software "
+        "(Stichwort Schenkung/Spende)."
+    )
+    blank()
     lines.append("  Datenquellen:")
     sources = set(t.source for t in kyc_transactions)
     bitbox_wallets = sorted(s.replace("bitbox:", "") for s in sources if s.startswith("bitbox:"))
@@ -359,13 +537,17 @@ def generate_tax_free_proof(
     lines.append(f"    Käufe:              {type_counts.get(TxType.BUY, 0):>5}")
     lines.append(f"    Verkäufe:           {type_counts.get(TxType.SELL, 0):>5}")
     lines.append(f"    Überträge (eigene): {type_counts.get(TxType.TRANSFER_IN, 0) + type_counts.get(TxType.TRANSFER_OUT, 0):>5}")
+    if type_counts.get(TxType.GIFT_OUT):
+        lines.append(f"    Unentgeltl. Übertr.:{type_counts.get(TxType.GIFT_OUT, 0):>5}")
     lines.append(f"    Gesamt:             {len(kyc_transactions):>5}")
     blank()
     para(
         "Hinweis: Überträge zwischen eigenen Wallets und Konten (BitBox ↔ Broker) "
-        "stellen keine steuerpflichtigen Vorgänge dar und fließen nicht in die "
-        "Gewinnberechnung ein. Sie dienen lediglich der lückenlosen Dokumentation "
-        "aller Bewegungen."
+        "stellen hinsichtlich des übertragenen Bestands keine steuerpflichtigen "
+        "Vorgänge dar und fließen insoweit nicht in die Gewinnberechnung ein. "
+        "Lediglich eine dabei in Bitcoin entrichtete Gebühr wird als Veräußerung "
+        "des Gebührenanteils erfasst (siehe oben). Die Überträge dienen im Übrigen "
+        "der lückenlosen Dokumentation aller Bewegungen."
     )
     blank()
     sep()

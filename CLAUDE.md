@@ -12,15 +12,23 @@ mehrere Broker. Die BitBox-CSVs dokumentieren die Überträge zwischen Wallets u
 ## Steuerrechtliche Grundlagen (Deutschland, Privatanleger)
 
 - **Methode:** FiFo (First In, First Out) — älteste Lots zuerst verbrauchen
-- **Haltefrist:** Gewinne aus BTC-Veräußerungen nach > 365 Tagen Haltedauer sind **steuerfrei**
+- **Haltefrist:** Gewinne aus BTC-Veräußerungen sind **steuerfrei**, wenn zwischen Anschaffung
+  und Veräußerung mehr als ein Jahr liegt (§ 23 Abs. 1 S. 1 Nr. 2 EStG, §§ 187 Abs. 1, 188 Abs. 2 BGB)
 - **Freigrenze private Veräußerungsgeschäfte:**
   - bis einschließlich 2023: **600 EUR** pro Jahr
   - ab 2024: **1.000 EUR** pro Jahr
   - Bei Überschreitung: der **gesamte** steuerpflichtige Gewinn ist zu versteuern
 - **Anschaffungskosten eines Lots:** `(eur_kaufpreis + kaufgebühren_eur) / btc_menge`
 - **Veräußerungserlös:** `eur_verkaufspreis - verkaufsgebühren_eur`
-- **Überträge zwischen eigenen Wallets/Konten:** kein steuerpflichtiger Vorgang
-- **On-Chain-Fees bei Überträgen zwischen eigenen Wallets:** steuerlich neutral
+- **Überträge zwischen eigenen Wallets/Konten:** der übertragene Bestand ist kein steuerpflichtiger Vorgang
+- **In BTC entrichtete Gebühren (On-Chain-Fee, Auszahlungsgebühr, Bisq-Handelsgebühr):**
+  Veräußerung des Gebührenanteils zum Tagesschlusskurs (BMF 06.03.2025 Rn. 33/54/60/91),
+  FiFo-Lot wird verbraucht, Gewinn zählt in die Freigrenze (H8, 15.08.2026). Kurs aus
+  `src/data/btc_eur_daily.csv` (Bitstamp, offline; `tools/update_btc_prices.py`).
+  Ohne Kurs: Abgang gebucht, Gewinn „nicht ermittelt" + Warnung — nie stillschweigend.
+- **Schenkung/Spende (`GIFT_OUT`):** keine Veräußerung, aber Bestandsabgang; Erkennung am
+  Wort in der BitBox-Notiz (`bitbox.is_gift_note`), Report weist Anschaffungsdaten aus
+  (§ 23 Abs. 1 S. 3 EStG). `sent_to_yourself` mit Gebühr → TRANSFER_OUT mit Menge 0, nur Fee.
 - **Sonstige Kryptowährungen (ETH etc.):** werden ignoriert — nur BTC relevant
 
 ---
@@ -51,7 +59,9 @@ fee_asset,fee_amount,transaction_type,note,linked_transaction
 - `transaction_date`: Format `DD.MM.YYYY HH:MM:SS`
 - Relevante `transaction_type`-Werte:
   - `trade` mit `buy_asset=BTC`: BTC-Kauf — `buy_amount` = BTC, `sell_amount` = EUR, `fee_amount` = EUR
-  - `withdrawal` mit `sell_asset=BTC`: BTC-Auszahlung an eigene Wallet — `sell_amount` = BTC inkl. Netzwerkgebühr
+  - `withdrawal` mit `sell_asset=BTC`: BTC-Auszahlung an eigene Wallet — `sell_amount` = BTC, die
+    ankommen; `fee_amount` (BTC) kommt OBENDRAUF (15.08.2026 gegen BitBox-`received` geprüft:
+    41 von 52 Auszahlungen treffen exakt `sell_amount`, keine `sell_amount − fee`) → `fee_btc`
   - `deposit`: EUR-Einzahlung — irrelevant für Steuer
 - EUR-Kaufpreis ist direkt vorhanden (`sell_amount` = EUR bezahlt, `buy_amount` = BTC erhalten)
 
@@ -211,6 +221,7 @@ class TxType(Enum):
     SELL           = "sell"          # BTC-Verkauf bei Broker
     TRANSFER_OUT   = "transfer_out"  # Übertrag von Broker/Wallet zu eigener Wallet
     TRANSFER_IN    = "transfer_in"   # Empfang von Broker/Wallet auf eigener Wallet
+    GIFT_OUT       = "gift_out"      # unentgeltliche Übertragung (Schenkung/Spende)
 
 @dataclass
 class Transaction:
@@ -220,6 +231,7 @@ class Transaction:
     eur_amount: Decimal       # Kaufpreis oder Verkaufserlös (vor Gebühren), 0 bei Transfer
     eur_price_per_btc: Decimal  # 0 bei Transfer
     fee_eur: Decimal          # Gebühren in EUR (0 wenn nicht bekannt)
+    fee_btc: Decimal          # in BTC entrichtete Gebühr — verlässt den Bestand zusätzlich (H8)
     source: str               # z.B. "21bitcoin", "bison", "bitbox:wallet1"
     tx_id: str                # On-Chain TX-ID oder Broker-interne ID
     note: str
@@ -251,7 +263,11 @@ class Lot:
      Korrekt auch in Schaltjahren — nicht einfach `> 365 Tage`.
    - `gain = (net_sell_price_per_btc - lot.cost_per_btc) * used_btc_amount`
    - `net_sell_price_per_btc = (eur_amount - fee_eur) / total_btc_sold`
-5. `TRANSFER_OUT` / `TRANSFER_IN`: keine Lot-Änderung (Kostenbasis bleibt)
+5. `TRANSFER_OUT` / `TRANSFER_IN`: keine Lot-Änderung für den übertragenen Bestand (Kostenbasis bleibt)
+6. `fee_btc > 0` (jeder Typ): Gebühren-Abgang über `_consume(kind=FEE)` zum Tagesschlusskurs
+   (`btc_prices.price_for_date(de_date)`), Ergebnis in `engine.fee_results` — Gewinne zählen
+   in Jahressumme + Freigrenze; ohne Kurs `is_priced=False`, Gewinn 0 + Warnung
+7. `GIFT_OUT`: `_consume(kind=GIFT)`, Gewinn je Match 0, Ergebnis in `engine.gift_results`
 
 ---
 

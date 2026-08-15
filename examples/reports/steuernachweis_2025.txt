@@ -2,7 +2,7 @@
 
                 NACHWEIS STEUERFREIER BITCOIN-VERÄUSSERUNGEN                
 
-                              Steuerjahr 2022                               
+                              Steuerjahr 2025                               
 
       Privatveräußerungsgeschäfte gemäß § 23 Abs. 1 Satz 1 Nr. 2 EStG       
 
@@ -12,20 +12,20 @@
   Berechnungsmethode: First In, First Out (FiFo)
   Veräußerungsfrist:  ein Jahr (§ 23 Abs. 1 Satz 1 Nr. 2 EStG i.V.m.
                       §§ 187 Abs. 1, 188 Abs. 2 BGB)
-  Freigrenze 2022:    600,00 EUR
+  Freigrenze 2025:    1.000,00 EUR
 
 ============================================================================
   ERGEBNIS
 ============================================================================
 
-Im Steuerjahr 2022 wurden 0 Bitcoin-Veräußerung(en) mit einem Gesamterlös
+Im Steuerjahr 2025 wurden 0 Bitcoin-Veräußerung(en) mit einem Gesamterlös
 von 0,00 EUR durchgeführt.
 
-Im Steuerjahr 2022 wurden keine Bitcoin-Veräußerungen getätigt. Es liegt
+Im Steuerjahr 2025 wurden keine Bitcoin-Veräußerungen getätigt. Es liegt
 kein privates Veräußerungsgeschäft gemäß § 23 EStG vor.
 
-  Steuerpflichtiger Gewinn 2022:    0,00 EUR
-  Steuerfreier Gewinn 2022:         0,00 EUR
+  Steuerpflichtiger Gewinn 2025:    0,00 EUR
+  Steuerfreier Gewinn 2025:         0,00 EUR
   In Anlage SO anzugeben:           NEIN (keine Veräußerung,
                                     sofern keine weiteren privaten
                                     Veräußerungsgeschäfte vorliegen)
@@ -35,18 +35,17 @@ kein privates Veräußerungsgeschäft gemäß § 23 EStG vor.
 ============================================================================
 
 ============================================================================
-  ANSCHAFFUNGEN 2022 (nicht steuerpflichtig — zur Vollständigkeit)
+  ANSCHAFFUNGEN 2025 (nicht steuerpflichtig — zur Vollständigkeit)
 ============================================================================
 
-Die folgenden Anschaffungen wurden im Jahr 2022 getätigt. Sie begründen neue
+Die folgenden Anschaffungen wurden im Jahr 2025 getätigt. Sie begründen neue
 Veräußerungsfristen und sind erst nach Ablauf eines Jahres steuerfrei
 veräußerbar.
 
   Datum        Plattform           Menge BTC   Kurs EUR/BTC     Gebühr     Einstand
   ──────────── ────────────── ────────────── ────────────── ────────── ────────────
-  01.05.2022   21bitcoin          0.01000000      30,000.00       3.00       303.00
 
-  SUMME                            0.01000000                                 303.00
+  SUMME                            0.00000000                                   0.00
 
 ============================================================================
   METHODIK UND DATENQUELLEN

@@ -8,9 +8,10 @@
 
 ============================================================================
 
-  Erstellt am:        05.06.2026
+  Erstellt am:        15.08.2026
   Berechnungsmethode: First In, First Out (FiFo)
-  Haltefrist:         365 Tage (§ 23 Abs. 1 Satz 1 Nr. 2 EStG)
+  Veräußerungsfrist:  ein Jahr (§ 23 Abs. 1 Satz 1 Nr. 2 EStG i.V.m.
+                      §§ 187 Abs. 1, 188 Abs. 2 BGB)
   Freigrenze 2024:    1.000,00 EUR
 
 ============================================================================
@@ -20,13 +21,20 @@
 Im Steuerjahr 2024 wurden 3 Bitcoin-Veräußerung(en) mit einem Gesamterlös
 von 785,00 EUR durchgeführt.
 
-ALLE Veräußerungen sind gemäß § 23 Abs. 1 Satz 1 Nr. 2 EStG STEUERFREI, da
-die veräußerten Bitcoin-Einheiten jeweils länger als 365 Tage gehalten
-wurden (Haltedauer > 1 Jahr).
+Daneben wurden 4 in Bitcoin entrichtete Netzwerk- bzw. Auszahlungsgebühren
+über insgesamt 0.00001160 BTC als Veräußerung des jeweiligen Gebührenanteils
+erfasst (Tausch gegen eine Dienstleistung, BMF-Schreiben vom 06.03.2025, Rn.
+54, 60); Veräußerungserlös zum Tageskurs insgesamt 0,81 EUR. Die daraus
+resultierenden Gewinne bzw. Verluste sind in den nachfolgenden Summen
+enthalten.
 
-  Steuerpflichtiger Gewinn 2024:    0,00 EUR
-  Steuerfreier Gewinn 2024:         428,39 EUR
-  In Anlage SO anzugeben:           NEIN (kein steuerpflichtiger Vorgang)
+Ferner wurden 1 unentgeltliche Übertragung(en) über insgesamt 0.00050000 BTC
+(Schenkung/Spende) erfasst. Sie sind keine Veräußerung im Sinne des § 23
+EStG und in den Gewinnsummen nicht enthalten; sie vermindern den Bestand
+(Einzelheiten unten).
+
+  Steuerpflichtiger Gewinn 2024:    0,19 EUR
+  Steuerfreier Gewinn 2024:         428,31 EUR
 
 ============================================================================
   DETAILNACHWEIS DER VERÄUSSERUNGEN
@@ -41,16 +49,16 @@ wurden (Haltedauer > 1 Jahr).
   Kurs zum Verkauf:   65.000,00 EUR / BTC
 
   FiFo-Zuordnung (Anschaffungsgeschäfte):
-  Nr.  Anschaffung  Quelle              Menge BTC   Kurs EUR/BTC   Tage Status      
+  Nr.  Anschaffung  Quelle              Menge BTC   Kurs EUR/BTC  Tage* Status      
   ──── ──────────── ────────────── ────────────── ────────────── ────── ────────────
   1    01.05.2022   21bitcoin          0.00500000      30,300.00    775 STEUERFREI  
 
   Gewinn gesamt:                      173,50 EUR
-  davon steuerfrei (>365d):           173,50 EUR
+  davon steuerfrei (>1 Jahr):         173,50 EUR
   davon steuerpflichtig:                0,00 EUR
 
   → Diese Veräußerung ist vollständig STEUERFREI.
-    Alle veräußerten Einheiten wurden vor mehr als 365 Tagen erworben.
+    Alle veräußerten Einheiten wurden vor mehr als einem Jahr erworben.
 
 ----------------------------------------------------------------------------
 
@@ -63,16 +71,16 @@ wurden (Haltedauer > 1 Jahr).
   Kurs zum Verkauf:   65.000,00 EUR / BTC
 
   FiFo-Zuordnung (Anschaffungsgeschäfte):
-  Nr.  Anschaffung  Quelle              Menge BTC   Kurs EUR/BTC   Tage Status      
+  Nr.  Anschaffung  Quelle              Menge BTC   Kurs EUR/BTC  Tage* Status      
   ──── ──────────── ────────────── ────────────── ────────────── ────── ────────────
   1    01.05.2022   21bitcoin          0.00400000      30,300.00    853 STEUERFREI  
 
   Gewinn gesamt:                      138,80 EUR
-  davon steuerfrei (>365d):           138,80 EUR
+  davon steuerfrei (>1 Jahr):         138,80 EUR
   davon steuerpflichtig:                0,00 EUR
 
   → Diese Veräußerung ist vollständig STEUERFREI.
-    Alle veräußerten Einheiten wurden vor mehr als 365 Tagen erworben.
+    Alle veräußerten Einheiten wurden vor mehr als einem Jahr erworben.
 
 ----------------------------------------------------------------------------
 
@@ -85,17 +93,66 @@ wurden (Haltedauer > 1 Jahr).
   Kurs zum Verkauf:   66.666,67 EUR / BTC
 
   FiFo-Zuordnung (Anschaffungsgeschäfte):
-  Nr.  Anschaffung  Quelle              Menge BTC   Kurs EUR/BTC   Tage Status      
+  Nr.  Anschaffung  Quelle              Menge BTC   Kurs EUR/BTC  Tage* Status      
   ──── ──────────── ────────────── ────────────── ────────────── ────── ────────────
-  1    01.05.2022   21bitcoin          0.00100000      30,300.00    897 STEUERFREI  
-  2    15.08.2023   swissquote         0.00200000      26,807.67    426 STEUERFREI  
+  1    01.05.2022   21bitcoin          0.00099300      30,300.00    897 STEUERFREI  
+  2    15.08.2023   swissquote         0.00200000      26,807.67    427 STEUERFREI  
+  3    01.03.2024   bison              0.00000700      60,000.00    227 PFLICHTIG   
 
-  Gewinn gesamt:                      116,09 EUR
-  davon steuerfrei (>365d):           116,09 EUR
-  davon steuerpflichtig:                0,00 EUR
+  Gewinn gesamt:                      115,88 EUR
+  davon steuerfrei (>1 Jahr):         115,83 EUR
+  davon steuerpflichtig:                0,05 EUR
 
-  → Diese Veräußerung ist vollständig STEUERFREI.
-    Alle veräußerten Einheiten wurden vor mehr als 365 Tagen erworben.
+----------------------------------------------------------------------------
+
+============================================================================
+  VERÄUSSERUNGEN DURCH GEBÜHRENZAHLUNG IN BITCOIN
+============================================================================
+
+Bei Überträgen zwischen eigenen Wallets sowie bei Auszahlungen vom
+Handelsplatz in die eigene Wallet wurden Netzwerk- bzw. Auszahlungsgebühren
+in Bitcoin entrichtet. Der übertragene Bestand selbst bleibt dabei
+steuerneutral (keine Veräußerung). Die Gebühr hingegen wird im Tausch für
+eine Dienstleistung hingegeben (Blockerstellung bzw. Auszahlung) und ist
+damit eine Veräußerung des Gebührenanteils; als Veräußerungserlös gilt der
+Marktkurs der hingegebenen Einheiten (BMF-Schreiben vom 06.03.2025, Rn. 33,
+54, 60). Bewertet wurde zum Tagesschlusskurs BTC/EUR der Handelsplattform
+Bitstamp am jeweiligen Kalendertag (Rn. 43, 91). Die FiFo-Zuordnung folgt
+derselben Methode wie bei den Verkäufen.
+
+  Datum        Quelle           Gebühr BTC  Kurs EUR/BTC Anschaffung   Einst./BTC  Tage*  Gewinn EUR Status    
+  ──────────── ────────────── ──────────── ───────────── ──────────── ─────────── ────── ─────────── ──────────
+  31.08.2024   BitBox-Wallet    0.00000400     53,396.00 01.05.2022     30,300.00    853       +0.09 STEUERFREI
+  14.10.2024   BitBox-Wallet    0.00000300     60,501.00 01.05.2022     30,300.00    896       +0.09 STEUERFREI
+  20.11.2024   BitBox-Wallet    0.00000210     89,222.00 01.03.2024     60,000.00    263       +0.06 PFLICHTIG 
+  20.12.2024   BitBox-Wallet    0.00000250     93,911.00 01.03.2024     60,000.00    294       +0.08 PFLICHTIG 
+
+  Gebühren gesamt:                  0.00001160 BTC
+  Veräußerungserlös gesamt:               0,81 EUR
+  davon Gewinn steuerfrei:                0,18 EUR
+  davon Gewinn steuerpflichtig:           0,14 EUR
+
+----------------------------------------------------------------------------
+
+============================================================================
+  UNENTGELTLICHE ÜBERTRAGUNGEN (Schenkung / Spende)
+============================================================================
+
+Die folgenden Übertragungen an Dritte erfolgten ohne Gegenleistung. Sie sind
+keine Veräußerung im Sinne des § 23 Abs. 1 Satz 1 Nr. 2 EStG, da es an einer
+entgeltlichen Übertragung fehlt (vgl. BMF-Schreiben vom 06.03.2025, Rn. 54),
+und lösen beim Übertragenden keinen Veräußerungsgewinn aus. Sie vermindern
+den Bestand. Für den Empfänger sind Anschaffungszeitpunkt und
+Anschaffungskosten des Übertragenden maßgeblich (§ 23 Abs. 1 Satz 3 EStG);
+beides ist deshalb je übertragener Einheit ausgewiesen. Der Wert zum
+Tageskurs ist eine nachrichtliche Angabe.
+
+  Datum        Quelle            Menge BTC Anschaffung   Einst./BTC   Einstand  Wert Tagesk.
+  ──────────── ────────────── ──────────── ──────────── ─────────── ────────── ─────────────
+  20.12.2024   BitBox-Wallet    0.00050000 01.03.2024     60,000.00      30.00         46.96
+
+  Übertragen gesamt:                0.00050000 BTC
+  Anschaffungskosten gesamt:             30,00 EUR
 
 ----------------------------------------------------------------------------
 
@@ -104,15 +161,17 @@ wurden (Haltedauer > 1 Jahr).
 ============================================================================
 
 Die folgenden Anschaffungen wurden im Jahr 2024 getätigt. Sie begründen neue
-Haltefristen und sind erst nach Ablauf von 365 Tagen steuerfrei veräußerbar.
+Veräußerungsfristen und sind erst nach Ablauf eines Jahres steuerfrei
+veräußerbar.
 
   Datum        Plattform           Menge BTC   Kurs EUR/BTC     Gebühr     Einstand
   ──────────── ────────────── ────────────── ────────────── ────────── ────────────
   01.03.2024   bison              0.00500000      60,000.00       0.00       300.00
   15.03.2024   strike             0.00300000      63,000.00       1.89       190.89
   01.06.2024   pocket             0.00100000      65,000.00       0.00        65.00
+  01.12.2024   manual             0.00200000      95,000.00       0.00       190.00
 
-  SUMME                            0.00900000                                 555.89
+  SUMME                            0.01100000                                 745.89
 
 ============================================================================
   METHODIK UND DATENQUELLEN
@@ -121,12 +180,40 @@ Haltefristen und sind erst nach Ablauf von 365 Tagen steuerfrei veräußerbar.
   Berechnungsmethode:
 Die Berechnung erfolgt nach der FiFo-Methode (First In, First Out). Die
 zuerst erworbenen Bitcoin-Einheiten werden bei einer Veräußerung zuerst als
-veräußert betrachtet. Maßgeblich für die Haltefrist ist § 23 Abs. 1 Satz 1
-Nr. 2 EStG: Gewinne aus der Veräußerung von Kryptowährungen sind steuerfrei,
-wenn zwischen Anschaffung und Veräußerung mehr als ein Jahr liegt.
+veräußert betrachtet. Maßgeblich für die Veräußerungsfrist ist § 23 Abs. 1
+Satz 1 Nr. 2 EStG: Gewinne aus der Veräußerung von Kryptowährungen sind
+steuerfrei, wenn zwischen Anschaffung und Veräußerung mehr als ein Jahr
+liegt.
+
+Die Jahresfrist wird nach §§ 187 Abs. 1, 188 Abs. 2 BGB berechnet: der Tag
+der Anschaffung zählt nicht mit, die Frist endet mit Ablauf des Tages des
+Folgejahres, der dem Anschaffungstag durch seine Zahl entspricht. Steuerfrei
+ist erst eine Veräußerung nach diesem Tag.
+
+* Die Spalte "Tage" in der FiFo-Zuordnung ist eine nachrichtliche Angabe zur
+Orientierung. Rechtlich maßgeblich ist der Kalendervergleich nach den
+vorgenannten Vorschriften, nicht eine Anzahl von Tagen.
+
+  Gebühren in Bitcoin:
+In Bitcoin entrichtete Netzwerk- und Auszahlungsgebühren werden als
+Veräußerung des Gebührenanteils behandelt (Tausch gegen eine Dienstleistung,
+BMF-Schreiben vom 06.03.2025, Rn. 33, 54, 60). Veräußerungserlös ist der
+Marktkurs der hingegebenen Einheiten; angesetzt wird einheitlich der
+Tagesschlusskurs BTC/EUR der Handelsplattform Bitstamp am Kalendertag der
+Transaktion (Rn. 43, 91). In Euro entrichtete Handelsgebühren sind
+Anschaffungsnebenkosten bzw. Werbungskosten der jeweiligen Transaktion (Rn.
+59).
+
+  Unentgeltliche Übertragungen:
+Übertragungen ohne Gegenleistung (Schenkung, Spende) sind keine Veräußerung
+(§ 23 Abs. 1 Satz 1 Nr. 2 EStG setzt eine entgeltliche Übertragung voraus).
+Die übertragenen Einheiten scheiden nach FiFo aus dem Bestand aus; ihre
+Anschaffungsdaten sind ausgewiesen (§ 23 Abs. 1 Satz 3 EStG). Die Einstufung
+erfolgt anhand der Notiz in der Wallet-Software (Stichwort
+Schenkung/Spende).
 
   Datenquellen:
-    - BitBox Hardware Wallet CSV-Exporte (1 Wallet: wallet1)
+    - BitBox Hardware Wallet CSV-Exporte (1 Wallet)
     - 21bitcoin Broker CSV-Export
     - Bison Broker CSV-Export
     - Swissquote Broker CSV-Export
@@ -134,15 +221,18 @@ wenn zwischen Anschaffung und Veräußerung mehr als ein Jahr liegt.
     - Pocket Broker CSV-Export
     - Manuell (P2P) Broker CSV-Export
 
-  Verarbeitete Transaktionen gesamt (ohne noKYC-Käufe):
-    Käufe:                  5
+  Verarbeitete Transaktionen gesamt:
+    Käufe:                  6
     Verkäufe:               3
-    Überträge (eigene):     9
-    Gesamt:                17
+    Überträge (eigene):    10
+    Unentgeltl. Übertr.:    1
+    Gesamt:                20
 
 Hinweis: Überträge zwischen eigenen Wallets und Konten (BitBox ↔ Broker)
-stellen keine steuerpflichtigen Vorgänge dar und fließen nicht in die
-Gewinnberechnung ein. Sie dienen lediglich der lückenlosen Dokumentation
-aller Bewegungen.
+stellen hinsichtlich des übertragenen Bestands keine steuerpflichtigen
+Vorgänge dar und fließen insoweit nicht in die Gewinnberechnung ein.
+Lediglich eine dabei in Bitcoin entrichtete Gebühr wird als Veräußerung des
+Gebührenanteils erfasst (siehe oben). Die Überträge dienen im Übrigen der
+lückenlosen Dokumentation aller Bewegungen.
 
 ============================================================================
