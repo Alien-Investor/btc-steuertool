@@ -308,8 +308,15 @@ def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir
     # Vertraulichkeit: Warnungen zu noKYC-Vorgängen dürfen NICHT in die
     # Dokumente für Steuerberater/Finanzamt. Sie nennen Dateinamen, Daten,
     # Mengen und teils das Wort "noKYC" selbst.
-    internal_warnings = [w for w in all_warnings if getattr(w, "internal", False)]
-    official_warnings = [w for w in all_warnings if not getattr(w, "internal", False)]
+    # Fail closed (H4): eine Warnung ohne Klassifizierung — etwa ein blanker str,
+    # den ein künftiger Erzeuger anhängt — gilt als INTERN. `getattr(w, "internal",
+    # False)` hätte sie stillschweigend ins Finanzamt-Dokument gelassen; der
+    # Standardwert entschied damit in die gefährliche Richtung.
+    def _is_internal(w) -> bool:
+        return getattr(w, "internal", True)
+
+    internal_warnings = [w for w in all_warnings if _is_internal(w)]
+    official_warnings = [w for w in all_warnings if not _is_internal(w)]
     # KEIN Zähl-Hinweis mehr im offiziellen Kanal: jeder Erzeuger einer internen
     # Warnung setzt noKYC-Daten voraus, die Zeile war also ein Ein-Weg-Indikator.
     # Schwerer wog, dass sie unter "WICHTIGE HINWEISE — BITTE VOR VERWENDUNG

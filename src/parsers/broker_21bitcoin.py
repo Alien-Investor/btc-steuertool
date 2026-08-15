@@ -74,6 +74,17 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
         # BTC-Auszahlung an eigene Wallet
         sell_asset = row.get("sell_asset", "").strip().upper()
         if sell_asset != "BTC":
+            # EUR/CHF-Auszahlungen sind bekannt irrelevant und bleiben stumm.
+            # Alles andere melden: benennt 21bitcoin die Spalte je um, liefert
+            # row.get() "" und JEDE Auszahlung verschwaende sonst lautlos,
+            # waehrend die trade-Zweige weiter warnen (SA2-11).
+            if sell_asset not in ("EUR", "CHF"):
+                warn_fmt(
+                    "{file}: Auszahlung am {tag} mit sell_asset='{asset}' nicht "
+                    "verarbeitet — erwartet wird BTC.",
+                    file=FileRef(filename), tag=date.date(), asset=sell_asset,
+                    year=date.year,
+                )
             return None
 
         btc_amount = Decimal(row["sell_amount"].strip())
@@ -91,7 +102,20 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
             note=note,
         )
 
-    # deposit (EUR-Einzahlung) ist bekannt irrelevant — alles Unbekannte melden
+    # deposit: die Kommentar-Annahme "ist immer EUR" wurde nie geprueft — eine
+    # BTC-Einzahlung verschwand damit, waehrend die passende Auszahlung gebucht
+    # wurde (SA2-11). EUR/CHF bleiben bekannt irrelevant und stumm.
+    if tx_type_raw == "deposit":
+        buy_asset = row.get("buy_asset", "").strip().upper()
+        if buy_asset not in ("EUR", "CHF"):
+            warn_fmt(
+                "{file}: Einzahlung am {tag} mit buy_asset='{asset}' nicht "
+                "verarbeitet — erwartet wird EUR.",
+                file=FileRef(filename), tag=date.date(), asset=buy_asset,
+                year=date.year,
+            )
+        return None
+
     if tx_type_raw != "deposit":
         warn_fmt(
             "{file}: unbekannter Transaktionstyp '{typ}' am {tag} nicht verarbeitet.",

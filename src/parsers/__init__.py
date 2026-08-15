@@ -154,6 +154,27 @@ def warn(msg: str, internal: bool = False, year: int | None = None) -> None:
     parser_warnings.append(ParserWarning(_sanitize(msg), internal, year=year))
 
 
+# Länge, ab der ein EINGESETZTER Wert gekappt wird (H2). _MAX_WARNING_LEN kappt
+# erst die fertige Meldung — eine überlange CSV-Zelle könnte bis dahin unseren
+# eigenen Text hinausdrängen. Hier wird der Wert gekappt, nicht die Meldung.
+_MAX_CELL_LEN = 80
+
+
+def _cell(value) -> str:
+    text = str(value)
+    return text if len(text) <= _MAX_CELL_LEN else text[: _MAX_CELL_LEN - 1] + "…"
+
+
+def make_warning(msg: str, internal: bool = False, year: int | None = None) -> ParserWarning:
+    """Sanitisierte ParserWarning für Erzeuger außerhalb der Parser (H3).
+
+    `fifo_engine` sammelt eigene Warnungen und baute `ParserWarning` bisher direkt —
+    damit lief es an `_sanitize()` vorbei und widersprach der Zusage dieses Moduls,
+    dass es genau einen Choke-Point gibt.
+    """
+    return ParserWarning(_sanitize(msg), internal, year=year)
+
+
 def warn_fmt(template: str, internal: bool = False, year: int | None = None, **values) -> None:
     """Wie warn(), aber FileRef-Werte werden im offiziellen Kanal neutralisiert.
 
@@ -162,9 +183,11 @@ def warn_fmt(template: str, internal: bool = False, year: int | None = None, **v
     was kein FileRef ist, bleibt in beiden Fassungen identisch — unsere eigenen
     Textbausteine werden also nie angetastet.
     """
-    public = {k: (v.placeholder if isinstance(v, FileRef) else v) for k, v in values.items()}
+    full = {k: _cell(v) for k, v in values.items()}
+    public = {k: _cell(v.placeholder if isinstance(v, FileRef) else v)
+              for k, v in values.items()}
     parser_warnings.append(ParserWarning(
-        _sanitize(template.format(**values)),
+        _sanitize(template.format(**full)),
         internal,
         msg_public=_sanitize(template.format(**public)),
         year=year,

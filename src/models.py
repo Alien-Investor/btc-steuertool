@@ -51,6 +51,15 @@ class Transaction:
                 object.__setattr__(self, f, Decimal(str(val)))
         # Negative Beträge hart ablehnen — ein Vorzeichen-Tippfehler (z.B. in
         # manual_buys.csv) würde sonst die FiFo-Kette lautlos korrumpieren
+        # Infinity und NaN passieren jeden Vorzeichentest (Infinity < 0 ist False)
+        # und würden die FiFo-Kette verseuchen, statt laut zu scheitern (H9).
+        for f in ("btc_amount", "eur_amount", "eur_price_per_btc", "fee_eur"):
+            val = getattr(self, f)
+            if not val.is_finite():
+                raise ValueError(
+                    f"{self.source}: unendlicher oder undefinierter Wert bei {f} "
+                    f"({val}) — bitte den Betrag in der CSV korrigieren."
+                )
         if self.type in (TxType.BUY, TxType.SELL):
             if self.btc_amount < 0 or self.eur_amount < 0 or self.fee_eur < 0:
                 raise ValueError(

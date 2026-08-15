@@ -13,7 +13,7 @@ from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
 from .models import Transaction, TxType, Lot, DisposalMatch, SellResult, de_date
-from .parsers import ParserWarning
+from .parsers import make_warning
 
 CENT = Decimal("0.01")
 
@@ -45,7 +45,7 @@ class FifoEngine:
         self.lots: deque[Lot] = deque()        # KYC-Pool
         self.nokyc_lots: deque[Lot] = deque()  # noKYC-Pool (strikt getrennt)
         self.sell_results: list[SellResult] = []
-        self.warnings: list[str] = []
+        self.warnings: list = []  # ParserWarning, nicht str (H4)
 
     # Bei identischem Zeitstempel zuerst Käufe, dann Verkäufe. manual_buys /
     # manual_sales stempeln beide exakt 12:00 UTC — ohne diesen Tiebreak liefe
@@ -96,12 +96,13 @@ class FifoEngine:
                 # pool_label NICHT in die Meldung: bei noKYC-Verkäufen ginge das
                 # Wort "noKYC" sonst in steuerreport/steuernachweis ans Finanzamt.
                 # Stattdessen internal=True → nur interner Report + GUI-Log.
-                self.warnings.append(ParserWarning(
+                self.warnings.append(make_warning(
                     f"WARNUNG: Verkauf am {de_date(tx.date)} über {remaining:.8f} BTC "
                     f"kann nicht vollständig FiFo-Lots zugeordnet werden. "
                     f"Fehlende Menge: {remaining:.8f} BTC. "
                     f"Prüfe ob alle Käufe in den CSV-Dateien vorhanden sind.",
                     internal=tx.no_kyc,
+                    year=de_date(tx.date).year,
                 ))
                 break
 
