@@ -43,6 +43,22 @@ def _find(directory: Path, pattern: str) -> list[Path]:
     )
 
 
+def _find_dir(parent: Path, name: str) -> Path | None:
+    """Unterverzeichnis case-insensitiv suchen (SA2-04).
+
+    `bitbox/NoKYC/` wurde sonst gar nicht gefunden: die noKYC-Wallets fielen
+    komplett aus dem Lauf, ohne ein Wort. Und läge derselbe Ordner unter einem
+    Namen, den `bitbox.py` nicht als noKYC erkennt, gingen die Bewegungen in
+    die Finanzamt-Dokumente — der Fehler zeigt also Richtung Offenlegung.
+    """
+    if not parent.exists():
+        return None
+    for p in sorted(parent.iterdir(), key=lambda p: p.name):
+        if p.is_dir() and p.name.lower() == name.lower():
+            return p
+    return None
+
+
 def _dedup_files(per_file: list[tuple[str, list]], label: str, internal: bool = False) -> list:
     """Erkennt identische Transaktionen über mehrere Export-Dateien desselben
     Brokers (überlappende Exporte, z.B. Jahres- + Gesamtexport) und zählt sie
@@ -75,23 +91,27 @@ def load_all_transactions(data_dir: Path):
     parsers.reset_warnings()
     transactions = []
 
-    # BitBox-Wallets (KYC)
+    # BitBox-Wallets (KYC) — _find statt glob: .CSV ist über die GUI erreichbar
+    # (TYPES.bitbox reicht den Original-Dateinamen durch), fiel aber aus dem Lauf
     bitbox_dir = data_dir / "bitbox"
+    nokyc_dir = _find_dir(bitbox_dir, "nokyc")
+    loaded_bitbox: set[Path] = set()
     if bitbox_dir.exists():
         per_file = []
-        for csv_file in sorted(bitbox_dir.glob("*.csv")):
+        for csv_file in _find(bitbox_dir, "*.csv"):
             txs = bitbox.parse(csv_file)
             per_file.append((csv_file.name, txs))
+            loaded_bitbox.add(csv_file)
             print(f"  BitBox {csv_file.stem}: {len(txs)} Transaktionen")
         transactions.extend(_dedup_files(per_file, "BitBox"))
 
-    # BitBox-Wallets (noKYC — bitbox/nokyc/*.csv)
-    nokyc_dir = data_dir / "bitbox" / "nokyc"
-    if nokyc_dir.exists():
+    # BitBox-Wallets (noKYC — bitbox/nokyc/*.csv, Ordnername case-insensitiv)
+    if nokyc_dir is not None:
         per_file = []
-        for csv_file in sorted(nokyc_dir.glob("*.csv")):
+        for csv_file in _find(nokyc_dir, "*.csv"):
             txs = bitbox.parse(csv_file)
             per_file.append((csv_file.name, txs))
+            loaded_bitbox.add(csv_file)
             print(f"  BitBox noKYC {csv_file.stem}: {len(txs)} Transaktionen")
         nokyc_txs = _dedup_files(per_file, "BitBox noKYC", internal=True)
         if nokyc_txs:
@@ -168,6 +188,31 @@ def load_all_transactions(data_dir: Path):
         p.name
         for p in btc21_files + bison_files + sq_files + strike_files + pocket_files + bisq_files
     }
+    # Pendant für bitbox/: bisher gab es hier gar keinen Auffang-Warner, also
+    # verschwand eine ganze Wallet lautlos (WALLET1.CSV, wallet1.txt, ein
+    # Unterordner bitbox/2024/). Rekursiv, damit auch Verschachteltes auffällt.
+    # Der Nachweis behauptet sonst eine zu kleine Wallet-Anzahl, und die
+    # GUI-Dateitabelle zeigt die Datei als akzeptiert an.
+    if bitbox_dir.exists():
+        for p in sorted(bitbox_dir.rglob("*"), key=lambda p: str(p)):
+            if not p.is_file() or p in loaded_bitbox:
+                continue
+            rel = p.relative_to(bitbox_dir)
+            # Versteckte Dateien und Ordner (.DS_Store, .git/, .claude/) sind nie
+            # Wallet-Exporte. Ohne diese Ausnahme steht in JEDEM Steuerreport eine
+            # Warnung über ein Werkzeug-Artefakt — und eine Warnung, die man
+            # gewohnheitsmäßig überliest, schützt niemanden mehr.
+            if any(part.startswith(".") for part in rel.parts):
+                continue
+            # Dateiname unterhalb von nokyc/ nennt ein noKYC-Wallet → nur intern
+            in_nokyc = nokyc_dir is not None and nokyc_dir in p.parents
+            parsers.warn(
+                f"bitbox/{rel}: Datei NICHT geladen — keine BitBox-CSV am erwarteten Ort. "
+                f"Erwartet werden CSV-Dateien direkt in bitbox/ bzw. bitbox/nokyc/. "
+                f"Bitte prüfen, ob hier ein Wallet-Export fehlt.",
+                internal=in_nokyc,
+            )
+
     for p in _find(broker_dir, "*.csv"):
         if p.name not in consumed:
             parsers.warn(

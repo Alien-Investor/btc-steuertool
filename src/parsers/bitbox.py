@@ -17,7 +17,9 @@ def parse(filepath: Path) -> list[Transaction]:
     """
     wallet_name = filepath.stem  # z.B. "wallet1"
     source = f"bitbox:{wallet_name}"
-    no_kyc = filepath.parent.name == "nokyc"
+    # Case-insensitiv: ein Ordner 'NoKYC' oder 'NOKYC' wurde sonst als KYC
+    # behandelt — der Fehler geht Richtung Offenlegung (SA2-04).
+    no_kyc = filepath.parent.name.lower() == "nokyc"
     transactions = []
 
     with open(filepath, encoding="utf-8", newline="") as f:
