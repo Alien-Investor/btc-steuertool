@@ -29,12 +29,21 @@ from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, TxType
+from . import validate_header
+
+_KNOWN_COLUMNS = {"date", "btc_amount", "eur_amount", "note", "kyc"}
+# Die Schwesterdatei manual_sales.csv nutzt 'no_kyc' mit UMGEKEHRTER Bedeutung.
+_COLUMN_HINTS = {
+    "no_kyc": "hier heisst die Spalte 'kyc' und hat die UMGEKEHRTE Bedeutung: "
+              "kyc=ja bedeutet Kauf bei einem KYC-Broker",
+}
 
 
 def parse(filepath: Path) -> list[Transaction]:
     transactions = []
     with open(filepath, encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
+        validate_header(reader.fieldnames, _KNOWN_COLUMNS, "manual_buys.csv", _COLUMN_HINTS)
         for i, row in enumerate(reader, start=2):
             row = {k.strip(): v.strip() for k, v in row.items()}
             tx = _parse_row(row, i)

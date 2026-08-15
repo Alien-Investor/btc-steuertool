@@ -2,6 +2,8 @@
 """BTC Steuertool — CLI-Einstieg."""
 from __future__ import annotations
 import argparse
+import fnmatch
+import re
 import sys
 from pathlib import Path
 
@@ -17,6 +19,28 @@ from src.tax_report import TaxReport
 from src.formal_report import generate_tax_free_proof
 from src.models import TxType, de_date
 import src.fx_rates as fx_rates
+
+
+def _find(directory: Path, pattern: str) -> list[Path]:
+    """Case-insensitive Datei-Suche (SA2-07).
+
+    `Path.glob` ist auf Linux case-sensitiv: `bisq*.csv` findet `Bisq_2024.csv`
+    nicht, `Pocket*.csv` nicht `pocket_2025.csv`, und keiner der Globs findet
+    eine Datei mit Endung `.CSV` (Windows-Export, Android-Downloads). Betroffen
+    war jeder Broker-Glob — die Datei fiel aus dem FiFo-Pool, und beim
+    noKYC-Broker Bisq wäre sie zusätzlich in den offiziellen Report gerutscht.
+
+    Sortierung bewusst nach `p.name` (nicht kleingeschrieben), damit die
+    Reihenfolge — und damit die Dedup-Präzedenz in `_dedup_files` — dieselbe
+    bleibt wie beim vorherigen `sorted(directory.glob(...))`.
+    """
+    if not directory.exists():
+        return []
+    rx = re.compile(fnmatch.translate(pattern), re.IGNORECASE)
+    return sorted(
+        (p for p in directory.iterdir() if p.is_file() and rx.match(p.name)),
+        key=lambda p: p.name,
+    )
 
 
 def _dedup_files(per_file: list[tuple[str, list]], label: str, internal: bool = False) -> list:
@@ -74,43 +98,47 @@ def load_all_transactions(data_dir: Path):
             transactions.extend(nokyc_txs)
             print(f"  → {len(nokyc_txs)} noKYC-Wallet-Transaktionen (intern, nicht für Finanzamt)")
 
+    broker_dir = data_dir / "Broker"
+
     # Broker: 21bitcoin (Dateiname kann variieren, z.B. 21bitcoin-gesamt.csv oder 21bitcoin_name_gesamt.csv)
-    btc21_files = sorted((data_dir / "Broker").glob("21bitcoin*.csv"))
+    btc21_files = _find(broker_dir, "21bitcoin*.csv")
     if btc21_files:
         btc21_txs = _dedup_files([(bf.name, broker_21bitcoin.parse(bf)) for bf in btc21_files], "21bitcoin")
         transactions.extend(btc21_txs)
         print(f"  21bitcoin: {len(btc21_txs)} Transaktionen")
 
-    # Broker: Bison
-    bison_file = data_dir / "Broker" / "Bison-CSV-Gesamt.csv"
-    if bison_file.exists():
-        txs = broker_bison.parse(bison_file)
-        transactions.extend(txs)
-        print(f"  Bison: {len(txs)} Transaktionen")
+    # Broker: Bison — Liste statt fester Pfad, damit auch bison-csv-gesamt.csv
+    # oder Bison-CSV-Gesamt.CSV greift (und zwei Schreibweisen nebeneinander
+    # nicht stillschweigend auf eine reduziert werden)
+    bison_files = _find(broker_dir, "Bison-CSV-Gesamt.csv")
+    if bison_files:
+        bison_txs = _dedup_files([(bf.name, broker_bison.parse(bf)) for bf in bison_files], "Bison")
+        transactions.extend(bison_txs)
+        print(f"  Bison: {len(bison_txs)} Transaktionen")
 
     # Broker: Swissquote
-    sq_file = data_dir / "Broker" / "Swissquote_CSV-Gesamt.csv"
-    if sq_file.exists():
-        txs = broker_swissquote.parse(sq_file)
-        transactions.extend(txs)
-        print(f"  Swissquote: {len(txs)} Transaktionen")
+    sq_files = _find(broker_dir, "Swissquote_CSV-Gesamt.csv")
+    if sq_files:
+        sq_txs = _dedup_files([(sf.name, broker_swissquote.parse(sf)) for sf in sq_files], "Swissquote")
+        transactions.extend(sq_txs)
+        print(f"  Swissquote: {len(sq_txs)} Transaktionen")
 
     # Broker: Strike (mehrere CSV-Dateien möglich)
-    strike_files = sorted((data_dir / "Broker").glob("strike_*.csv"))
+    strike_files = _find(broker_dir, "strike_*.csv")
     if strike_files:
         strike_txs = _dedup_files([(sf.name, broker_strike.parse(sf)) for sf in strike_files], "Strike")
         transactions.extend(strike_txs)
         print(f"  Strike: {len(strike_txs)} Transaktionen ({len(strike_files)} Dateien)")
 
     # Broker: Pocket (mehrere CSV-Dateien möglich, z.B. Pocket_-_2025.csv)
-    pocket_files = sorted((data_dir / "Broker").glob("Pocket*.csv"))
+    pocket_files = _find(broker_dir, "Pocket*.csv")
     if pocket_files:
         pocket_txs = _dedup_files([(pf.name, broker_pocket.parse(pf)) for pf in pocket_files], "Pocket")
         transactions.extend(pocket_txs)
         print(f"  Pocket: {len(pocket_txs)} Transaktionen ({len(pocket_files)} Dateien)")
 
     # Broker: Bisq (noKYC P2P, mehrere CSV-Dateien möglich)
-    bisq_files = sorted((data_dir / "Broker").glob("bisq*.csv"))
+    bisq_files = _find(broker_dir, "bisq*.csv")
     if bisq_files:
         bisq_txs = _dedup_files([(bf.name, bisq.parse(bf)) for bf in bisq_files], "Bisq", internal=True)
         transactions.extend(bisq_txs)
@@ -136,9 +164,11 @@ def load_all_transactions(data_dir: Path):
     # Nicht zugeordnete CSVs im Broker-Ordner melden — CLI-Pendant zum GUI-Prinzip
     # "nicht erkannte Dateien sperren die Berechnung" (z.B. falsch benannte
     # Bison-/Swissquote-Datei oder ein Broker ohne Parser)
-    consumed = {p.name for p in btc21_files + strike_files + pocket_files + bisq_files}
-    consumed |= {bison_file.name, sq_file.name}
-    for p in sorted((data_dir / "Broker").glob("*.csv")):
+    consumed = {
+        p.name
+        for p in btc21_files + bison_files + sq_files + strike_files + pocket_files + bisq_files
+    }
+    for p in _find(broker_dir, "*.csv"):
         if p.name not in consumed:
             parsers.warn(
                 f"Broker/{p.name}: Datei keinem Parser zugeordnet — NICHT geladen. "

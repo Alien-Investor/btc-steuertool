@@ -118,3 +118,49 @@ def warn(msg: str, internal: bool = False) -> None:
 
 def reset_warnings() -> None:
     parser_warnings.clear()
+
+
+def validate_header(
+    fieldnames: list[str] | None,
+    known: set[str],
+    filename: str,
+    hints: dict[str, str] | None = None,
+) -> None:
+    """Unbekannte Spalten in den manuellen CSVs hart ablehnen (SA2-02).
+
+    `csv.DictReader` + `row.get(...)` ignoriert jede Spalte, die der Parser
+    nicht liest. Eine vertippte oder aus der Schwesterdatei abgeschriebene
+    Flag-Spalte fiele damit lautlos weg — und die beiden Flags haben
+    INVERTIERTE Bedeutung (`kyc` in manual_buys, `no_kyc` in manual_sales).
+    Wer `kyc=nein` in die Verkaufsdatei schreibt, meint "kein KYC", bekommt
+    aber einen KYC-Verkauf: der Vorgang landet im offiziellen Report UND
+    verbraucht ein fremdes FiFo-Lot. Beides bleibt ohne diese Prüfung stumm.
+
+    Harter Fehler statt Warnung — analog zum bestehenden Pflichtfeld-Fehler.
+    Bewusst wird die Schwester-Schreibweise NICHT stillschweigend akzeptiert:
+    dabei müsste der Parser die Polarität raten, und genau das ist der Fehler,
+    den diese Prüfung verhindern soll.
+    """
+    if fieldnames is None:
+        raise ValueError(f"{filename}: Datei hat keine Kopfzeile.")
+
+    seen = [f.strip() for f in fieldnames if f is not None and f.strip()]
+
+    missing = [c for c in ("date", "btc_amount", "eur_amount") if c not in seen]
+    if missing:
+        raise ValueError(
+            f"{filename}: Pflichtspalte(n) fehlen in der Kopfzeile: {', '.join(missing)}."
+        )
+
+    unknown = [f for f in seen if f not in known]
+    if unknown:
+        details = []
+        for col in unknown:
+            hint = (hints or {}).get(col.strip().lower())
+            details.append(f"'{col}'" + (f" ({hint})" if hint else ""))
+        raise ValueError(
+            f"{filename}: unbekannte Spalte(n) in der Kopfzeile: {'; '.join(details)}. "
+            f"Erlaubt sind: {', '.join(sorted(known))}. "
+            f"Bitte Kopfzeile korrigieren — eine unbekannte Spalte wird sonst "
+            f"kommentarlos ignoriert."
+        )
