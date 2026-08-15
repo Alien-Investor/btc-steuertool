@@ -144,8 +144,13 @@ class ParserWarning:
 parser_warnings: list[ParserWarning] = []
 
 
-def warn(msg: str, internal: bool = False, year: int | None = None) -> None:
+def warn(msg: str, *, internal: bool, year: int | None = None) -> None:
     """internal=True → nur interner noKYC-Report + GUI-Log, nie Finanzamt.
+
+    `internal` ist PFLICHT und hat bewusst keinen Standardwert (H1): der alte
+    Standard `False` hiess „sichtbar fuers Finanzamt", man bekam ihn also durchs
+    Vergessen. Genau daraus entstand SA2-06. Jetzt scheitert eine unklassifizierte
+    Warnung sofort mit TypeError, statt still im falschen Kanal zu landen.
 
     Sanitisiert hier am Choke-Point, nicht in den Senken: jede Warnung geht
     durch diese Funktion, die Senken (tax_report, formal_report, GUI-Log) sind
@@ -165,7 +170,7 @@ def _cell(value) -> str:
     return text if len(text) <= _MAX_CELL_LEN else text[: _MAX_CELL_LEN - 1] + "…"
 
 
-def make_warning(msg: str, internal: bool = False, year: int | None = None) -> ParserWarning:
+def make_warning(msg: str, *, internal: bool, year: int | None = None) -> ParserWarning:
     """Sanitisierte ParserWarning für Erzeuger außerhalb der Parser (H3).
 
     `fifo_engine` sammelt eigene Warnungen und baute `ParserWarning` bisher direkt —
@@ -175,7 +180,7 @@ def make_warning(msg: str, internal: bool = False, year: int | None = None) -> P
     return ParserWarning(_sanitize(msg), internal, year=year)
 
 
-def warn_fmt(template: str, internal: bool = False, year: int | None = None, **values) -> None:
+def warn_fmt(template: str, *, internal: bool, year: int | None = None, **values) -> None:
     """Wie warn(), aber FileRef-Werte werden im offiziellen Kanal neutralisiert.
 
     Die Vorlage wird zweimal gefüllt: einmal mit den echten Werten (interner

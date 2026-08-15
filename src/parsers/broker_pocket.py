@@ -57,7 +57,7 @@ def parse(filepath: Path) -> list[Transaction]:
         if len(candidates) > 1:
             warn(
                 f"{filepath.name}: mehrere deposit-Zeilen zur exchange-Zeile "
-                f"{exchange_ts} — Zuordnung nicht eindeutig, Trade NICHT verarbeitet."
+                f"{exchange_ts} — Zuordnung nicht eindeutig, Trade NICHT verarbeitet.", internal=False
             )
             continue
         deposit = candidates[0] if candidates else None
@@ -69,7 +69,7 @@ def parse(filepath: Path) -> list[Transaction]:
             tx = _parse_buy(row, deposit)
         else:
             # Nicht stillschweigend verwerfen — jede exchange-Zeile ist ein Trade
-            warn(f"{filepath.name}: exchange-Zeile am {row.get('date', '?')} mit cost.currency '{cost_currency}' nicht verarbeitet.")
+            warn(f"{filepath.name}: exchange-Zeile am {row.get('date', '?')} mit cost.currency '{cost_currency}' nicht verarbeitet.", internal=False)
             continue
 
         if tx:

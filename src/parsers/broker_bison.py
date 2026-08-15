@@ -37,7 +37,7 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
         if asset == "BTC":
             warn(
                 f"{filename}: {tx_type_raw or 'Zeile'} über "
-                f"{row.get('Asset (amount)', '?')} BTC ohne Datum — nicht verarbeitet."
+                f"{row.get('Asset (amount)', '?')} BTC ohne Datum — nicht verarbeitet.", internal=False
             )
         return None
     date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
@@ -111,7 +111,7 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
     # EUR-Ein-/Auszahlungen und andere Assets (ETH etc.) sind bekannt irrelevant —
     # unbekannte BTC-Zeilen aber melden (z.B. 'Withdraw' BTC oder neue Typen)
     if asset == "BTC":
-        warn(f"{filename}: Transaktionstyp '{tx_type_raw}' (BTC) am {date.date()} nicht verarbeitet.")
+        warn(f"{filename}: Transaktionstyp '{tx_type_raw}' (BTC) am {date.date()} nicht verarbeitet.", internal=False)
     return None
 
 

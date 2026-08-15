@@ -35,7 +35,7 @@ def parse(filepath: Path) -> list[Transaction]:
             if order_id:
                 orders[order_id].append(row)
             else:
-                warn(f"{filepath.name}: Kauf-Zeile vom {row.get('Datum', '?')} ohne Auftragsnummer nicht verarbeitet.")
+                warn(f"{filepath.name}: Kauf-Zeile vom {row.get('Datum', '?')} ohne Auftragsnummer nicht verarbeitet.", internal=False)
         elif tx_type in ("Crypto Withdrawal", "Crypto Deposit"):
             other_rows.append(row)
         elif tx_type == "Verkauf":
@@ -43,10 +43,10 @@ def parse(filepath: Path) -> list[Transaction]:
             warn(
                 f"{filepath.name}: BTC-Verkauf vom {row.get('Datum', '?')} wird vom "
                 f"Swissquote-Parser noch nicht unterstützt — bitte als manual_sales.csv "
-                f"erfassen, sonst ist der Report unvollständig."
+                f"erfassen, sonst ist der Report unvollständig.", internal=False
             )
         else:
-            warn(f"{filepath.name}: unbekannter Transaktionstyp '{tx_type}' vom {row.get('Datum', '?')} nicht verarbeitet.")
+            warn(f"{filepath.name}: unbekannter Transaktionstyp '{tx_type}' vom {row.get('Datum', '?')} nicht verarbeitet.", internal=False)
 
     transactions = []
 
@@ -87,7 +87,7 @@ def _merge_buy_rows(order_id: str, rows: list[dict], filename: str = "Swissquote
     if (max(dates) - min(dates)).days > 1:
         warn(
             f"{filename}: Order {order_id} enthält Zeilen von {min(dates).date()} "
-            f"bis {max(dates).date()} — nicht zusammengefasst, bitte prüfen."
+            f"bis {max(dates).date()} — nicht zusammengefasst, bitte prüfen.", internal=False
         )
         return None
     date = min(dates)

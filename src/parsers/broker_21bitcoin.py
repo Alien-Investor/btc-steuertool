@@ -44,12 +44,12 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
                     "{file}: BTC-Verkauf am {tag} wird vom 21bitcoin-Parser "
                     "noch nicht unterstützt — bitte als manual_sales.csv erfassen, "
                     "sonst ist der Report unvollständig.",
-                    file=FileRef(filename), tag=date.date(), year=date.year,
+                    file=FileRef(filename), tag=date.date(), year=date.year, internal=False,
                 )
             else:
                 warn_fmt(
                     "{file}: Trade-Zeile mit {a}→{b} nicht verarbeitet.",
-                    file=FileRef(filename), a=sell_asset, b=buy_asset, year=date.year,
+                    file=FileRef(filename), a=sell_asset, b=buy_asset, year=date.year, internal=False,
                 )
             return None
 
@@ -83,7 +83,7 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
                     "{file}: Auszahlung am {tag} mit sell_asset='{asset}' nicht "
                     "verarbeitet — erwartet wird BTC.",
                     file=FileRef(filename), tag=date.date(), asset=sell_asset,
-                    year=date.year,
+                    year=date.year, internal=False,
                 )
             return None
 
@@ -112,13 +112,13 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
                 "{file}: Einzahlung am {tag} mit buy_asset='{asset}' nicht "
                 "verarbeitet — erwartet wird EUR.",
                 file=FileRef(filename), tag=date.date(), asset=buy_asset,
-                year=date.year,
+                year=date.year, internal=False,
             )
         return None
 
     if tx_type_raw != "deposit":
         warn_fmt(
             "{file}: unbekannter Transaktionstyp '{typ}' am {tag} nicht verarbeitet.",
-            file=FileRef(filename), typ=tx_type_raw, tag=date.date(), year=date.year,
+            file=FileRef(filename), typ=tx_type_raw, tag=date.date(), year=date.year, internal=False,
         )
     return None

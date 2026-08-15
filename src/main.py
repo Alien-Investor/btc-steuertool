@@ -21,6 +21,18 @@ from src.models import TxType, de_date
 import src.fx_rates as fx_rates
 
 
+# Dateien, die an Steuerberater und Finanzamt gehen dürfen. Die Einstufung gehört
+# hierher, wo die Reports auch benannt werden — nicht in eine Präfix-Liste im HTML
+# der GUI (H5). Sonst reist ein später hinzugefügtes internes Artefakt so lange
+# ungekennzeichnet mit, bis jemand daran denkt, ein anderes Repo anzufassen.
+OFFICIAL_REPORT_PREFIXES = ("steuerreport_", "steuernachweis_", "kaeufe_", "verkaeufe_")
+
+
+def is_internal_report(name: str) -> bool:
+    """Fail closed: was nicht ausdrücklich als offiziell benannt ist, gilt als intern."""
+    return not name.startswith(OFFICIAL_REPORT_PREFIXES)
+
+
 def _find(directory: Path, pattern: str) -> list[Path]:
     """Case-insensitive Datei-Suche (SA2-07).
 
@@ -227,7 +239,7 @@ def load_all_transactions(data_dir: Path):
                 "{file}: keinem Parser zugeordnet — NICHT geladen. "
                 "Erwartete Namen: 21bitcoin*.csv, Bison-CSV-Gesamt.csv, "
                 "Swissquote_CSV-Gesamt.csv, strike_*.csv, Pocket*.csv, bisq*.csv.",
-                file=parsers.FileRef(f"Broker/{p.name}", "Eine Datei im Ordner Broker/"),
+                file=parsers.FileRef(f"Broker/{p.name}", "Eine Datei im Ordner Broker/"), internal=False,
             )
 
     return sorted(transactions, key=lambda t: t.date)

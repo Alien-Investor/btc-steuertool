@@ -39,7 +39,7 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
         if row.get("Transaction Type", "").strip() in ("Purchase", "Send", "Receive"):
             warn(
                 f"{filename}: {row.get('Transaction Type', '').strip()} vom "
-                f"{row.get('Time (UTC)', '?')} mit Status '{status}' nicht verarbeitet."
+                f"{row.get('Time (UTC)', '?')} mit Status '{status}' nicht verarbeitet.", internal=False
             )
         return None
 
@@ -116,7 +116,7 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
     # Deposit/Withdrawal (EUR-Bewegungen) sind bekannt irrelevant — alles
     # Unbekannte melden (z.B. ein künftiger Verkaufstyp wäre steuerlich relevant!)
     if tx_type_raw not in ("Deposit", "Withdrawal"):
-        warn(f"{filename}: unbekannter Transaktionstyp '{tx_type_raw}' am {date.date()} nicht verarbeitet.")
+        warn(f"{filename}: unbekannter Transaktionstyp '{tx_type_raw}' am {date.date()} nicht verarbeitet.", internal=False)
     return None
 
 
