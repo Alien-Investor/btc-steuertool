@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BTC Steuertool — Bitcoin Steuerreport im Browser</title>
+  <meta name="description" content="Bitcoin Steuerreport für Deutschland (FiFo, §23 EStG) — läuft komplett im Browser, deine CSVs verlassen nie deinen Rechner.">
+  <script>(function(){const t=localStorage.getItem('alien-theme');if(t==='soft')document.documentElement.setAttribute('data-theme','soft');})();</script>
+  <!-- Selbst gehostet — kein Google-Fonts-CDN (Privacy) -->
+  <link href="vendor/fonts/fonts.css" rel="stylesheet">
+  <style>
+    :root {
+      --neon: #00ffcc;
+      --neon-dim: rgba(0,255,204,0.15);
+      --neon-mid: rgba(0,255,204,0.4);
+      --red: #ff4466;
+      --red-dim: rgba(255,68,102,0.15);
+      --yellow: #ffcc44;
+      --orange: #ff8844;
+      --bg: #000;
+      --card-bg: #050f0d;
+      --border: rgba(0,255,204,0.2);
+      --text-dim: #4a7a6d;
+      --text-mid: #7ab8a8;
+    }
+    [data-theme="soft"] {
+      --neon: #00c8a0;
+      --neon-dim: rgba(0,200,160,0.15);
+      --neon-mid: rgba(0,200,160,0.35);
+      --bg: #0d1a2b;
+      --card-bg: #0f2535;
+      --border: rgba(0,200,160,0.18);
+      --text-dim: #5d8f82;
+      --text-mid: #8ac8b8;
+      --red: #e03355;
+      --red-dim: rgba(224,51,85,0.15);
+    }
+    [data-theme="soft"] body::after { opacity: 0.35; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background: var(--bg);
+      color: var(--neon);
+      font-family: 'Share Tech Mono', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+    body::before {
+      content:'';
+      position:fixed; inset:0;
+      background-image:
+        radial-gradient(1px 1px at 10% 15%,rgba(0,255,204,.4) 0%,transparent 100%),
+        radial-gradient(1px 1px at 30% 40%,rgba(0,255,204,.25) 0%,transparent 100%),
+        radial-gradient(1px 1px at 55% 20%,rgba(0,255,204,.35) 0%,transparent 100%),
+        radial-gradient(1px 1px at 70% 60%,rgba(0,255,204,.2) 0%,transparent 100%),
+        radial-gradient(1px 1px at 85% 30%,rgba(0,255,204,.3) 0%,transparent 100%),
+        radial-gradient(1px 1px at 20% 75%,rgba(0,255,204,.2) 0%,transparent 100%),
+        radial-gradient(1px 1px at 45% 85%,rgba(0,255,204,.3) 0%,transparent 100%),
+        radial-gradient(1px 1px at 90% 80%,rgba(0,255,204,.25) 0%,transparent 100%);
+      pointer-events:none; z-index:0;
+    }
+    body::after {
+      content:'';
+      position:fixed; inset:0;
+      background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.15) 2px,rgba(0,0,0,.15) 4px);
+      pointer-events:none; z-index:1;
+    }
+    .container { position:relative; z-index:2; max-width:1100px; margin:0 auto; padding:30px 20px 60px; }
+
+    /* ── NAV ── */
+    .top-nav { display:flex; align-items:center; gap:16px; margin-bottom:30px; }
+    .back-link { font-size:.78rem; letter-spacing:2px; color:var(--text-dim); text-decoration:none; text-transform:uppercase; transition:color .2s; }
+    .back-link:hover { color:var(--neon); }
+    .top-nav-sep { color:var(--text-dim); opacity:.4; }
+    .top-nav-title { font-size:.75rem; letter-spacing:2px; color:var(--text-dim); }
+    .top-nav-right { margin-left:auto; display:flex; align-items:center; gap:8px; }
+    .settings-btn {
+      background:none; border:1px solid var(--border); border-radius:2px;
+      color:var(--text-dim); font-family:'Share Tech Mono',monospace; font-size:.75rem;
+      letter-spacing:2px; padding:5px 12px; cursor:pointer; transition:all .2s;
+    }
+    .settings-btn:hover { border-color:var(--neon-mid); color:var(--text-mid); }
+    .guide-btn {
+      border-color:var(--neon-mid); color:var(--neon); background:var(--neon-dim);
+      text-decoration:none; animation:guide-pulse 2.6s ease-in-out infinite;
+    }
+    .guide-btn:hover { color:var(--neon); border-color:var(--neon); animation:none; box-shadow:0 0 18px rgba(0,255,204,.55); }
+    @keyframes guide-pulse {
+      0%, 100% { box-shadow:0 0 4px rgba(0,255,204,.25); }
+      50%      { box-shadow:0 0 14px rgba(0,255,204,.55); }
+    }
+    .v2-badge {
+      background:rgba(0,255,204,.1); border:1px solid var(--neon-mid);
+      border-radius:2px; color:var(--neon); font-size:.7rem; letter-spacing:2px;
+      padding:3px 8px; font-family:'Orbitron',sans-serif;
+    }
+
+    /* ── HEADER ── */
+    header { text-align:center; margin-bottom:28px; position:relative; }
+    .header-glow { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:400px; height:100px; background:radial-gradient(ellipse,rgba(0,255,204,.08) 0%,transparent 70%); pointer-events:none; }
+    .logo { font-family:'Orbitron',sans-serif; font-size:clamp(1.4rem,4vw,2rem); font-weight:900; letter-spacing:4px; text-transform:uppercase; color:var(--neon); text-shadow:0 0 20px rgba(0,255,204,.7),0 0 40px rgba(0,255,204,.3); margin-bottom:6px; }
+    .subtitle { font-size:.8rem; letter-spacing:5px; color:var(--text-dim); text-transform:uppercase; }
+
+    /* ── CARD ── */
+    .card {
+      background:var(--card-bg); border:1px solid var(--border); border-radius:4px;
+      padding:20px; position:relative; overflow:hidden; margin-bottom:20px;
+    }
+    .card::before { content:''; position:absolute; top:0; left:0; width:20px; height:20px; border-top:1px solid var(--neon); border-left:1px solid var(--neon); opacity:.5; }
+    .card::after  { content:''; position:absolute; bottom:0; right:0; width:20px; height:20px; border-bottom:1px solid var(--neon); border-right:1px solid var(--neon); opacity:.5; }
+    .card-label { font-size:.75rem; letter-spacing:3px; color:var(--text-dim); text-transform:uppercase; margin-bottom:12px; }
+
+    /* ── PRIVACY STRIP ── */
+    .privacy-strip { display:flex; flex-wrap:wrap; gap:8px 24px; justify-content:center; font-size:.78rem; color:var(--text-mid); }
+    .privacy-strip span::before { content:'▸ '; color:var(--neon); }
+
+    /* ── DROPZONE ── */
+    .dropzone {
+      border:2px dashed var(--border); border-radius:4px; padding:36px 20px; text-align:center;
+      cursor:pointer; transition:all .2s; color:var(--text-dim); font-size:.85rem; letter-spacing:1px;
+    }
+    .dropzone:hover, .dropzone.dragover { border-color:var(--neon-mid); background:var(--neon-dim); color:var(--text-mid); }
+    .dropzone.locked { cursor:default; opacity:.55; }
+    .dropzone.locked:hover { border-color:var(--border); background:none; color:var(--text-dim); }
+
+    /* ── noKYC-Hinweis ── */
+    .nokyc-hint {
+      border:1px solid rgba(255,136,68,.4); border-radius:4px; background:rgba(255,136,68,.06);
+      padding:12px 16px; margin-top:14px; font-size:.76rem; line-height:1.7; color:var(--orange);
+    }
+    .dropzone .dz-icon { font-size:1.6rem; display:block; margin-bottom:10px; filter:drop-shadow(0 0 6px rgba(0,255,204,.5)); }
+    .dropzone strong { color:var(--neon); font-weight:normal; }
+
+    /* ── FILE TABLE ── */
+    .file-table { width:100%; border-collapse:collapse; font-size:.8rem; margin-top:16px; }
+    .file-table th { font-size:.7rem; letter-spacing:3px; color:var(--text-dim); text-transform:uppercase; padding:6px 10px 10px; text-align:left; border-bottom:1px solid var(--border); }
+    .file-table td { padding:8px 10px; border-bottom:1px solid rgba(0,255,204,.04); vertical-align:middle; color:var(--text-mid); }
+    .file-table tr:last-child td { border-bottom:none; }
+    .file-table tr:hover td { background:rgba(0,255,204,.02); }
+    .file-table select {
+      background:var(--card-bg); border:1px solid var(--border); border-radius:2px;
+      color:var(--text-mid); font-family:'Share Tech Mono',monospace; font-size:.75rem;
+      padding:4px 6px; outline:none; max-width:240px;
+    }
+    .file-table select.is-unknown { border-color:var(--red); color:var(--red); }
+    .file-table select.is-nokyc { border-color:var(--orange); color:var(--orange); }
+    .file-remove { background:none; border:none; color:var(--text-dim); cursor:pointer; font-family:inherit; font-size:.9rem; }
+    .file-remove:hover { color:var(--red); }
+    .file-size { color:var(--text-dim); font-size:.72rem; white-space:nowrap; }
+
+    /* ── BUTTONS ── */
+    .btn-row { display:flex; gap:12px; flex-wrap:wrap; margin-top:18px; align-items:center; }
+    /* Lade-Indikator: der Spinner animiert per transform (Compositor-Thread) und dreht
+       sich darum WEITER, auch während der WASM-Compile den Main-Thread blockiert —
+       so sieht der Nutzer „lädt", nicht „hängt". */
+    /* Fixierter Toast unten-mittig — immer im Viewport sichtbar, egal wohin gescrollt wurde
+       (Indikator im Karten-Fluss war je nach Scroll-Position mal kaum sichtbar). */
+    .py-loading { display:none; position:fixed; left:50%; bottom:20px; transform:translateX(-50%);
+      z-index:50; align-items:center; gap:10px; padding:11px 18px; max-width:92vw;
+      border:1px solid var(--neon-mid); border-radius:6px; background:var(--card-bg);
+      box-shadow:0 6px 24px rgba(0,0,0,.55);
+      color:var(--neon); font-family:'Share Tech Mono',monospace; font-size:.78rem; letter-spacing:1px; }
+    .py-loading.show { display:flex; }
+    .py-spinner { width:16px; height:16px; flex:0 0 16px; border-radius:50%;
+      border:2px solid rgba(0,255,204,.25); border-top-color:var(--neon);
+      animation:py-spin .8s linear infinite; will-change:transform; }
+    @keyframes py-spin { to { transform:rotate(360deg); } }
+    .btn {
+      background:none; border:1px solid var(--border); border-radius:2px; color:var(--text-mid);
+      font-family:'Share Tech Mono',monospace; font-size:.8rem; letter-spacing:2px;
+      padding:10px 18px; cursor:pointer; text-transform:uppercase; transition:all .2s;
+    }
+    .btn:hover:not(:disabled) { border-color:var(--neon-mid); color:var(--neon); }
+    .btn:disabled { opacity:.35; cursor:not-allowed; }
+    .btn-primary {
+      border-color:var(--neon-mid); color:var(--neon); background:var(--neon-dim);
+      font-family:'Orbitron',sans-serif; font-weight:700; margin-left:auto;
+    }
+    .btn-primary:hover:not(:disabled) { box-shadow:0 0 18px rgba(0,255,204,.35); }
+
+    /* ── LOG ── */
+    #log { font-size:.78rem; color:var(--text-mid); white-space:pre-wrap; max-height:200px; overflow-y:auto; }
+    #log .err { color:var(--red); }
+    #log .ok { color:var(--neon); }
+    #log .warn { color:var(--yellow); }
+
+    /* ── TABS / REPORTS ── */
+    .tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+    .tab-btn {
+      background:none; border:1px solid var(--border); border-radius:2px; color:var(--text-dim);
+      font-family:'Share Tech Mono',monospace; font-size:.75rem; letter-spacing:1px;
+      padding:6px 12px; cursor:pointer; transition:all .15s;
+    }
+    .tab-btn.active { border-color:var(--neon-mid); color:var(--neon); background:var(--neon-dim); }
+    .tab-btn.tab-nokyc.active { border-color:var(--orange); color:var(--orange); background:rgba(255,136,68,.1); }
+    .year-tabs .tab-btn { font-family:'Orbitron',sans-serif; font-weight:700; }
+    pre.report { font-size:.72rem; line-height:1.45; color:var(--text-mid); overflow-x:auto; white-space:pre; }
+    .badge-intern { color:var(--red); font-size:.72rem; letter-spacing:2px; margin-bottom:10px; }
+    .report-actions { display:flex; gap:10px; flex-wrap:wrap; margin:12px 0 4px; }
+
+    /* ── BUG REPORT (Muster alien-analyzer-v2) ── */
+    .api-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:1000;
+      display:flex; align-items:center; justify-content:center; padding:20px;
+    }
+    .api-dialog {
+      max-width:480px; width:100%; padding:30px;
+      background:var(--card-bg); border:1px solid var(--neon-mid);
+    }
+    .api-dialog-title { font-family:'Orbitron',sans-serif; font-size:.9rem; font-weight:700; color:var(--neon); letter-spacing:3px; margin-bottom:8px; }
+    .api-dialog-intro { font-size:.78rem; color:var(--text-mid); letter-spacing:1px; line-height:1.7; margin-bottom:24px; }
+    .api-field { margin-bottom:20px; }
+    .api-label { font-family:'Orbitron',sans-serif; font-size:.75rem; letter-spacing:2px; color:var(--text-mid); display:block; margin-bottom:6px; text-transform:uppercase; }
+    .api-key-input { width:100%; box-sizing:border-box; background:rgba(0,255,204,.04); border:1px solid var(--border); border-radius:3px; color:var(--neon); font-family:'Share Tech Mono',monospace; font-size:.8rem; letter-spacing:1px; padding:10px 14px; outline:none; transition:border-color .2s; }
+    .api-key-input:focus { border-color:var(--neon-mid); }
+    .api-key-input::placeholder { color:var(--text-dim); font-size:.7rem; }
+
+    /* ── DISCLAIMER ── */
+    .disclaimer { font-size:.74rem; line-height:1.7; color:var(--text-dim); }
+    .disclaimer strong { color:var(--text-mid); font-weight:normal; }
+
+    footer { text-align:center; margin-top:50px; font-size:.78rem; color:var(--text-dim); letter-spacing:2px; line-height:2; word-break:break-word; overflow-wrap:break-word; }
+    footer a { color:var(--neon); text-decoration:none; opacity:.7; }
+
+    .hidden { display:none; }
+
+    @media (max-width:640px) {
+      .container { padding:20px 12px 40px; }
+      .top-nav { flex-wrap:wrap; gap:8px; row-gap:8px; }
+      .top-nav-right { margin-left:auto; flex-wrap:wrap; justify-content:flex-end; }
+      .file-table { font-size:.72rem; }
+      .file-table select { max-width:150px; }
+      .btn-primary { margin-left:0; width:100%; }
+      .file-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    }
+
+    /* --- STERNENNEBEL + zusätzliche Sterne (Angleichung an die Content-Seiten) --- */
+    .stars-bg {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: -2;
+      pointer-events: none;
+    }
+    .stars-bg::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-image:
+        radial-gradient(1px 1px at 10% 15%, #fff, transparent),
+        radial-gradient(1px 1px at 25% 40%, #fff, transparent),
+        radial-gradient(1px 1px at 40% 20%, #fff, transparent),
+        radial-gradient(2px 2px at 55% 60%, #00ffcc, transparent),
+        radial-gradient(1px 1px at 70% 35%, #fff, transparent),
+        radial-gradient(1px 1px at 85% 75%, #fff, transparent),
+        radial-gradient(1px 1px at 15% 80%, #fff, transparent),
+        radial-gradient(1px 1px at 35% 90%, #fff, transparent),
+        radial-gradient(1px 1px at 60% 10%, #fff, transparent),
+        radial-gradient(1px 1px at 90% 50%, #fff, transparent),
+        radial-gradient(1px 1px at 5% 55%, #fff, transparent),
+        radial-gradient(2px 2px at 75% 25%, #00ffcc, transparent);
+      animation: twinkle 6s ease-in-out infinite alternate;
+    }
+    @keyframes twinkle {
+      0% { opacity: 0.4; } 100% { opacity: 0.9; }
+    }
+    .nebula {
+      position: fixed;
+      top: -10%; left: -10%;
+      width: 120%; height: 120%;
+      z-index: -2;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 900px 260px at 30% 35%, rgba(90, 30, 140, 0.22), transparent 60%),
+        radial-gradient(ellipse 1100px 200px at 70% 55%, rgba(0, 140, 180, 0.18), transparent 60%),
+        radial-gradient(ellipse 500px 180px at 50% 45%, rgba(180, 60, 140, 0.10), transparent 60%),
+        radial-gradient(circle 140px at 32% 36%, rgba(255, 255, 255, 0.10), transparent 70%),
+        radial-gradient(circle 120px at 68% 56%, rgba(0, 255, 204, 0.08), transparent 70%);
+      transform: rotate(-18deg);
+      filter: blur(30px);
+      opacity: 0.85;
+      animation: nebula-pulse 14s ease-in-out infinite alternate;
+      mix-blend-mode: screen;
+    }
+    @keyframes nebula-pulse {
+      0%   { opacity: 0.55; transform: rotate(-18deg) scale(1); }
+      50%  { opacity: 0.85; transform: rotate(-17deg) scale(1.04); }
+      100% { opacity: 0.65; transform: rotate(-19deg) scale(1.02); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="stars-bg"></div>
+  <div class="nebula"></div>
+
+  <!-- BUG REPORT (Muster alien-analyzer-v2) -->
+  <div id="bug-overlay" class="api-overlay hidden">
+    <div class="api-dialog card">
+      <button style="position:absolute;top:10px;right:12px;background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:.7rem;font-family:'Share Tech Mono',monospace;letter-spacing:1px;" onclick="closeBugReport()" title="Schließen">✕</button>
+      <div class="api-dialog-title" id="bug-title">🐛 Bug melden</div>
+      <div class="api-dialog-intro" id="bug-subtext">Wird als E-Mail an kontakt@alien-investor.org gesendet.</div>
+      <div class="api-field">
+        <label class="api-label" for="bug-broker" id="bug-label-broker">Broker / Dateityp</label>
+        <input class="api-key-input" id="bug-broker" type="text" placeholder="z.B. Swissquote" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="api-field">
+        <label class="api-label" for="bug-desc" id="bug-label-desc">Beschreibung</label>
+        <textarea class="api-key-input" id="bug-desc" rows="4" placeholder="Was ist passiert? Welche Datei, welche Meldung?" style="resize:vertical;"></textarea>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" style="margin-left:0;" onclick="sendBugReport()" id="bug-send">Senden</button>
+        <button class="btn" onclick="closeBugReport()" id="bug-cancel">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <nav class="top-nav">
+      <a class="back-link" id="back-link" href="https://alien-investor.org">← Zentrale</a>
+      <span class="top-nav-sep">|</span>
+      <span class="top-nav-title" id="nav-title">TOOLS / BTC STEUERTOOL</span>
+      <div class="top-nav-right">
+        <a class="settings-btn guide-btn" id="guide-btn" href="https://alien-investor.org/steuertool-guide.html" target="_blank" rel="noopener"><svg style="width:1.15em;height:1em;vertical-align:-0.15em;filter:drop-shadow(0 0 3px #00ffcc88);" viewBox="0 0 36 32" xmlns="http://www.w3.org/2000/svg" aria-label="Anleitung" role="img"><defs><linearGradient id="book-bg-app" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0d2a28"/><stop offset="100%" stop-color="#060e12"/></linearGradient></defs><path d="M18 7 C14.5 3.8, 9 3, 4 4.5 L4 26 C9 24.5, 14.5 25.2, 18 28 C21.5 25.2, 27 24.5, 32 26 L32 4.5 C27 3, 21.5 3.8, 18 7 Z" fill="url(#book-bg-app)" stroke="#00ffcc" stroke-width="1.4" stroke-linejoin="round"/><line x1="18" y1="7" x2="18" y2="28" stroke="#00ffcc" stroke-width="1" opacity="0.8"/><line x1="7.5" y1="10" x2="14.5" y2="9.2" stroke="#00ffcc" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/><line x1="7.5" y1="14" x2="14.5" y2="13.2" stroke="#00ffcc" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/><line x1="7.5" y1="18" x2="14.5" y2="17.2" stroke="#00ffcc" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/><line x1="21.5" y1="9.2" x2="28.5" y2="10" stroke="#00ffcc" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/><line x1="21.5" y1="13.2" x2="28.5" y2="14" stroke="#00ffcc" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/><line x1="21.5" y1="17.2" x2="28.5" y2="18" stroke="#00ffcc" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/></svg> <span id="guide-btn-text">ANLEITUNG</span></a>
+        <span class="v2-badge">BETA</span>
+        <button class="settings-btn" id="lang-toggle" onclick="toggleLang()">EN</button>
+        <button class="settings-btn" id="theme-toggle" onclick="toggleTheme()">SOFT</button>
+      </div>
+    </nav>
+
+    <header>
+      <div class="header-glow"></div>
+      <div class="logo" id="logo">BTC Steuertool</div>
+      <div class="subtitle" id="subtitle">Bitcoin Steuerreport · Deutschland · FiFo · §23 EStG</div>
+    </header>
+
+    <div class="card">
+      <div class="privacy-strip" id="privacy-strip">
+        <span>100% lokal — deine CSVs verlassen nie deinen Browser</span>
+        <span>Kein Account, kein Upload, kein Tracking</span>
+        <span>Open Source — Code auf <a href="https://github.com/Alien-Investor/btc-steuertool" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">GitHub</a> prüfbar</span>
+        <span>Web-Version: der Code kommt bei jedem Aufruf vom Server — volle Kontrolle hat nur das CLI aus dem Repo</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label" id="card01-label">// 01 — CSV-Dateien laden</div>
+      <div class="dropzone" id="dropzone">
+        <span class="dz-icon">⬡</span>
+        CSV-Exporte hierher ziehen oder <strong>klicken zum Auswählen</strong><br>
+        <span style="font-size:.72rem">BitBox · 21bitcoin · Bison · Swissquote · Strike · Pocket · Bisq · manuelle Käufe/Verkäufe</span><br>
+        <span style="font-size:.72rem; color:var(--orange)">noKYC bleibt getrennt: Bisq automatisch, manuelle Käufe per kyc-Spalte — noKYC-Wallets nach dem Laden im Dropdown markieren</span><br>
+        <span style="font-size:.72rem">Zum Ausprobieren: <a href="examples/beispieldaten.zip" download onclick="event.stopPropagation()" style="color:var(--neon)">Beispieldaten (ZIP)</a> herunterladen und hierher ziehen — oder unten „Mit Beispieldaten testen“</span>
+      </div>
+      <!-- KEIN accept-Attribut: Android/GrapheneOS (Vanadium) grayt im Datei-Picker alles aus,
+           dessen MIME-Typ die Storage Access Framework nicht exakt auf .csv/.json/.zip mappt —
+           CSVs und die Beispiel-ZIP waren am Handy nicht auswählbar. Das Content-Sniffing
+           validiert ohnehin selbst; Endungs-Filter ist auf Desktop nur Komfort. -->
+      <input type="file" id="file-input" multiple style="display:none">
+
+      <div class="nokyc-hint hidden" id="nokyc-hint">
+        ⚠ <strong>noKYC-Wallet dabei?</strong> BitBox-Wallets werden zunächst als KYC eingestuft.
+        Eine dedizierte noKYC-Wallet (z.B. für Bisq-, Robosats- oder Bargeld-Käufe) im Dropdown auf
+        „BitBox-Wallet (noKYC)" umstellen — sonst erscheint sie im Finanzamt-Report.
+      </div>
+
+      <div class="file-table-wrap">
+        <table class="file-table hidden" id="file-table">
+          <thead><tr><th id="th-file">Datei</th><th id="th-size">Größe</th><th id="th-type">Erkannt als</th><th></th></tr></thead>
+          <tbody id="file-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" id="btn-demo">Mit Beispieldaten testen</button>
+        <button class="btn" id="btn-reset">Zurücksetzen</button>
+        <button class="btn btn-primary" id="btn-run" disabled>Report berechnen →</button>
+      </div>
+      <div class="py-loading" id="py-loading">
+        <span class="py-spinner"></span>
+        <span id="py-loading-text">Rechenkern wird geladen (einmalig, kann kurz dauern)…</span>
+      </div>
+      <div class="nokyc-hint hidden" id="unknown-hint" style="border-color:rgba(255,68,102,.4); background:rgba(255,68,102,.06); color:var(--red)">
+        ✗ <strong>Nicht erkannte Datei(en) in der Liste.</strong> Damit kein unvollständiger Report entsteht,
+        ist die Berechnung gesperrt: Bitte den richtigen Typ im Dropdown wählen — oder bewusst auf
+        „Ignorieren" stellen. Broker fehlt? CSV-Kopfzeile (ohne echte Daten) an
+        <a href="mailto:kontakt@alien-investor.org" style="color:var(--red)">kontakt@alien-investor.org</a> —
+        Parser werden laufend ergänzt.
+      </div>
+    </div>
+
+    <div class="card hidden" id="status-card">
+      <div class="card-label" id="card02-label">// 02 — System-Log</div>
+      <div id="log"></div>
+    </div>
+
+    <div class="card hidden" id="results-card">
+      <div class="card-label" id="card03-label">// 03 — Reports</div>
+      <div class="tabs year-tabs" id="year-tabs"></div>
+      <div class="tabs" id="doc-tabs"></div>
+      <div id="doc-intern-badge" class="badge-intern hidden">!! INTERN — NICHT FÜR FINANZAMT ODER STEUERBERATER !!</div>
+      <pre class="report" id="report-view"></pre>
+      <div class="report-actions">
+        <button class="btn" id="btn-download">⬇ Diese Datei herunterladen</button>
+        <button class="btn" id="btn-download-all">⬇ Alle Dateien (ZIP)</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label" id="hint-label">// Hinweis</div>
+      <div class="disclaimer" id="disclaimer-text">
+        <strong>Keine Steuerberatung.</strong> Dieses Tool ist eine reine Berechnungshilfe nach der
+        FiFo-Methode (§ 23 EStG, private Veräußerungsgeschäfte). Alle Ergebnisse ohne Gewähr —
+        für die Richtigkeit und Vollständigkeit der Steuererklärung ist der Nutzer selbst verantwortlich.
+        Bei komplexen Fällen (Mining, Staking, Lending, gewerblicher Handel) einen Steuerberater konsultieren.<br><br>
+        <strong>noKYC-Bestände:</strong> Die getrennte noKYC-Übersicht dient der privaten Buchführung.
+        Auch Gewinne aus noKYC-Verkäufen sind steuerpflichtig und müssen deklariert werden —
+        die Trennung ändert nichts an der Steuerpflicht.
+      </div>
+    </div>
+
+    <footer>
+      <a href="https://github.com/Alien-Investor/btc-steuertool">GitHub</a> ·
+      <a href="https://alien-investor.org">alien-investor.org</a> ·
+      <span id="legal-links"></span> ·
+      <a href="#" id="bug-link" onclick="openBugReport(); return false;" style="color:var(--text-dim); opacity:.8;">🐛 Bug melden</a><br>
+      <span style="color:rgba(74,122,109,.7)" id="footer-disclaimer">Keine Steuerberatung – reine Berechnungshilfe. Denke selbst. Vertraue niemandem.</span>
+    </footer>
+  </div>
+
+  <!-- Pyodide läuft im Worker (worker.js), NICHT im Main-Thread — daher kein pyodide.js-Tag hier.
+       Selbst gehostet, kein CDN (Privacy). -->
+  <script>
+    'use strict';
+
+    /* ───────────────────────── Theme ───────────────────────── */
+    function toggleTheme() {
+      const html = document.documentElement;
+      const soft = html.getAttribute('data-theme') === 'soft';
+      if (soft) { html.removeAttribute('data-theme'); localStorage.setItem('alien-theme', 'dark'); }
+      else { html.setAttribute('data-theme', 'soft'); localStorage.setItem('alien-theme', 'soft'); }
+      updateThemeBtn();
+    }
+    function updateThemeBtn() {
+      const soft = document.documentElement.getAttribute('data-theme') === 'soft';
+      document.getElementById('theme-toggle').textContent = soft ? 'DARK' : 'SOFT';
+    }
+    updateThemeBtn();
+
+    /* ───────────────────────── Sprache (DE/EN) ───────────────────────── */
+    // URL-Param ?lang=de|en überschreibt localStorage (sprachfeste Links) — Muster mission-control-v2
+    // Reports selbst bleiben deutsch (amtliche Dokumente fürs Finanzamt) — nur die UI wechselt.
+    const _qsLang = new URLSearchParams(window.location.search).get('lang');
+    let currentLang = (_qsLang === 'de' || _qsLang === 'en') ? _qsLang
+      : (localStorage.getItem('alien-lang') || 'de');
+
+    const i18n = {
+      de: {
+        docTitle: 'BTC Steuertool — Bitcoin Steuerreport im Browser',
+        backLink: '← Zentrale',
+        backHref: 'https://alien-investor.org',
+        navTitle: 'TOOLS / BTC STEUERTOOL',
+        guideBtn: 'ANLEITUNG',
+        guideHref: 'https://alien-investor.org/steuertool-guide.html',
+        subtitle: 'Bitcoin Steuerreport · Deutschland · FiFo · §23 EStG',
+        privacy: [
+          '100% lokal — deine CSVs verlassen nie deinen Browser',
+          'Kein Account, kein Upload, kein Tracking',
+          'Open Source — Code auf <a href="https://github.com/Alien-Investor/btc-steuertool" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">GitHub</a> prüfbar',
+          'Web-Version: der Code kommt bei jedem Aufruf vom Server — volle Kontrolle hat nur das CLI aus dem Repo',
+        ],
+        card01: '// 01 — CSV-Dateien laden',
+        dropzoneFull: '<span class="dz-icon">⬡</span>' +
+          'CSV-Exporte hierher ziehen oder <strong>klicken zum Auswählen</strong><br>' +
+          '<span style="font-size:.72rem">BitBox · 21bitcoin · Bison · Swissquote · Strike · Pocket · Bisq · manuelle Käufe/Verkäufe</span><br>' +
+          '<span style="font-size:.72rem; color:var(--orange)">noKYC bleibt getrennt: Bisq automatisch, manuelle Käufe per kyc-Spalte — noKYC-Wallets nach dem Laden im Dropdown markieren</span><br>' +
+          '<span style="font-size:.72rem">Zum Ausprobieren: <a href="examples/beispieldaten.zip" download onclick="event.stopPropagation()" style="color:var(--neon)">Beispieldaten (ZIP)</a> herunterladen und hierher ziehen — oder unten „Mit Beispieldaten testen“</span>',
+        nokycHint: '⚠ <strong>noKYC-Wallet dabei?</strong> BitBox-Wallets werden zunächst als KYC eingestuft. ' +
+          'Eine dedizierte noKYC-Wallet (z.B. für Bisq-, Robosats- oder Bargeld-Käufe) im Dropdown auf ' +
+          '„BitBox-Wallet (noKYC)" umstellen — sonst erscheint sie im Finanzamt-Report.',
+        unknownHint: '✗ <strong>Nicht erkannte Datei(en) in der Liste.</strong> Damit kein unvollständiger Report entsteht, ' +
+          'ist die Berechnung gesperrt: Bitte den richtigen Typ im Dropdown wählen — oder bewusst auf ' +
+          '„Ignorieren" stellen. Broker fehlt? CSV-Kopfzeile (ohne echte Daten) an ' +
+          '<a href="mailto:kontakt@alien-investor.org" style="color:var(--red)">kontakt@alien-investor.org</a> — ' +
+          'Parser werden laufend ergänzt.',
+        thFile: 'Datei', thSize: 'Größe', thType: 'Erkannt als',
+        btnDemo: 'Mit Beispieldaten testen', btnReset: 'Zurücksetzen', btnRun: 'Report berechnen →',
+        card02: '// 02 — System-Log',
+        card03: '// 03 — Reports',
+        internBadge: '!! INTERN — NICHT FÜR FINANZAMT ODER STEUERBERATER !!',
+        btnDownload: '⬇ Diese Datei herunterladen',
+        btnDownloadAll: '⬇ Alle Dateien (ZIP)',
+        hintLabel: '// Hinweis',
+        disclaimer: '<strong>Keine Steuerberatung.</strong> Dieses Tool ist eine reine Berechnungshilfe nach der ' +
+          'FiFo-Methode (§ 23 EStG, private Veräußerungsgeschäfte). Alle Ergebnisse ohne Gewähr — ' +
+          'für die Richtigkeit und Vollständigkeit der Steuererklärung ist der Nutzer selbst verantwortlich. ' +
+          'Bei komplexen Fällen (Mining, Staking, Lending, gewerblicher Handel) einen Steuerberater konsultieren.<br><br>' +
+          '<strong>noKYC-Bestände:</strong> Die getrennte noKYC-Übersicht dient der privaten Buchführung. ' +
+          'Auch Gewinne aus noKYC-Verkäufen sind steuerpflichtig und müssen deklariert werden — ' +
+          'die Trennung ändert nichts an der Steuerpflicht.',
+        footerDisclaimer: 'Keine Steuerberatung – reine Berechnungshilfe. Denke selbst. Vertraue niemandem.',
+        legalPrefix: 'Rechtliches:',
+        legalLinks: [
+          ['Datenschutz', 'https://alien-investor.org/steuertool-rechtliches.html#datenschutz'],
+        ],
+        types: {
+          bitbox:       'BitBox-Wallet (KYC)',
+          bitbox_nokyc: 'BitBox-Wallet (noKYC)',
+          btc21:        '21bitcoin',
+          bison:        'Bison',
+          swissquote:   'Swissquote',
+          strike:       'Strike',
+          pocket:       'Pocket',
+          bisq:         'Bisq (noKYC)',
+          manual_buys:  'Manuelle Käufe (Standard: noKYC)',
+          manual_sales: 'Manuelle Verkäufe',
+          fxcache:      'fx_cache.json (Kurse)',
+          ignore:       'Ignorieren',
+          manual_ambig: '✗ Käufe oder Verkäufe? — bitte wählen',
+          unknown:      '✗ Nicht erkannt — bitte wählen',
+        },
+        docLabels: {
+          'steuerreport_':   'Steuerreport',
+          'steuernachweis_': 'Steuernachweis',
+          'kaeufe_':         'Käufe (CSV)',
+          'verkaeufe_':      'Verkäufe (CSV)',
+          'nokyc_intern_':   '⚠ noKYC intern',
+        },
+        logNameClash: (n, u) => `Zwei verschiedene Dateien heißen „${n}" — beide behalten, die zweite läuft als „${u}". Bitte prüfen, ob das gewollt ist.`,
+        logZipNested: n => `„${n}" ist ein verschachteltes ZIP und wurde NICHT entpackt — bitte separat entpacken und die Dateien einzeln laden.`,
+        logZipShort: (n, got, want) => `„${n}": nur ${got} von ${want} Einträgen entpackt — der Rest nutzt ein nicht unterstütztes Kompressionsverfahren. Bitte manuell entpacken.`,
+        logZip: (n, c) => `ZIP „${n}" entpackt: ${c} Dateien.`,
+        logZipFail: n => `„${n}" konnte nicht entpackt werden — bitte manuell entpacken und die Dateien einzeln laden.`,
+        logDemoLoad: 'Lade Beispieldaten (fiktive Testdaten)...',
+        logDemoOk: n => `${n} Beispieldateien geladen — „Report berechnen" klicken.`,
+        logDemoErr: m => 'Beispieldaten konnten nicht geladen werden: ' + m,
+        errMulti: label => `Mehrere Dateien vom Typ „${label}" — bitte vorher zu einer Datei zusammenführen.`,
+        pyLoading: 'Rechenkern wird geladen (einmalig, kann kurz dauern)…',
+        logPyStart: 'Starte Python-Umgebung im Browser...',
+        logPyReady: s => `Python bereit (${s}s)`,
+        logSrc: 'Lade Steuertool-Code (unverändert aus dem Open-Source-Repo)...',
+        logFxBad: 'fx_cache.json unlesbar — wird ignoriert.',
+        logFxMerged: (ok, bad) => `${ok} Wechselkurs(e) übernommen${bad ? `, ${bad} ungültige verworfen` : ''}.`,
+        zipInternHint: 'Achtung: Das ZIP enthält den internen noKYC-Report im Ordner INTERN-NICHT-WEITERGEBEN/ — vor dem Weiterleiten an den Steuerberater entfernen.',
+        logPlaced: n => `${n} Datei(en) im lokalen Speicher platziert — berechne...`,
+        logDone: (tx, ys, s) => `Fertig: ${tx} Transaktionen, Jahre: ${ys} (${s}s)`,
+        errPrefix: 'FEHLER: ',
+        bugTitle: '🐛 Bug melden',
+        bugIntro: 'Wird als E-Mail an kontakt@alien-investor.org gesendet. Bitte keine echten ' +
+          'Transaktionsdaten anhängen — bei Datei-Problemen reicht die CSV-Kopfzeile. ' +
+          'Nur Technik-/Format-Fragen, keine Steuerfragen.',
+        bugLabelBroker: 'Broker / Dateityp',
+        bugLabelDesc: 'Beschreibung',
+        bugPhBroker: 'z.B. Swissquote',
+        bugPhDesc: 'Was ist passiert? Welche Datei, welche Meldung?',
+        bugSend: 'Senden',
+        bugCancel: 'Abbrechen',
+        bugLink: '🐛 Bug melden',
+        bugBody: (broker, desc) =>
+          'Version: BTC Steuertool Web\n' +
+          'Broker / Dateityp: ' + broker + '\n\nBeschreibung:\n' + desc,
+      },
+      en: {
+        docTitle: 'BTC Steuertool — Bitcoin Tax Report in Your Browser',
+        backLink: '← HQ',
+        backHref: 'https://alien-investor.org/en/',
+        navTitle: 'TOOLS / BTC TAX TOOL',
+        guideBtn: 'GUIDE',
+        guideHref: 'https://alien-investor.org/en/steuertool-guide.html',
+        subtitle: 'Bitcoin Tax Report · Germany · FiFo · §23 EStG',
+        privacy: [
+          '100% local — your CSVs never leave your browser',
+          'No account, no upload, no tracking',
+          'Open source — verify the code on <a href="https://github.com/Alien-Investor/btc-steuertool" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">GitHub</a>',
+          'Web version: the code is fetched from the server on every visit — for full control use the CLI from the repo',
+        ],
+        card01: '// 01 — Load CSV files',
+        dropzoneFull: '<span class="dz-icon">⬡</span>' +
+          'Drag your CSV exports here or <strong>click to select</strong><br>' +
+          '<span style="font-size:.72rem">BitBox · 21bitcoin · Bison · Swissquote · Strike · Pocket · Bisq · manual buys/sells</span><br>' +
+          '<span style="font-size:.72rem; color:var(--orange)">noKYC stays separate: Bisq automatically, manual buys via kyc column — mark noKYC wallets in the dropdown after loading</span><br>' +
+          '<span style="font-size:.72rem">To try it out: download the <a href="examples/beispieldaten.zip" download onclick="event.stopPropagation()" style="color:var(--neon)">sample data (ZIP)</a> and drop it here — or click "Try with sample data" below</span>',
+        nokycHint: '⚠ <strong>Got a noKYC wallet?</strong> BitBox wallets are initially classified as KYC. ' +
+          'Switch a dedicated noKYC wallet (e.g. for Bisq, Robosats or cash buys) to ' +
+          '"BitBox wallet (noKYC)" in the dropdown — otherwise it ends up in the tax-office report.',
+        unknownHint: '✗ <strong>Unrecognized file(s) in the list.</strong> To prevent an incomplete report, ' +
+          'calculation is locked: please pick the correct type in the dropdown — or deliberately set it to ' +
+          '"Ignore". Broker missing? Send the CSV header line (without real data) to ' +
+          '<a href="mailto:kontakt@alien-investor.org" style="color:var(--red)">kontakt@alien-investor.org</a> — ' +
+          'parsers are added continuously.',
+        thFile: 'File', thSize: 'Size', thType: 'Detected as',
+        btnDemo: 'Try with sample data', btnReset: 'Reset', btnRun: 'Calculate report →',
+        card02: '// 02 — System log',
+        card03: '// 03 — Reports',
+        internBadge: '!! INTERNAL — NOT FOR THE TAX OFFICE OR YOUR TAX ADVISOR !!',
+        btnDownload: '⬇ Download this file',
+        btnDownloadAll: '⬇ All files (ZIP)',
+        hintLabel: '// Note',
+        disclaimer: '<strong>No tax advice.</strong> This tool is a pure calculation aid using the ' +
+          'FiFo method (§ 23 EStG, private sales transactions under German tax law). All results without guarantee — ' +
+          'the user remains responsible for the accuracy and completeness of the tax return. ' +
+          'For complex cases (mining, staking, lending, commercial trading) consult a tax advisor.<br><br>' +
+          '<strong>noKYC holdings:</strong> The separate noKYC overview is for private bookkeeping. ' +
+          'Gains from noKYC sales are taxable too and must be declared — ' +
+          'the separation does not change the tax liability.<br><br>' +
+          '<strong>Reports are generated in German</strong> — they are documents made for the German tax office (Finanzamt).',
+        footerDisclaimer: 'No tax advice – pure calculation aid. Think for yourself. Trust no one.',
+        legalPrefix: 'Legal:',
+        legalLinks: [
+          ['Privacy', 'https://alien-investor.org/en/steuertool-rechtliches.html#privacy'],
+        ],
+        types: {
+          bitbox:       'BitBox wallet (KYC)',
+          bitbox_nokyc: 'BitBox wallet (noKYC)',
+          btc21:        '21bitcoin',
+          bison:        'Bison',
+          swissquote:   'Swissquote',
+          strike:       'Strike',
+          pocket:       'Pocket',
+          bisq:         'Bisq (noKYC)',
+          manual_buys:  'Manual buys (default: noKYC)',
+          manual_sales: 'Manual sells',
+          fxcache:      'fx_cache.json (FX rates)',
+          ignore:       'Ignore',
+          manual_ambig: '✗ Buys or sells? — please choose',
+          unknown:      '✗ Not recognized — please choose',
+        },
+        docLabels: {
+          'steuerreport_':   'Tax report',
+          'steuernachweis_': 'Tax evidence',
+          'kaeufe_':         'Buys (CSV)',
+          'verkaeufe_':      'Sells (CSV)',
+          'nokyc_intern_':   '⚠ noKYC internal',
+        },
+        logNameClash: (n, u) => `Two different files are named "${n}" — keeping both, the second one runs as "${u}". Please check whether that is intended.`,
+        logZipNested: n => `"${n}" is a nested ZIP and was NOT extracted — please unzip it separately and load the files individually.`,
+        logZipShort: (n, got, want) => `"${n}": only ${got} of ${want} entries extracted — the rest use an unsupported compression method. Please unzip manually.`,
+        logZip: (n, c) => `Unpacked ZIP "${n}": ${c} files.`,
+        logZipFail: n => `Could not unpack "${n}" — please unzip it manually and load the files individually.`,
+        logDemoLoad: 'Loading sample data (fictional test data)...',
+        logDemoOk: n => `${n} sample files loaded — click "Calculate report".`,
+        logDemoErr: m => 'Could not load sample data: ' + m,
+        errMulti: label => `Multiple files of type "${label}" — please merge them into one file first.`,
+        pyLoading: 'Loading the compute engine (one-time, may take a moment)…',
+        logPyStart: 'Starting Python environment in your browser...',
+        logPyReady: s => `Python ready (${s}s)`,
+        logSrc: 'Loading tax tool code (unmodified from the open-source repo)...',
+        logFxBad: 'fx_cache.json unreadable — ignoring it.',
+        logFxMerged: (ok, bad) => `${ok} exchange rate(s) loaded${bad ? `, ${bad} invalid discarded` : ''}.`,
+        zipInternHint: 'Note: the ZIP contains the internal noKYC report under INTERN-NICHT-WEITERGEBEN/ — remove it before forwarding to your tax advisor.',
+        logPlaced: n => `${n} file(s) placed in local storage — calculating...`,
+        logDone: (tx, ys, s) => `Done: ${tx} transactions, years: ${ys} (${s}s)`,
+        errPrefix: 'ERROR: ',
+        bugTitle: '🐛 Report a bug',
+        bugIntro: 'Sent as an email to kontakt@alien-investor.org. Please do not attach real ' +
+          'transaction data — for file issues the CSV header line is enough. ' +
+          'Technical/format questions only, no tax questions.',
+        bugLabelBroker: 'Broker / file type',
+        bugLabelDesc: 'Description',
+        bugPhBroker: 'e.g. Swissquote',
+        bugPhDesc: 'What happened? Which file, which message?',
+        bugSend: 'Send',
+        bugCancel: 'Cancel',
+        bugLink: '🐛 Report a bug',
+        bugBody: (broker, desc) =>
+          'Version: BTC Steuertool Web\n' +
+          'Broker / file type: ' + broker + '\n\nDescription:\n' + desc,
+      },
+    };
+
+    const typeLabel = key => i18n[currentLang].types[key];
+
+    function applyLang(lang) {
+      currentLang = lang;
+      const t = i18n[lang];
+      const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+      const setHtml = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+
+      document.documentElement.lang = lang;
+      document.title = t.docTitle;
+
+      const bl = document.getElementById('back-link');
+      bl.textContent = t.backLink;
+      bl.href = t.backHref;
+      setText('nav-title', t.navTitle);
+      const gb = document.getElementById('guide-btn');
+      gb.href = t.guideHref;
+      setText('guide-btn-text', t.guideBtn);
+      setText('subtitle', t.subtitle);
+      setHtml('privacy-strip', t.privacy.map(p => `<span>${p}</span>`).join(''));
+      setText('card01-label', t.card01);
+      document.getElementById('dropzone').innerHTML = t.dropzoneFull;
+      setHtml('nokyc-hint', t.nokycHint);
+      setHtml('unknown-hint', t.unknownHint);
+      setText('th-file', t.thFile); setText('th-size', t.thSize); setText('th-type', t.thType);
+      setText('btn-demo', t.btnDemo); setText('btn-reset', t.btnReset); setText('btn-run', t.btnRun);
+      setText('py-loading-text', t.pyLoading);
+      setText('card02-label', t.card02);
+      setText('card03-label', t.card03);
+      setText('doc-intern-badge', t.internBadge);
+      setText('btn-download', t.btnDownload);
+      setText('btn-download-all', t.btnDownloadAll);
+      setText('hint-label', t.hintLabel);
+      setHtml('disclaimer-text', t.disclaimer);
+      setText('footer-disclaimer', t.footerDisclaimer);
+      const legalEl = document.getElementById('legal-links');
+      if (legalEl) {
+        legalEl.innerHTML = t.legalPrefix + ' ' + t.legalLinks
+          .map(([label, href]) => `<a href="${href}" target="_blank" rel="noopener">${label}</a>`)
+          .join(' · ');
+      }
+
+      setText('bug-title', t.bugTitle);
+      setText('bug-subtext', t.bugIntro);
+      setText('bug-label-broker', t.bugLabelBroker);
+      setText('bug-label-desc', t.bugLabelDesc);
+      setText('bug-send', t.bugSend);
+      setText('bug-cancel', t.bugCancel);
+      setText('bug-link', t.bugLink);
+      document.getElementById('bug-broker').placeholder = t.bugPhBroker;
+      document.getElementById('bug-desc').placeholder = t.bugPhDesc;
+
+      const lb = document.getElementById('lang-toggle');
+      if (lb) lb.textContent = lang === 'de' ? 'EN' : 'DE';
+
+      renderFiles();                                            // Dropdown-Labels neu zeichnen
+      if (lastReports) renderYearTabs(lastYears, lastReports);  // Tab-Labels neu zeichnen
+
+      localStorage.setItem('alien-lang', lang);
+    }
+
+    function toggleLang() {
+      applyLang(currentLang === 'de' ? 'en' : 'de');
+    }
+
+    /* ───────────────────────── Datei-Typen ───────────────────────── */
+    // type → [Ziel-Pfadgenerator, max. Anzahl Dateien] — Labels zweisprachig in i18n[lang].types
+    // Verzeichnisanteile aus einem ZIP-Eintrag entfernen. bitbox ist der einzige
+    // Typ, der den Original-Dateinamen durchreicht — ohne das landete
+    // „nokyc/wallet.csv" als bitbox/nokyc/nokyc/wallet.csv in einem Unterordner,
+    // den der Loader nicht liest (SA2-10).
+    const baseName = n => n.split('/').pop().split('\\').pop();
+    const TYPES = {
+      bitbox:       { target: (n,i) => `bitbox/${baseName(n)}`,       max: 99 },
+      bitbox_nokyc: { target: (n,i) => `bitbox/nokyc/${baseName(n)}`, max: 99, nokyc: true },
+      btc21:        { target: (n,i) => `Broker/21bitcoin-${i}.csv`, max: 99 },
+      bison:        { target: ()    => 'Broker/Bison-CSV-Gesamt.csv', max: 1 },
+      swissquote:   { target: ()    => 'Broker/Swissquote_CSV-Gesamt.csv', max: 1 },
+      strike:       { target: (n,i) => `Broker/strike_${i}.csv`,  max: 99 },
+      pocket:       { target: (n,i) => `Broker/Pocket_${i}.csv`,  max: 99 },
+      bisq:         { target: (n,i) => `Broker/bisq_${i}.csv`,    max: 99, nokyc: true },
+      manual_buys:  { target: ()    => 'manual_buys.csv',         max: 1, nokyc: true },
+      manual_sales: { target: ()    => 'manual_sales.csv',        max: 1 },
+      fxcache:      { target: ()    => 'fx_cache.json',           max: 1 },
+      ignore:       { target: null,                               max: 999 },
+      // Kauf- und Verkaufsdatei teilen sich dieselbe Kopfzeile — der Inhalt kann
+      // sie nicht unterscheiden. Wenn auch der Dateiname nichts hergibt, sperrt
+      // manual_ambig wie 'unknown', statt eine Richtung zu raten (SA2-03).
+      manual_ambig: { target: null,                               max: 999 },
+      unknown:      { target: null,                               max: 999 },
+    };
+    // Typen, die die Berechnung sperren, bis der Nutzer sie auflöst
+    const BLOCKING_TYPES = ['unknown', 'manual_ambig'];
+
+    function sniffType(name, bytes) {
+      const lower = name.toLowerCase();
+      if (lower.endsWith('.json')) return 'fxcache';
+      const head = bytes.slice(0, 600);
+      const utf8 = new TextDecoder('utf-8').decode(head);
+      const latin = new TextDecoder('latin1').decode(head);
+      const h = utf8.split(/\r?\n/)[0].trim();
+      const hLatin = latin.split(/\r?\n/)[0].trim();
+
+      if (h.startsWith('Time,Type,Amount,Unit'))        return lower.includes('nokyc') ? 'bitbox_nokyc' : 'bitbox';
+      if (h.startsWith('id,exchange_name'))             return 'btc21';
+      if (h.startsWith('Transaction ID;'))              return 'bison';
+      if (hLatin.startsWith('Datum;Auftrag'))           return 'swissquote';
+      if (h.startsWith('Transaction ID,Time (UTC)'))    return 'strike';
+      if (h.startsWith('type,date,') && h.includes('value.currency') && h.includes('cost.currency')) return 'pocket';
+      if (h.startsWith('Handels-ID,'))                  return 'bisq';
+      if (h.startsWith('date,btc_amount,eur_amount')) {
+        // Beide manuellen Formate haben dieselbe Kopfzeile; nur der Dateiname
+        // kann sie trennen. Verkaufs-Muster ZUERST prüfen: 'verkauf' enthält
+        // 'kauf', ein Kauf-Test vorher würde jede Verkaufsdatei einfangen.
+        // Der deutsche Plural fehlte bisher komplett — verkaeufe.csv und
+        // Verkäufe_2024.csv wurden als noKYC-KÄUFE verbucht.
+        if (/(sale|sell|verkauf|verkäufe|verkaeufe)/.test(lower)) return 'manual_sales';
+        if (/(buy|kauf|käufe|kaeufe)/.test(lower))                return 'manual_buys';
+        // Nichts im Namen: nicht raten. Ein falsch geratener Verkauf landete
+        // sonst als noKYC-Kauf im FiFo-Pool — stumm und in beide Richtungen falsch.
+        return 'manual_ambig';
+      }
+      return 'unknown';
+    }
+
+    /* ───────────────────────── State ───────────────────────── */
+    const files = [];   // {name, bytes, type}
+    let srcLoaded = false;   // Worker hat den src-Code schon im FS (Log-Hinweis "Code laden" nur 1×)
+    let lastReports = null;
+    let lastYears = null;
+    // Welche Reports intern sind, entscheidet die Python-Seite (H5) — hier wird
+    // die Liste nur durchgereicht, nicht neu hergeleitet.
+    let lastInternal = [];
+    // Bis 10/2026 lagen abgerufene Wechselkurse (= Kaufdaten des Nutzers) im localStorage.
+    // Kurse sind jetzt gebündelt — den Altbestand einmal wegräumen, nichts mehr speichern.
+    try { localStorage.removeItem('btc-steuertool-fx'); } catch (e) {}
+
+    const SRC_FILES = [
+      'src/__init__.py', 'src/models.py', 'src/fifo_engine.py', 'src/tax_report.py',
+      'src/formal_report.py', 'src/fx_rates.py', 'src/main.py',
+      // Kurstabelle fuer in BTC entrichtete Gebuehren (H8) — Teil des Python-Kerns,
+      // gleich-origin geladen, kein externer Kursdienst (Vertraulichkeit + CSP)
+      'src/btc_prices.py', 'src/data/btc_eur_daily.csv',
+      // EZB-Wechselkurse (USD/CHF) — seit 10/2026 gebündelt statt frankfurter-API:
+      // die App spricht mit keinem Dritten mehr, auch nicht für Kurse
+      'src/data/ecb_eur_daily.csv',
+      'src/parsers/__init__.py', 'src/parsers/bitbox.py', 'src/parsers/broker_21bitcoin.py',
+      'src/parsers/broker_bison.py', 'src/parsers/broker_swissquote.py',
+      'src/parsers/broker_strike.py', 'src/parsers/broker_pocket.py',
+      'src/parsers/bisq.py', 'src/parsers/manual_buys.py', 'src/parsers/manual_sales.py',
+    ];
+    const DEMO_FILES = [
+      'examples/bitbox/wallet1.csv', 'examples/bitbox/nokyc/nokyc_wallet.csv',
+      'examples/Broker/21bitcoin-gesamt.csv', 'examples/Broker/Bison-CSV-Gesamt.csv',
+      'examples/Broker/bisq.csv', 'examples/Broker/Pocket_2024.csv',
+      'examples/Broker/strike_2024.csv', 'examples/Broker/Swissquote_CSV-Gesamt.csv',
+      'examples/fx_cache.json', 'examples/manual_buys.csv', 'examples/manual_sales.csv',
+    ];
+
+    const BOOTSTRAP = `
+import io, json, sys
+from contextlib import redirect_stdout
+from pathlib import Path
+
+if "/work" not in sys.path:
+    sys.path.insert(0, "/work")
+
+# Frische Modul-Instanzen bei Wiederholungslaeufen
+for _m in [m for m in sys.modules if m == "src" or m.startswith("src.")]:
+    del sys.modules[_m]
+
+from src.main import load_all_transactions, _generate_report, is_internal_report, report_years
+from src.fifo_engine import FifoEngine
+import src.parsers as _parsers
+import src.fx_rates as fx_rates
+
+data_dir = Path("/work/data")
+fx_rates.init(data_dir)
+
+buf = io.StringIO()
+with redirect_stdout(buf):
+    transactions = load_all_transactions(data_dir)
+    engine = FifoEngine()
+    engine.process(transactions)
+    # Jahresliste kommt aus dem Kern (report_years), nicht aus einer Kopie hier —
+    # seit H8 zaehlt auch ein Jahr mit Gebuehren-Abgang oder Schenkung (Prinzip H5)
+    years = report_years(transactions)
+    for year in years:
+        _generate_report(transactions, engine, year, True, True, data_dir / "reports")
+
+reports = {}
+for p in sorted((data_dir / "reports").glob("*")):
+    reports[p.name] = p.read_text(encoding="utf-8")
+
+# Einstufung kommt von der Python-Seite, wo die Reports benannt werden (H5).
+# Fail closed: was nicht ausdruecklich offiziell ist, gilt als intern.
+internal_reports = [n for n in reports if is_internal_report(n)]
+
+json.dumps({
+    "log": buf.getvalue(),
+    "years": years,
+    "reports": reports,
+    "internal_reports": internal_reports,
+    "tx_count": len(transactions),
+    # .full: das GUI-Log sieht nur der Nutzer selbst — hier ist der Dateiname
+    # die eigentlich nuetzliche Angabe (redigiert wird nur Richtung Finanzamt)
+    "warnings": [getattr(w, "full", None) or str(w)
+                 for w in (list(_parsers.parser_warnings) + list(engine.warnings))],
+})
+`;
+
+    /* ───────────────────────── Log ───────────────────────── */
+    const logEl = document.getElementById('log');
+    function log(msg, cls) {
+      document.getElementById('status-card').classList.remove('hidden');
+      const line = document.createElement('div');
+      if (cls) line.className = cls;
+      line.textContent = msg;
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    /* ───────────────────────── Pyodide (lazy, startet im Hintergrund) ───────────────────────── */
+    function setPyLoading(on) {
+      const el = document.getElementById('py-loading');
+      if (el) el.classList.toggle('show', on);
+    }
+    // Pyodide läuft im Worker (worker.js) — Load + Berechnung blockieren den Main-Thread/UI
+    // nicht mehr. Der Spinner läuft dadurch ruckelfrei und signalisiert weiter „arbeitet".
+    let worker = null, workerReady = null;
+    function ensureWorker() {
+      if (!workerReady) {
+        setPyLoading(true);   // Spinner zeigen, bis der Rechenkern im Worker bereit ist
+        worker = new Worker('worker.js');
+        workerReady = new Promise((resolve, reject) => {
+          const onMsg = (e) => {
+            if (e.data.type === 'ready') { worker.removeEventListener('message', onMsg); resolve(worker); }
+            else if (e.data.type === 'init-error') { worker.removeEventListener('message', onMsg); reject(new Error(e.data.message)); }
+          };
+          worker.addEventListener('message', onMsg);
+          worker.addEventListener('error', (ev) => reject(new Error(ev.message || 'Worker-Ladefehler')));
+        });
+        workerReady.finally(() => setPyLoading(false));
+        worker.postMessage({ cmd: 'init' });
+      }
+      return workerReady;
+    }
+    // Eine Berechnung im Worker ausführen (immer nur eine — btn-run ist währenddessen disabled).
+    function runInWorker(payload) {
+      return new Promise((resolve, reject) => {
+        const onMsg = (e) => {
+          if (e.data.type === 'result') { cleanup(); resolve(e.data.result); }
+          else if (e.data.type === 'error') { cleanup(); reject(new Error(e.data.message)); }
+        };
+        const onErr = (ev) => { cleanup(); reject(new Error(ev.message || 'Worker-Fehler')); };
+        function cleanup() { worker.removeEventListener('message', onMsg); worker.removeEventListener('error', onErr); }
+        worker.addEventListener('message', onMsg);
+        worker.addEventListener('error', onErr);
+        worker.postMessage({ cmd: 'run', payload });
+      });
+    }
+    // Hintergrund-Preload nur auf Desktop (hover-fähig, feiner Pointer) — auf Smartphones
+    // blockiert der ~50-MB-WASM-Compile spürbar den Main-Thread (User-Report: Back-Link
+    // hing auf Vanadium/GrapheneOS). Mobile lädt erst bei Nutzungsabsicht, siehe warmup().
+    function warmup() { ensureWorker().catch(() => {}); }
+    if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      setTimeout(warmup, 1500);
+    }
+
+    /* ───────────────────────── Datei-Verwaltung ───────────────────────── */
+    const tbody = document.getElementById('file-tbody');
+    const fileTable = document.getElementById('file-table');
+    const btnRun = document.getElementById('btn-run');
+
+    function addFile(name, bytes) {
+      // Namenskollision NICHT stillschweigend auflösen (SA2-05). Zwei Dateien mit
+      // demselben Basisnamen (zwei Konten beim selben Broker, generische Namen wie
+      // transactions.csv, oder ein ZIP mit gleichnamigen Einträgen) landeten hier
+      // als eine — und die Umbenennung auf den kanonischen Pfad passiert erst bei
+      // der Platzierung, also NACH diesem Test: betroffen war jeder Dateityp, und
+      // die max:1-Schranke wurde mitumgangen (zwei gleiche Namen zählen als eine).
+      // Fehlende Käufe = falsche Steuer — dieselbe Begründung wie bei der
+      // Sperre für nicht erkannte Dateien.
+      const existing = files.findIndex(f => f.name === name);
+      if (existing >= 0) {
+        const old = files[existing].bytes;
+        const identical = old.length === bytes.length && old.every((b, i) => b === bytes[i]);
+        if (identical) {
+          // Dieselbe Datei zweimal ausgewählt — stumm verwerfen ist hier richtig
+          renderFiles();
+          requestAnimationFrame(() => requestAnimationFrame(warmup));
+          return;
+        }
+        // Unterschiedlicher Inhalt: beide behalten, Anzeigenamen eindeutig machen
+        let suffix = 2;
+        const dot = name.lastIndexOf('.');
+        const stem = dot > 0 ? name.slice(0, dot) : name;
+        const ext  = dot > 0 ? name.slice(dot) : '';
+        let unique = `${stem} (${suffix})${ext}`;
+        while (files.some(f => f.name === unique)) unique = `${stem} (${++suffix})${ext}`;
+        log(i18n[currentLang].logNameClash(name, unique), 'warn');
+        name = unique;
+      }
+      const entry = { name, bytes, type: sniffType(name, bytes) };
+      files.push(entry);
+      renderFiles();
+      // Sobald echte Dateien da sind, Pyodide vorwärmen (inkl. zoneinfo-Import) — deckt jeden
+      // Pfad ab (eigene Dateien, Drag&Drop, Demo-Laden auf Mobile). warmup ist idempotent.
+      // Erst NACH dem nächsten Paint, damit die Datei-Tabelle sichtbar wird, bevor der
+      // WASM-Compile den Main-Thread kurz blockiert (sonst wirkt das Laden „eingefroren").
+      requestAnimationFrame(() => requestAnimationFrame(warmup));
+    }
+
+    function renderFiles() {
+      tbody.innerHTML = '';
+      files.forEach((f, idx) => {
+        const tr = document.createElement('tr');
+
+        const tdName = document.createElement('td');
+        tdName.textContent = f.name;
+        tr.appendChild(tdName);
+
+        const tdSize = document.createElement('td');
+        tdSize.className = 'file-size';
+        tdSize.textContent = f.bytes.length > 1024 ? (f.bytes.length/1024).toFixed(1) + ' KB' : f.bytes.length + ' B';
+        tr.appendChild(tdSize);
+
+        const tdType = document.createElement('td');
+        const sel = document.createElement('select');
+        for (const key of Object.keys(TYPES)) {
+          // Sperr-Typen nur in der Zeile anbieten, die gerade so eingestuft ist —
+          // sie sind ein Zustand, keine Wahlmöglichkeit
+          if (BLOCKING_TYPES.includes(key) && f.type !== key) continue;
+          const opt = document.createElement('option');
+          opt.value = key; opt.textContent = typeLabel(key);
+          if (key === f.type) opt.selected = true;
+          sel.appendChild(opt);
+        }
+        sel.className = BLOCKING_TYPES.includes(f.type) ? 'is-unknown' : (TYPES[f.type].nokyc ? 'is-nokyc' : '');
+        sel.onchange = () => { f.type = sel.value; renderFiles(); };
+        tdType.appendChild(sel);
+        tr.appendChild(tdType);
+
+        const tdRm = document.createElement('td');
+        const rm = document.createElement('button');
+        rm.className = 'file-remove'; rm.textContent = '✕'; rm.title = 'Entfernen';
+        rm.onclick = () => { files.splice(idx, 1); renderFiles(); };
+        tdRm.appendChild(rm);
+        tr.appendChild(tdRm);
+
+        tbody.appendChild(tr);
+      });
+      fileTable.classList.toggle('hidden', files.length === 0);
+      const usable = files.filter(f => !BLOCKING_TYPES.includes(f.type) && f.type !== 'ignore');
+      // Nicht erkannte Dateien sperren die Berechnung KOMPLETT — sonst entstehen
+      // stillschweigend unvollständige Reports (fehlende Käufe = falsche Steuer!)
+      // Gleiches gilt für manual_ambig: Kauf oder Verkauf ist nicht entscheidbar.
+      const hasUnknown = files.some(f => BLOCKING_TYPES.includes(f.type));
+      btnRun.disabled = usable.length === 0 || demoLoading || hasUnknown;
+      document.getElementById('unknown-hint').classList.toggle('hidden', !hasUnknown);
+      // Hinweis, solange mindestens eine BitBox-Wallet als KYC eingestuft ist
+      const hasKycBitbox = files.some(f => f.type === 'bitbox');
+      document.getElementById('nokyc-hint').classList.toggle('hidden', !hasKycBitbox);
+    }
+
+    /* ───────────────────────── ZIP-Entpacker ───────────────────────── */
+    // ZIP-Dateien direkt entpacken (natives DecompressionStream, keine Bibliothek) —
+    // damit funktioniert auch das Beispieldaten-ZIP per Drag&Drop ohne manuelles Entpacken
+    async function extractZip(bytes) {
+      const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      let eocd = -1;
+      for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--) {
+        if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+      }
+      if (eocd < 0) throw new Error('kein ZIP');
+      const count = dv.getUint16(eocd + 10, true);
+      let off = dv.getUint32(eocd + 16, true);
+      const td = new TextDecoder();
+      const out = [];
+      const skipped = [];   // Einträge, die wir NICHT liefern konnten (SA2-12)
+      const nested = [];    // verschachtelte ZIPs — brauchen eine eigene Meldung
+      for (let n = 0; n < count; n++) {
+        if (dv.getUint32(off, true) !== 0x02014b50) {
+          // Kaputtes Central Directory: bisher stiller break mit Teilmenge
+          skipped.push(`#${n + 1}`);
+          break;
+        }
+        const method = dv.getUint16(off + 10, true);
+        const csize = dv.getUint32(off + 20, true);
+        const nameLen = dv.getUint16(off + 28, true);
+        const extraLen = dv.getUint16(off + 30, true);
+        const cmtLen = dv.getUint16(off + 32, true);
+        const lho = dv.getUint32(off + 42, true);
+        const name = td.decode(bytes.subarray(off + 46, off + 46 + nameLen));
+        off += 46 + nameLen + extraLen + cmtLen;
+        // Pfad NICHT wegwerfen: bitbox/nokyc/wallet.csv wurde sonst zu wallet.csv
+        // und damit als KYC-Wallet eingestuft — die Bewegungen einer noKYC-Wallet
+        // liefen in die Finanzamt-Dokumente (SA2-10). sniffType sieht den Pfad,
+        // die Platzierung entfernt ihn wieder (baseName in TYPES).
+        if (name.endsWith('/')) continue;                    // Verzeichniseintrag, kein Verlust
+        if (name.toLowerCase().endsWith('.zip')) {           // verschachteltes ZIP: bisher stumm übersprungen
+          nested.push(name.split('/').pop());
+          continue;
+        }
+        const dataStart = lho + 30 + dv.getUint16(lho + 26, true) + dv.getUint16(lho + 28, true);
+        const data = bytes.subarray(dataStart, dataStart + csize);
+        if (method === 0) {
+          out.push({ name, bytes: new Uint8Array(data) });
+        } else if (method === 8) {
+          const buf = await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer();
+          out.push({ name, bytes: new Uint8Array(buf) });
+        } else {
+          // Deflate64, bzip2, LZMA … — ohne else-Zweig fiel der Eintrag lautlos weg
+          skipped.push(name.split('/').pop());
+        }
+      }
+      if (!out.length && !nested.length) throw new Error('leer');
+      // Der Aufrufer meldet die Ausfälle im Log — extractZip liefert nie mehr
+      // stillschweigend eine gekürzte Liste
+      return { entries: out, skipped, nested, expected: count };
+    }
+
+    async function intakeFile(name, bytes) {
+      if (name.toLowerCase().endsWith('.zip')) {
+        try {
+          const { entries, skipped, nested } = await extractZip(bytes);
+          log(i18n[currentLang].logZip(name, entries.length));
+          // Ausfälle sichtbar machen, statt eine zu kleine Zahl zu loggen
+          for (const nz of nested) log(i18n[currentLang].logZipNested(nz), 'warn');
+          if (skipped.length) {
+            log(i18n[currentLang].logZipShort(name, entries.length, entries.length + skipped.length), 'warn');
+          }
+          for (const e of entries) await intakeFile(e.name, e.bytes);
+        } catch (err) {
+          log(i18n[currentLang].logZipFail(name), 'warn');
+        }
+        return;
+      }
+      addFile(name, bytes);
+    }
+
+    /* ───────────────────────── Drag & Drop ───────────────────────── */
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('file-input');
+    // Mobile-Warmup: Pyodide erst laden, wenn der Nutzer erkennbar rechnen will.
+    // pointerenter NUR auf Hover-Geräten — auf Touch feuert es schon beim Scroll-Touch
+    // über die Dropzone und der 50-MB-Load blockiert dann jeden weiteren Tap (Link-Hänger).
+    // Den ~50-MB-WASM-Compile NIE an einen Tap hängen, auf den der Nutzer wartet:
+    // auf GrapheneOS/Vanadium blockiert er den Main-Thread, und genau dann soll der
+    // native Datei-Picker (dropzone-click) aufgehen bzw. die Demo laden → „hängt".
+    // Auf Mobile darum erst vorwärmen, wenn Dateien schon da sind (change/drop) — Pyodide
+    // selbst wird ohnehin erst bei „Berechnen" gebraucht (btn-run lädt es bei Bedarf nach).
+    // Desktop (hover+feiner Pointer) darf eager vorwärmen, dort blockiert nichts spürbar.
+    const warmupTriggers = [[fileInput, 'change'], [dropzone, 'drop'], [dropzone, 'dragover']];
+    if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      warmupTriggers.push([dropzone, 'pointerenter'], [dropzone, 'click'],
+                          [document.getElementById('btn-demo'), 'click']);
+    }
+    for (const [el, ev] of warmupTriggers) {
+      el.addEventListener(ev, warmup, { once: true, passive: true });
+    }
+    dropzone.onclick = () => fileInput.click();
+    dropzone.ondragover = e => { e.preventDefault(); dropzone.classList.add('dragover'); };
+    dropzone.ondragleave = () => dropzone.classList.remove('dragover');
+    dropzone.ondrop = async e => {
+      e.preventDefault(); dropzone.classList.remove('dragover');
+      for (const file of e.dataTransfer.files) await intakeFile(file.name, new Uint8Array(await file.arrayBuffer()));
+    };
+    fileInput.onchange = async () => {
+      for (const file of fileInput.files) await intakeFile(file.name, new Uint8Array(await file.arrayBuffer()));
+      fileInput.value = '';
+    };
+
+    /* ───────────────────────── Beispieldaten / Reset ───────────────────────── */
+    let demoLoading = false;
+    document.getElementById('btn-demo').onclick = async () => {
+      log(i18n[currentLang].logDemoLoad);
+      demoLoading = true;
+      try {
+        for (const path of DEMO_FILES) {
+          const resp = await fetch(path);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status} für ${path}`);
+          addFile(path.split('/').pop(), new Uint8Array(await resp.arrayBuffer()));
+        }
+        log(i18n[currentLang].logDemoOk(DEMO_FILES.length), 'ok');
+      } catch (err) {
+        log(i18n[currentLang].logDemoErr(err.message), 'err');
+      } finally {
+        demoLoading = false;
+        renderFiles();
+      }
+    };
+
+    document.getElementById('btn-reset').onclick = () => {
+      files.length = 0;
+      renderFiles();
+      document.getElementById('results-card').classList.add('hidden');
+      logEl.innerHTML = '';
+      document.getElementById('status-card').classList.add('hidden');
+    };
+
+    /* ───────────────────────── Pipeline ───────────────────────── */
+    document.getElementById('btn-run').onclick = async () => {
+      btnRun.disabled = true;
+      const t0 = performance.now();
+      // Log bei Laufbeginn leeren (SA2-15): sonst hängt Lauf 2 unter der Historie
+      // von Lauf 1, und die rote FEHLER-Zeile ist zwar die zuletzt geschriebene,
+      // steht aber unter Meldungen eines Laufs, der gar nicht mehr gilt.
+      logEl.innerHTML = '';
+      window.__GUI_DONE = false;
+      window.__GUI_ERROR = null;
+      try {
+        // Validierung: Einzeldatei-Typen nicht doppelt
+        for (const [key, t] of Object.entries(TYPES)) {
+          const count = files.filter(f => f.type === key).length;
+          if (count > t.max) {
+            throw new Error(i18n[currentLang].errMulti(typeLabel(key)));
+          }
+        }
+
+        log(i18n[currentLang].logPyStart);
+        await ensureWorker();
+        log(i18n[currentLang].logPyReady(((performance.now()-t0)/1000).toFixed(1)), 'ok');
+
+        // Wechselkurse kommen aus der gebündelten EZB-Tabelle (src/data/ecb_eur_daily.csv).
+        // Eine mitgegebene fx_cache.json ist nur noch manueller Override — sie gilt für
+        // diesen Lauf und wird nirgends gespeichert.
+        const fxCache = {};
+        const userFx = files.find(f => f.type === 'fxcache');
+        if (userFx) {
+          // Kurse validieren statt blind übernehmen: eine beliebige .json wird allein
+          // an der Endung als Kurs-Override erkannt. Ungeprüft verfälscht das still
+          // die Steuerzahlen.
+          try {
+            const parsed = JSON.parse(new TextDecoder('utf-8').decode(userFx.bytes));
+            const KEY_RE = /^\d{4}-\d{2}-\d{2}:[A-Z]{3}$/;
+            let ok = 0, bad = 0;
+            for (const [k, v] of Object.entries(parsed)) {
+              const num = Number(v);
+              if (KEY_RE.test(k) && Number.isFinite(num) && num > 0 && num < 100000) {
+                fxCache[k] = String(v); ok++;
+              } else { bad++; }
+            }
+            log(i18n[currentLang].logFxMerged(ok, bad), bad ? 'warn' : 'ok');
+          }
+          catch (e) { log(i18n[currentLang].logFxBad, 'warn'); }
+        }
+
+        // Nutzer-Dateien an die kanonischen Pfade (TYPES bleibt Main-Thread-Logik)
+        const counters = {};
+        const dataFiles = [];
+        for (const f of files) {
+          if (f.type === 'ignore' || f.type === 'fxcache' || BLOCKING_TYPES.includes(f.type)) continue;
+          counters[f.type] = (counters[f.type] || 0) + 1;
+          dataFiles.push({ target: '/work/data/' + TYPES[f.type].target(f.name, counters[f.type]), bytes: f.bytes });
+        }
+        if (!srcLoaded) log(i18n[currentLang].logSrc);
+        log(i18n[currentLang].logPlaced(dataFiles.length));
+
+        // Berechnung im Worker — Main-Thread/UI bleibt frei (Spinner läuft flüssig weiter).
+        const result = await runInWorker({
+          srcFiles: SRC_FILES, bootstrap: BOOTSTRAP, fxCache, dataFiles,
+        });
+        srcLoaded = true;
+
+        result.log.trim().split('\n').forEach(l => log('  ' + l));
+        result.warnings.forEach(w => log('⚠ ' + w, 'warn'));
+        log(i18n[currentLang].logDone(result.tx_count, result.years.join(', '), ((performance.now()-t0)/1000).toFixed(1)), 'ok');
+
+        lastReports = result.reports;
+        lastInternal = result.internal_reports || [];
+        renderResults(result.years, result.reports);
+
+        window.__GUI_RESULT = result;   // Test-Hook
+        window.__GUI_DONE = true;
+      } catch (err) {
+        // Ergebnisse des VORHERIGEN Laufs vollständig verwerfen (SA2-15). Vorher
+        // blieben lastReports/lastYears/activeDoc und die Ergebniskarte stehen:
+        // beide Download-Knöpfe lieferten weiter die alten Reports, und weil die
+        // byte-identisch zum letzten Lauf sind, sieht ein Nutzer, der gerade
+        // etwas korrigiert hat, keinerlei Unterschied — er lädt stillschweigend
+        // ein veraltetes Steuerdokument herunter.
+        lastReports = null;
+        lastYears = null;
+        lastInternal = [];
+        activeYear = null;
+        activeDoc = null;
+        document.getElementById('results-card').classList.add('hidden');
+        document.getElementById('report-view').textContent = '';
+        log(i18n[currentLang].errPrefix + (err.message || err), 'err');
+        console.error(err);
+        window.__GUI_RESULT = null;
+        window.__GUI_ERROR = String(err.message || err);
+        window.__GUI_DONE = true;
+      } finally {
+        renderFiles(); // btnRun-Status wiederherstellen
+      }
+    };
+
+    /* ───────────────────────── Ergebnis-Darstellung ───────────────────────── */
+    // Tab-Labels zweisprachig in i18n[lang].docLabels — Report-Dateien selbst bleiben deutsch
+    // Nur noch Reihenfolge und Label — die Vertraulichkeits-Einstufung steht in
+    // lastInternal und kommt aus src/main.py (H5).
+    const DOC_ORDER = [
+      { prefix: 'steuerreport_' },
+      { prefix: 'steuernachweis_' },
+      { prefix: 'kaeufe_' },
+      { prefix: 'verkaeufe_' },
+      { prefix: 'nokyc_intern_' },
+    ];
+    let activeYear = null, activeDoc = null;
+
+    function renderResults(years, reports) {
+      const card = document.getElementById('results-card');
+      card.classList.remove('hidden');
+      lastYears = years;
+      activeYear = years[years.length - 1];
+      renderYearTabs(years, reports);
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function renderYearTabs(years, reports) {
+      const yt = document.getElementById('year-tabs');
+      yt.innerHTML = '';
+      years.forEach(y => {
+        const b = document.createElement('button');
+        b.className = 'tab-btn' + (y === activeYear ? ' active' : '');
+        b.textContent = y;
+        b.onclick = () => { activeYear = y; activeDoc = null; renderYearTabs(years, reports); };
+        yt.appendChild(b);
+      });
+      renderDocTabs(reports);
+    }
+
+    function renderDocTabs(reports) {
+      const dt = document.getElementById('doc-tabs');
+      dt.innerHTML = '';
+      const docs = DOC_ORDER
+        .map(d => ({ ...d, file: Object.keys(reports).find(n => n.startsWith(d.prefix) && n.includes(String(activeYear))) }))
+        .filter(d => d.file);
+      if (!activeDoc || !docs.some(d => d.file === activeDoc)) activeDoc = docs[0] ? docs[0].file : null;
+
+      docs.forEach(d => {
+        const b = document.createElement('button');
+        b.className = 'tab-btn' + (lastInternal.includes(d.file) ? ' tab-nokyc' : '') + (d.file === activeDoc ? ' active' : '');
+        b.textContent = i18n[currentLang].docLabels[d.prefix];
+        b.onclick = () => { activeDoc = d.file; renderDocTabs(reports); };
+        dt.appendChild(b);
+      });
+
+      const isIntern = activeDoc && lastInternal.includes(activeDoc);
+      document.getElementById('doc-intern-badge').classList.toggle('hidden', !isIntern);
+      document.getElementById('report-view').textContent = activeDoc ? reports[activeDoc] : '';
+    }
+
+    function downloadBlob(name, blob) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+    function downloadFile(name, content) {
+      downloadBlob(name, new Blob([content], { type: 'text/plain;charset=utf-8' }));
+    }
+
+    // ZIP-Packer (store, ohne Kompression) — Gegenstück zu extractZip, keine Bibliothek.
+    // Ein ZIP statt 26 Einzeldownloads: Browser blocken schnelle Download-Serien gern
+    // teilweise weg — bei Steuerdokumenten dürfen keine Dateien verloren gehen.
+    const CRC_TABLE = (() => {
+      const t = new Uint32Array(256);
+      for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) c = (c & 1) ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+        t[n] = c >>> 0;
+      }
+      return t;
+    })();
+    function crc32(bytes) {
+      let c = 0xffffffff;
+      for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+      return (c ^ 0xffffffff) >>> 0;
+    }
+    function buildZip(entries) {   // entries: [{name, bytes}]
+      const enc = new TextEncoder();
+      const now = new Date();
+      const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+      const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+      const parts = [], central = [];
+      let offset = 0;
+      for (const e of entries) {
+        const name = enc.encode(e.name);
+        const crc = crc32(e.bytes);
+        const lh = new DataView(new ArrayBuffer(30));
+        lh.setUint32(0, 0x04034b50, true);   // Local-File-Header
+        lh.setUint16(4, 20, true);           // Version needed
+        lh.setUint16(6, 0x0800, true);       // Bit 11: Dateiname ist UTF-8 (H6)
+        lh.setUint16(8, 0, true);            // Methode: store
+        lh.setUint16(10, dosTime, true);
+        lh.setUint16(12, dosDate, true);
+        lh.setUint32(14, crc, true);
+        lh.setUint32(18, e.bytes.length, true);
+        lh.setUint32(22, e.bytes.length, true);
+        lh.setUint16(26, name.length, true);
+        parts.push(new Uint8Array(lh.buffer), name, e.bytes);
+        const cd = new DataView(new ArrayBuffer(46));
+        cd.setUint32(0, 0x02014b50, true);   // Central-Directory-Eintrag
+        cd.setUint16(4, 20, true);
+        cd.setUint16(6, 20, true);
+        cd.setUint16(8, 0x0800, true);       // Bit 11: Dateiname ist UTF-8 (H6)
+        cd.setUint16(12, dosTime, true);
+        cd.setUint16(14, dosDate, true);
+        cd.setUint32(16, crc, true);
+        cd.setUint32(20, e.bytes.length, true);
+        cd.setUint32(24, e.bytes.length, true);
+        cd.setUint16(28, name.length, true);
+        cd.setUint32(42, offset, true);
+        central.push(new Uint8Array(cd.buffer), name);
+        offset += 30 + name.length + e.bytes.length;
+      }
+      const cdSize = central.reduce((s, p) => s + p.length, 0);
+      const eocd = new DataView(new ArrayBuffer(22));
+      eocd.setUint32(0, 0x06054b50, true);   // End of Central Directory
+      eocd.setUint16(8, entries.length, true);
+      eocd.setUint16(10, entries.length, true);
+      eocd.setUint32(12, cdSize, true);
+      eocd.setUint32(16, offset, true);
+      return new Blob([...parts, ...central, new Uint8Array(eocd.buffer)], { type: 'application/zip' });
+    }
+
+    document.getElementById('btn-download').onclick = () => {
+      if (activeDoc && lastReports) downloadFile(activeDoc, lastReports[activeDoc]);
+    };
+    document.getElementById('btn-download-all').onclick = () => {
+      if (!lastReports) return;
+      const enc = new TextEncoder();
+      // Interne Dateien nicht ununterscheidbar mit ausliefern: sie landen in einem
+      // eindeutig benannten Unterordner, damit sie beim Weiterleiten an den
+      // Steuerberater auffallen. Die Einstufung kommt von der Python-Seite, wo die
+      // Reports benannt werden (H5) — eine Präfix-Allowlist im HTML hätte ein später
+      // ergänztes internes Artefakt so lange offen mitgeliefert, bis jemand daran
+      // denkt, ein anderes Repo anzufassen.
+      const entries = Object.entries(lastReports).map(([name, content]) => ({
+        name: lastInternal.includes(name) ? 'INTERN-NICHT-WEITERGEBEN/' + name : name,
+        bytes: enc.encode(content)
+      }));
+      if (entries.some(e => e.name.startsWith('INTERN-NICHT-WEITERGEBEN/'))) {
+        log(i18n[currentLang].zipInternHint, 'warn');
+      }
+      downloadBlob('btc-steuertool-reports.zip', buildZip(entries));
+    };
+
+    /* ───────────────────────── Bug-Report (Muster alien-analyzer-v2) ───────────────────────── */
+    function openBugReport() {
+      // Vorbefüllen mit den erkannten Dateitypen — Dateinamen bewusst NICHT (können privat sein)
+      const types = [...new Set(files.filter(f => f.type !== 'ignore' && !BLOCKING_TYPES.includes(f.type)).map(f => typeLabel(f.type)))];
+      document.getElementById('bug-broker').value = types.join(', ');
+      document.getElementById('bug-desc').value = '';
+      document.getElementById('bug-overlay').classList.remove('hidden');
+    }
+    function closeBugReport() {
+      document.getElementById('bug-overlay').classList.add('hidden');
+    }
+    function sendBugReport() {
+      const t = i18n[currentLang];
+      const broker = document.getElementById('bug-broker').value.trim() || '—';
+      const desc = document.getElementById('bug-desc').value.trim() || '—';
+      // Bewusst keine Dateinamen im Report (können privat sein)
+      const bodyText = t.bugBody(broker, desc);
+      const subject = encodeURIComponent('[BTC Steuertool] Bug: ' + broker);
+      window.location.href = 'mailto:kontakt@alien-investor.org?subject=' + subject + '&body=' + encodeURIComponent(bodyText);
+      navigator.clipboard.writeText(bodyText).catch(() => {});
+      setTimeout(() => closeBugReport(), 2500);
+    }
+    document.getElementById('bug-overlay').addEventListener('click', e => {
+      if (e.target === e.currentTarget) closeBugReport();
+    });
+
+    /* ───────────────────────── Sprach-Init ───────────────────────── */
+    applyLang(currentLang);
+  </script>
+</body>
+</html>

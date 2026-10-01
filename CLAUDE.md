@@ -2,7 +2,9 @@
 
 ## Projektziel
 CLI-Tool das aus CSV-Exporten von BitBox-Hardware-Wallets und Broker-Konten steuerlich
-relevante Jahresberichte für das deutsche Finanzamt erstellt.
+relevante Jahresberichte für das deutsche Finanzamt erstellt. Dieselbe Engine läuft
+unverändert als freie Web-Version (`web/`, Pyodide im Browser) — siehe Abschnitt
+„Web-Version“.
 
 Alle BTC werden in Selbstverwahrung gehalten (BitBox). Käufe laufen über einen oder
 mehrere Broker. Die BitBox-CSVs dokumentieren die Überträge zwischen Wallets und Börsen.
@@ -179,6 +181,31 @@ Gewollte Report-Änderung: `python tests/test_golden.py --update`, Diff im Commi
 
 ---
 
+## Web-Version (`web/`) — seit 02.10.2026 frei, kein Fork der Engine
+
+`web/index.html` (GUI, Broker-Sniffing, ZIP-Entpacker, DE/EN-i18n) + `web/worker.js`
+(Pyodide 0.26.4 im Web-Worker, lädt `src/` 1:1 ins WASM-Dateisystem). `web/build.sh` baut
+`web/dist/` (kopiert `../src`, `../examples`, `vendor/`, erzeugt `beispieldaten.zip`).
+`web/vendor-setup.sh` holt Pyodide + tzdata-Wheel + Fonts mit SHA-256-Prüfung (nicht
+versioniert, ~15 MB). Reports bleiben deutsch (Finanzamt-Dokumente), die UI ist zweisprachig.
+
+Regeln:
+- **Engine nie in JS nachbauen** — `src/` ist die einzige Implementierung; die GUI bekommt
+  `internal_reports`, `report_years()` usw. aus dem Python-Bootstrap, sie leitet nichts neu her.
+- CSVs als Bytes ins Pyodide-FS schreiben (Swissquote = Windows-1252). `tzdata` muss geladen
+  bleiben (Steuernachweis nutzt Europe/Berlin). `import zoneinfo` im Worker-Init vorziehen.
+- Pyodide erst bei Nutzungsabsicht laden (Mobile), Desktop darf eager vorwärmen. Nie den
+  WASM-Compile an einen Tap hängen, auf den der Nutzer wartet (Datei-Picker).
+- Kein `accept`-Attribut am File-Input (GrapheneOS-Picker grayt sonst CSVs aus).
+- Nicht erkannte Dateien sperren die Berechnung; `BLOCKING_TYPES` ist die einzige Liste.
+- Bug-Report ohne Dateinamen und ohne URL. Support nur Technik/Format, nie Steuerfragen.
+- Tests: `python3 -m http.server 8741 --directory web/dist` + `python3 web/test_gui.py`
+  (Referenz: CLI `--all --nachweis --csv --data-dir` auf eine examples-Kopie unter
+  `/tmp/poc-ref/examples`, Reports müssen byte-gleich sein) + `python3 web/test_lang.py`.
+  Playwright-Chromium: `python3 -m playwright install chromium`.
+
+---
+
 ## Technologie-Stack
 
 - **Python 3.10+**
@@ -300,21 +327,21 @@ python src/main.py --data-dir /pfad/    # Anderes Datenverzeichnis
 
 ```
 === Bitcoin Steuerreport Deutschland — 2024 ===
-Erstellt: 2025-03-26  |  Methode: FiFo  |  Haltefrist: 365 Tage
+Erstellt: 2025-03-26  |  Methode: FiFo  |  Veräußerungsfrist: ein Jahr  |  § 23 EStG
 
 KÄUFE 2024
 Datum        Quelle       BTC-Betrag    Kurs EUR/BTC    Gebühr EUR   Einstand EUR
 2024-01-15   21bitcoin      0.00823126    41.000,00          6,00        343,88
 ...
 
-STEUERPFLICHTIGE VERÄUSSERUNGEN 2024 (Haltedauer ≤ 365 Tage)
+STEUERPFLICHTIGE VERÄUSSERUNGEN (Veräußerung innerhalb eines Jahres)
 ------------------------------------------------------------------
 Verkauf: 2024-09-15  Bison  0.13908920 BTC  @  96.590,18 EUR/BTC  =  13.434,65 EUR
   Lot 1: Kauf 2024-02-01  0.05000000 BTC  @  45.000,00 EUR/BTC  →  Gewinn:  2.579,50 EUR  (227 Tage)
   Lot 2: Kauf 2024-03-15  0.08908920 BTC  @  61.000,00 EUR/BTC  →  Gewinn:    222,70 EUR  (184 Tage)
   Summe Gewinn steuerpflichtig: 2.802,20 EUR
 
-STEUERFREIE VERÄUSSERUNGEN 2024 (Haltedauer > 365 Tage)
+STEUERFREIE VERÄUSSERUNGEN (Veräußerung nach mehr als einem Jahr)
 ------------------------------------------------------------------
 Verkauf: 2024-06-01  Bison  0.00500000 BTC  @  65.000,00 EUR/BTC  =  325,00 EUR
   Lot 1: Kauf 2022-05-10  0.00500000 BTC  @  32.000,00 EUR/BTC  →  Gewinn:    165,00 EUR  (752 Tage) STEUERFREI
@@ -324,8 +351,8 @@ ZUSAMMENFASSUNG 2024
   Anschaffungskosten (FiFo):            8.952,25 EUR
   Gebühren gesamt:                         80,20 EUR
   ─────────────────────────────────────────────────
-  Gewinn steuerpflichtig (≤ 365 Tage):  2.802,20 EUR
-  Gewinn steuerfrei (> 365 Tage):         165,00 EUR
+  Gewinn steuerpflichtig (bis 1 Jahr):  2.802,20 EUR
+  Gewinn steuerfrei (über 1 Jahr):        165,00 EUR
   Freigrenze 2024 (1.000 EUR):          → ÜBERSCHRITTEN — voller Betrag zu versteuern
 ```
 

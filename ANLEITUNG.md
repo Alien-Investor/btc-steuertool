@@ -4,8 +4,13 @@
 
 Es liest deine CSV-Dateien von BitBox, 21bitcoin, Bison, Swissquote, Strike, Pocket und Bisq
 und berechnet daraus automatisch, welche Bitcoin-Verkäufe steuerpflichtig oder steuerfrei waren.
-Die Berechnung folgt der deutschen FiFo-Methode (§ 23 EStG): BTC die länger als
-365 Tage gehalten wurden, sind beim Verkauf steuerfrei.
+Die Berechnung folgt der deutschen FiFo-Methode (§ 23 EStG): BTC, die länger als
+ein Jahr gehalten wurden, sind beim Verkauf steuerfrei.
+
+**Ohne Terminal?** Die Web-Version unter https://api.alien-investor.org/steuertool/
+macht dasselbe im Browser — kostenlos, ohne Upload, ohne Account. Diese Anleitung
+beschreibt das Kommandozeilen-Tool; die Bedienung der Web-Version steht unter
+https://alien-investor.org/steuertool-guide.html.
 
 ---
 
@@ -334,7 +339,7 @@ aufbewahrt werden.
 **Steuerpflichtiger Gewinn** — dieser Betrag muss in der Steuererklärung in der
 Anlage SO (Sonstige Einkünfte) angegeben werden.
 
-**Steuerfreier Gewinn** — muss nicht angegeben werden (Haltedauer > 365 Tage).
+**Steuerfreier Gewinn** — muss nicht angegeben werden (Veräußerung nach mehr als einem Jahr).
 
 **Freigrenze** — Bis 600 EUR (vor 2024) bzw. 1.000 EUR (ab 2024) steuerpflichtiger
 Gewinn pro Jahr fällt keine Steuer an. Bei Überschreitung wird der **gesamte**

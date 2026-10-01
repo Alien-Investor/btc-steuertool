@@ -22,3 +22,7 @@ build/
 .idea/
 .vscode/
 *.swp
+
+# Web-Version: Build-Artefakte und Pyodide-Runtime (web/vendor-setup.sh)
+web/dist/
+web/vendor/

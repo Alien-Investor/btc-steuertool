@@ -7,7 +7,8 @@ steuerrelevante Jahresberichte für das deutsche Finanzamt.
 
 ## Features
 
-- FiFo-Engine mit 365-Tage-Haltefrist (steuerfrei / steuerpflichtig)
+- FiFo-Engine mit Haltefrist von einem Jahr (§ 23 Abs. 1 Nr. 2 EStG i.V.m. §§ 187 Abs. 1,
+  188 Abs. 2 BGB) — steuerfrei / steuerpflichtig je Lot
 - Freigrenze automatisch berücksichtigt (600 EUR bis 2023 / 1.000 EUR ab 2024;
   steuerfrei bleibt nur ein Gesamtgewinn **unter** der Grenze, § 23 Abs. 3 EStG)
 - **Kein stiller Datenverlust:** Zeilen, die ein Parser nicht verarbeiten kann
@@ -64,6 +65,20 @@ Im Ordner `examples/` liegen fiktive Testdaten für alle unterstützten Broker/W
 ```bash
 .venv/bin/python src/main.py --data-dir examples/ --all
 ```
+
+## Web-Version im Browser (frei)
+
+Wer kein Terminal nutzen will: **https://api.alien-investor.org/steuertool/** — dieselbe
+Engine läuft dort unverändert per Pyodide (Python in WebAssembly) im Browser. CSV-Dateien
+werden nie hochgeladen, es gibt keinen Account und keine Bezahlschranke. Broker werden am
+Dateiinhalt erkannt, ZIPs werden entpackt, alle Reports kommen als ein ZIP.
+
+Offen gesagt: die Web-Version lädt den Code bei jedem Aufruf vom Server. Wer maximale
+Kontrolle will, nimmt das CLI aus diesem Repo (oder baut die Web-Version selbst, siehe
+`web/`).
+
+Lokal bauen und testen: `cd web && ./vendor-setup.sh && ./build.sh`, dann
+`python3 -m http.server 8741 --directory dist` und `http://localhost:8741/` öffnen.
 
 ## Datenschutz
 
