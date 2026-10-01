@@ -1,0 +1,45 @@
+========================================================================
+  !! INTERN — NICHT FÜR FINANZAMT BESTIMMT !!
+
+  Diese Datei enthält noKYC-Käufe und -Verkäufe (Bisq / Robosats / P2P).
+  Sie dient ausschließlich der eigenen Buchführung.
+  NICHT an Steuerberater oder Finanzamt weitergeben.
+
+  Für das Finanzamt:  steuerreport_2025.txt
+  Formaler Nachweis:  steuernachweis_2025.txt
+========================================================================
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  INTERNE ÜBERSICHT — noKYC (Bisq/Robosats/P2P)
+  Nicht für Finanzamt — nur für interne Kalkulation und Rückfragen
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  noKYC-GEBÜHREN IN BTC (Veräußerung des Gebührenanteils, aus noKYC-Pool)
+  Datum        Quelle           Gebühr BTC  Kurs EUR/BTC     Erlös  Einstand    Gewinn  Status
+  ------------ -------------- ------------ ------------- --------- --------- ---------  ----------------
+  2025-02-14   nokyc_wallet     0.00000500     93,004.00      0.47      0.28     +0.19  341 Tage
+  ───────────────────────────────────────────────────────────────────────────────────────────────────
+  SUMME                         0.00000500                    0.47      0.28     +0.19
+  davon steuerpflichtig (bis 1 Jahr): +0.19 EUR   steuerfrei (über 1 Jahr): +0.00 EUR
+
+  VERBLEIBENDE noKYC-BESTÄNDE — Stand 31.12.2025
+  Kaufdatum    Quelle        BTC-Bestand   Einstand EUR/BTC
+  ------------ ---------- -------------- ------------------
+  2024-03-10   manual         0.00974000          55,000.00
+  2024-03-15   bisq           0.01000000          62,238.00
+  2024-07-20   bisq           0.00500000          59,132.00
+  2024-07-22   manual         0.00500000          56,000.00
+  2024-11-05   manual         0.00250000          59,400.00
+  2024-11-05   bisq           0.00250000          73,584.00
+  ────────────────────────────────────────────────────────────────────────
+  GESAMT                       0.03474000
+
+  noKYC-WALLET-AKTIVITÄT (bitbox/nokyc/)
+  Datum        Wallet               Typ              BTC-Betrag   Gebühr BTC  Note
+  ------------ -------------------- ------------ -------------- ------------  --------------------
+  2025-02-14   nokyc_wallet         gesendet         0.00300000   0.00000500  P2P Zahlung Lightning Swap | Adresse: bc1qpeer2peer0example000000000000000000000
+  ────────────────────────────────────────────────────────────────────────
+  Gesamt empfangen:     0.00000000 BTC
+  Gesamt gesendet:      0.00300000 BTC (zzgl. Gebühren 0.00000500 BTC)
+  Netto (Saldo):       -0.00300500 BTC
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

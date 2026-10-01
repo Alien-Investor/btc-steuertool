@@ -378,9 +378,12 @@ Anschaffungsdatum und den Einstand, weil beides für den Beschenkten weitergilt
 Die Netzwerkgebühr der Schenkung wird wie jede andere Gebühr behandelt.
 
 **Swissquote hat manche Käufe in USD — ist das ein Problem?**
-Nein. Das Tool fragt automatisch einen historischen EUR/USD-Kurs ab (von
-frankfurter.dev, der offiziellen EZB-Datenquelle) und rechnet um. Der Kurs wird
-lokal in `fx_cache.json` gespeichert, damit er nicht jedes Mal neu abgerufen werden muss.
+Nein. Das Tool bringt die Euro-Referenzkurse der EZB für USD und CHF mit
+(`src/data/ecb_eur_daily.csv`) und rechnet ohne Internetverbindung um. An Wochenenden
+und Feiertagen gilt der letzte veröffentlichte Kurs davor. Liegt ein Kauf nach dem
+Datenstand der Tabelle, bricht das Tool mit einer Erklärung ab: dann eine neuere
+Version holen oder den Kurs selbst in `fx_cache.json` eintragen
+(`{"2026-10-05:USD": "0.88500"}`, EUR je Einheit) — ein Eintrag dort hat Vorrang.
 
 **Kann ich dem Ergebnis vertrauen?**
 Das Tool rechnet nach der FiFo-Methode wie vom deutschen Steuerrecht vorgeschrieben.

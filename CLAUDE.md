@@ -152,26 +152,38 @@ type,date,value.currency,value.amount,cost.currency,cost.amount,fee.currency,fee
 - `type=exchange` mit `cost.currency=EUR` (oder `CHF`/`USD`): BTC-Kauf
 - `type=exchange` mit `cost.currency=BTC`: BTC-Verkauf
 - Zugehörige `deposit`-Zeile mit gleichem Timestamp enthält Betrag der Gegenseite
-- **CHF/USD-Käufe** (Pocket ist ein Schweizer Dienst): historischer EUR-Kurs wird
-  automatisch via `fx_rates` abgerufen — wie bei Swissquote
+- **CHF/USD-Käufe** (Pocket ist ein Schweizer Dienst): EUR-Kurs aus der gebündelten
+  EZB-Tabelle via `fx_rates` — wie bei Swissquote
 
 ---
 
-## Historische Wechselkurse (für Swissquote USD/CHF)
+## Historische Wechselkurse (Swissquote/Pocket USD/CHF) — offline seit 02.10.2026
 
-- API: `https://api.frankfurter.dev/v1/{YYYY-MM-DD}?from=USD&to=EUR` (seit 2026 — alte Domain api.frankfurter.app liefert nur noch 301)
-- Nur bei Swissquote-Käufen in USD oder CHF nötig
-- **Kurse lokal cachen** (Dict oder JSON-Datei `fx_cache.json`) — kein wiederholter API-Call für gleichen Tag
-- Bei API-Fehler: Fehlermeldung mit betroffener Transaktion ausgeben, nicht stillschweigend 0 einsetzen
+- **Kein Netzcode im Tool.** Quelle: `src/data/ecb_eur_daily.csv` (EZB-Referenzkurse USD/CHF
+  je 1 EUR, wie veröffentlicht, seit 2010). Aktualisieren nur durch den Autor:
+  `python tools/update_fx_rates.py` (hängt an, ändert nie vorhandene Zeilen).
+- Wochenende/Feiertag → letzter veröffentlichter Kurs davor. Datum nach Tabellenende →
+  `RuntimeError` mit Erklärung, nie stiller Altkurs.
+- Umrechnung `1/Referenzkurs`, 5 signifikante Stellen, `normalize()` — exakt die Werte der
+  früheren frankfurter-API (Stichproben + `tests/test_golden.py`), alte Reports bleiben byte-gleich.
+- `fx_cache.json` im Datenverzeichnis ist nur noch manueller Override (wird nie geschrieben).
+- Wurde ein Tabellenkurs benutzt, nennt der Steuernachweis unter „Datenquellen" EZB + Datenstand.
+- `requests` und `pandas` sind keine Abhängigkeiten mehr (pandas wurde nie importiert);
+  das Tool läuft mit der Standardbibliothek. `requests` brauchen nur die `tools/`-Skripte.
+
+## Tests
+
+`python -m unittest discover tests` — Golden-Snapshot (`tests/golden/`, examples mit
+`--all --nachweis --csv`, byte-genau bis auf „Erstellt am") + FX-Regeln + „kein Netzcode in src/".
+Gewollte Report-Änderung: `python tests/test_golden.py --update`, Diff im Commit begründen.
 
 ---
 
 ## Technologie-Stack
 
 - **Python 3.10+**
-- `pandas` — CSV-Parsing
+- Nur Standardbibliothek (`csv` fürs Parsing)
 - `decimal.Decimal` — **alle** Finanzberechnungen (NIEMALS `float` für Geldbeträge!)
-- `requests` — Wechselkurs-API
 - Keine Datenbank, kein Web-Framework
 
 ---
@@ -196,12 +208,12 @@ btc_steuertool/
 │   │   ├── bisq.py
 │   │   ├── manual_buys.py
 │   │   └── manual_sales.py
-│   ├── fx_rates.py            # Wechselkurs-Abruf + Caching
+│   ├── fx_rates.py            # EZB-Wechselkurse aus src/data/ (offline)
 │   ├── fifo_engine.py         # FiFo Lot-Verwaltung + Gewinnberechnung
 │   ├── tax_report.py          # Report-Generierung (Text + CSV)
 │   ├── formal_report.py       # Formaler Steuernachweis (--nachweis)
 │   └── main.py                # CLI-Einstieg
-├── fx_cache.json              # Gecachte Wechselkurse (wird automatisch angelegt)
+├── fx_cache.json              # Optional: manuelle Wechselkurse (Override)
 ├── reports/                   # Generierte Berichte (wird automatisch angelegt)
 └── requirements.txt
 ```

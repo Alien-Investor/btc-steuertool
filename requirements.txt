@@ -1,2 +1,3 @@
-pandas>=2.0.0
-requests>=2.31.0
+# Das Tool braucht nur die Python-Standardbibliothek (3.10+), keine Pakete.
+# Die Datei bleibt, damit `pip install -r requirements.txt` aus älteren Anleitungen weiter klappt.
+# Nur für die Kurs-Updates unter tools/ (Autor): pip install requests

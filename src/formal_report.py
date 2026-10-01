@@ -3,6 +3,7 @@ Formaler Steuernachweis für Steuerberater und Finanzamt.
 Erzeugt ein selbsterklärendes Dokument das ohne Kenntnis des Tools lesbar ist.
 """
 from __future__ import annotations
+import textwrap
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
@@ -10,7 +11,7 @@ from zoneinfo import ZoneInfo
 
 from .models import Transaction, TxType, SellResult, Lot, de_date
 from .tax_report import _freigrenze, _src_label
-from . import btc_prices
+from . import btc_prices, fx_rates
 
 CENT = Decimal("0.01")
 
@@ -528,6 +529,14 @@ def generate_tax_free_proof(
     for key, label in _BROKER_DISPLAY.items():
         if key in sources:
             lines.append(f"    - {label} Broker CSV-Export")
+    if fx_rates.used_table:
+        # Global für den Lauf, nicht pro Jahr: auch Anschaffungskosten aus Vorjahren
+        # (FiFo-Lots) können in CHF/USD gekauft worden sein.
+        lines.extend(textwrap.wrap(
+            f"- Fremdwährung in EUR umgerechnet: {fx_rates.SOURCE_LABEL}, letzter "
+            f"veröffentlichter Kurs am oder vor dem Kauftag (Datenstand "
+            f"{fx_rates.table_range()[1].strftime('%d.%m.%Y')})",
+            width=W, initial_indent="    ", subsequent_indent="      "))
     blank()
     # Label bewusst neutral — das Dokument erwähnt nicht, was es nicht enthält
     lines.append("  Verarbeitete Transaktionen gesamt:")
