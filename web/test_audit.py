@@ -62,8 +62,19 @@ with sync_playwright() as p:
     check(ctrl["err"] is None and coll["err"] is None, "beide Läufe ohne Fehler")
     check(coll["res"] and ctrl["res"] and coll["res"]["reports"].keys() == ctrl["res"]["reports"].keys(), "gleiche Report-Dateien")
     norm = lambda s: re.sub(r"Erstellt am:.*", "", s)
-    same = coll["res"] is not None and all(norm(coll["res"]["reports"][k]) == norm(ctrl["res"]["reports"][k])
-                                          for k in ctrl["res"]["reports"])
+
+    def norm_names(k, s, mapping):
+        # Der interne Wallet-Abgleich nennt die echten Dateinamen (gewollt) — nur dort
+        # die Namen gleichsetzen und Leerraum der Spaltenausrichtung zusammenfassen.
+        if not k.startswith("wallet_abgleich_intern_"):
+            return norm(s)
+        for a, b in mapping:
+            s = re.sub(rf"\b{re.escape(a)}\b", b, s)
+        return re.sub(r"[ \t]+", " ", norm(s))
+    ren = [("wallet-a", "wallet"), ("wallet-b", "wallet_2")]
+    same = coll["res"] is not None and all(
+        norm_names(k, coll["res"]["reports"][k], []) == norm_names(k, ctrl["res"]["reports"][k], ren)
+        for k in ctrl["res"]["reports"])
     check(same, "Reports identisch zum Lauf mit unterschiedlichen Namen (keine Wallet fehlt)")
     check("wallet_2.csv" in coll["log"], "Namenskollision im Log gemeldet")
 

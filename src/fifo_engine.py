@@ -89,6 +89,8 @@ class FifoEngine:
         self.matching: MatchResult | None = None
         # Ausgeführte Umbuchungen: (Link, Lots wie sie die Ziel-Wallet erreichten)
         self.moves: list[tuple] = []
+        # Abgänge ohne Eingang: (Transaktion, Lots, die nach „extern" gingen)
+        self.parked: list[tuple] = []
         # Bestand zum 31.12. je Jahr — im selben Lauf festgehalten. Ein zweiter
         # Lauf über die Daten bis zum Stichtag zerrisse Überträge über Silvester
         # (Abgang 31.12., Eingang 01.01.) und sähe ein anderes Matching.
@@ -262,7 +264,8 @@ class FifoEngine:
         Gemeldet hat das schon transfer_matching."""
         residual = giver_residual(tx, moved)
         if residual > 0:
-            self._transfer(tx.no_kyc, tx.wallet, EXTERN_WALLET, residual)
+            taken, _ = self._transfer(tx.no_kyc, tx.wallet, EXTERN_WALLET, residual)
+            self.parked.append((tx, [replace(l) for l in taken]))
 
     # ── Abgänge ──
 

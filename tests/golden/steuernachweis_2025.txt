@@ -9,7 +9,8 @@
 ============================================================================
 
   Erstellt am:        02.10.2026
-  Berechnungsmethode: First In, First Out (FiFo)
+  Berechnungsmethode: First In, First Out (FiFo), walletbezogen
+                      (BMF-Schreiben vom 06.03.2025, Rn. 61 f.)
   Veräußerungsfrist:  ein Jahr (§ 23 Abs. 1 Satz 1 Nr. 2 EStG i.V.m.
                       §§ 187 Abs. 1, 188 Abs. 2 BGB)
   Freigrenze 2025:    1.000,00 EUR
@@ -59,6 +60,17 @@ Satz 1 Nr. 2 EStG: Gewinne aus der Veräußerung von Kryptowährungen sind
 steuerfrei, wenn zwischen Anschaffung und Veräußerung mehr als ein Jahr
 liegt.
 
+Die FiFo-Methode wird walletbezogen angewendet (BMF-Schreiben vom
+06.03.2025, Rn. 62): Jede Wallet und jedes Konto bei einem Handelsplatz
+bildet einen eigenen Bestand. Eine Veräußerung verbraucht die zuerst
+angeschafften Einheiten der Wallet, aus der veräußert wird. Bei Überträgen
+zwischen eigenen Wallets wandern die zuerst angeschafften Einheiten der
+abgebenden Wallet mit ihrem Anschaffungsdatum und ihren Anschaffungskosten
+in die empfangende Wallet; sie werden dort nach dem Anschaffungsdatum
+eingereiht. Wie Einheiten beim Übertrag zuzuordnen sind, regelt das
+BMF-Schreiben nicht ausdrücklich; die hier gewählte Zuordnung ist
+dokumentiert (Abschnitt Umbuchungen).
+
 Die Jahresfrist wird nach §§ 187 Abs. 1, 188 Abs. 2 BGB berechnet: der Tag
 der Anschaffung zählt nicht mit, die Frist endet mit Ablauf des Tages des
 Folgejahres, der dem Anschaffungstag durch seine Zahl entspricht. Steuerfrei
@@ -96,19 +108,22 @@ Schenkung/Spende).
     - Manuell erfasste Transaktionen (CSV)
     - Fremdwährung in EUR umgerechnet: teils manuell erfasste Kurse
       (fx_cache.json)
+    - Wallets bzw. Konten mit eigenem FiFo-Bestand: 21bitcoin, BitBox-
+      Wallet, bison, strike, swissquote
 
   Verarbeitete Transaktionen gesamt:
     Käufe:                  6
     Verkäufe:               3
-    Überträge (eigene):    10
+    Überträge (eigene):    13
     Unentgeltl. Übertr.:    1
-    Gesamt:                20
+    Gesamt:                23
 
 Hinweis: Überträge zwischen eigenen Wallets und Konten (BitBox ↔ Broker)
 stellen hinsichtlich des übertragenen Bestands keine steuerpflichtigen
-Vorgänge dar und fließen insoweit nicht in die Gewinnberechnung ein.
-Lediglich eine dabei in Bitcoin entrichtete Gebühr wird als Veräußerung des
-Gebührenanteils erfasst (siehe oben). Die Überträge dienen im Übrigen der
-lückenlosen Dokumentation aller Bewegungen.
+Vorgänge dar und lösen keinen Gewinn aus. Sie übertragen bei walletbezogener
+Betrachtung die Anschaffungsdaten der abgegebenen Einheiten in die
+empfangende Wallet (siehe Umbuchungen). Eine dabei in Bitcoin entrichtete
+Gebühr wird als Veräußerung des Gebührenanteils aus dem Bestand der
+abgebenden Wallet erfasst (siehe oben).
 
 ============================================================================

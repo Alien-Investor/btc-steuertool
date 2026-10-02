@@ -1,6 +1,6 @@
 ========================================================================
   Bitcoin Steuerreport Deutschland — 2022
-  Methode: FiFo  |  Veräußerungsfrist: ein Jahr  |  § 23 EStG
+  Methode: FiFo, walletbezogen  |  Veräußerungsfrist: ein Jahr  |  § 23 EStG
 ========================================================================
 
 KÄUFE
@@ -10,6 +10,16 @@ KÄUFE
   2022-05-01   21bitcoin          0.01000000        30,000.00         3.00         303.00
   ────────────────────────────────────────────────────────────────────────
   SUMME                            0.01000000                          3.00         303.00
+
+UMBUCHUNGEN ZWISCHEN EIGENEN WALLETS — keine Veräußerung
+------------------------------------------------------------------------
+  FiFo je Wallet (BMF-Schreiben v. 06.03.2025, Rn. 62): bei einem Übertrag gibt
+  die abgebende Wallet ihre zuerst angeschafften Einheiten ab; Anschaffungsdatum
+  und -kosten gehen mit in die empfangende Wallet.
+
+  Datum      Von               Nach                Menge BTC Anschaffung           Zuordnung
+  ---------- ----------------- ----------------- ----------- --------------------- -----------
+  2022-05-02 21bitcoin         BitBox-Wallet      0.01000000 2022-05-01            Betrag/Zeit
 
 ZUSAMMENFASSUNG 2022
 ========================================================================
@@ -28,6 +38,7 @@ VERBLEIBENDE BTC-BESTÄNDE (noch nicht veräußert) — Stand 31.12.2022
 ------------------------------------------------------------------------
   Kaufdatum    Quelle            BTC-Bestand   Einstand EUR/BTC     Wert EUR
   ------------ -------------- -------------- ------------------ ------------
+  BitBox-Wallet:  0.01000000 BTC
   2022-05-01   21bitcoin          0.01000000          30,300.00       303.00
   ────────────────────────────────────────────────────────────────────────
   GESAMT                           0.01000000

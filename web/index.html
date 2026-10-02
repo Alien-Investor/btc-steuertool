@@ -758,6 +758,7 @@
           'kaeufe_':         'Käufe (CSV)',
           'verkaeufe_':      'Verkäufe (CSV)',
           'nokyc_intern_':   '⚠ noKYC intern',
+          'wallet_abgleich_intern_': '⚠ Wallet-Abgleich intern',
         },
         errInputsChanged: 'Dateien oder Einstufung wurden während der Berechnung geändert — bitte erneut berechnen.',
         logNameClash: (n, u) => `Zwei verschiedene Dateien heißen „${n}" — beide behalten, die zweite läuft als „${u}". Bitte prüfen, ob das gewollt ist.`,
@@ -886,6 +887,7 @@
           'kaeufe_':         'Buys (CSV)',
           'verkaeufe_':      'Sells (CSV)',
           'nokyc_intern_':   '⚠ noKYC internal',
+          'wallet_abgleich_intern_': '⚠ Wallet check internal',
         },
         errInputsChanged: 'Files or classification changed during the calculation — please calculate again.',
         logNameClash: (n, u) => `Two different files are named "${n}" — keeping both, the second one runs as "${u}". Please check whether that is intended.`,
@@ -1085,7 +1087,7 @@
       'src/__init__.py', 'src/models.py', 'src/fifo_engine.py', 'src/tax_report.py',
       'src/formal_report.py', 'src/fx_rates.py', 'src/main.py',
       // Übertrags-Zuordnung der walletbezogenen FiFo-Rechnung (BMF Rn. 62)
-      'src/transfer_matching.py',
+      'src/transfer_matching.py', 'src/wallet_report.py',
       // Kurstabelle fuer in BTC entrichtete Gebuehren (H8) — Teil des Python-Kerns,
       // gleich-origin geladen, kein externer Kursdienst (Vertraulichkeit + CSP)
       'src/btc_prices.py', 'src/data/btc_eur_daily.csv',
@@ -1585,6 +1587,7 @@ json.dumps({
       { prefix: 'kaeufe_' },
       { prefix: 'verkaeufe_' },
       { prefix: 'nokyc_intern_' },
+      { prefix: 'wallet_abgleich_intern_' },
     ];
     let activeYear = null, activeDoc = null;
 

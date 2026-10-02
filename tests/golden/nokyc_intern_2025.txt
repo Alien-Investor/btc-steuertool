@@ -9,14 +9,17 @@
   Formaler Nachweis:  steuernachweis_2025.txt
 ========================================================================
 
-!! HINWEISE ZU noKYC-VORGÄNGEN !!
-  Abgang am 2025-02-14 über 0.00300000 BTC aus BitBox-Wallet „nokyc_wallet“: kein passender Eingang in einer eingelesenen Wallet. Der Bestand wird als Übertrag in eine nicht eingelesene eigene Wallet behandelt (keine Veräußerung). War es eine Zahlung, ein Verkauf oder eine Schenkung, bitte erfassen.
-
-
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   INTERNE ÜBERSICHT — noKYC (Bisq/Robosats/P2P)
   Nicht für Finanzamt — nur für interne Kalkulation und Rückfragen
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  noKYC-VERKÄUFE (aus noKYC-FiFo-Pool)
+  Hinweis: Haltefrist/Gewinn zur eigenen steuerlichen Einordnung.
+
+  Verkauf: 2025-02-14  0.00300000 BTC  @  95,000.00 EUR/BTC  =  285.00 EUR  (Verkauf aus noKYC-Bestand)
+    Lot: Kauf 2024-03-10  (manual, aus nokyc_wallet)  0.00300000 BTC  @  55,000.00 EUR/BTC  →  +120.00 EUR  [341 Tage — innerhalb Haltefrist]
+    Gewinn gesamt: +120.00 EUR
 
   noKYC-GEBÜHREN IN BTC (Veräußerung des Gebührenanteils, aus noKYC-Pool)
   Datum        Quelle           Gebühr BTC  Kurs EUR/BTC     Erlös  Einstand    Gewinn  Status
@@ -30,19 +33,18 @@
   Kaufdatum    Quelle        BTC-Bestand   Einstand EUR/BTC
   ------------ ---------- -------------- ------------------
   2024-03-10   manual         0.00699500          55,000.00
-  2024-03-10   manual         0.00300000          55,000.00
-  2024-03-15   bisq           0.00974500          62,238.00
-  2024-07-20   bisq           0.00500000          59,132.00
-  2024-07-22   manual         0.00500000          56,000.00
-  2024-11-05   manual         0.00250000          59,400.00
-  2024-11-05   bisq           0.00250000          73,584.00
+  2024-03-15   bisq           0.00988000          62,238.00
+  2024-07-20   bisq           0.00492000          59,132.00
+  2024-09-10   manual         0.00400000          70,000.00
+  2024-11-05   bisq           0.00244500          73,584.00
+  2024-11-20   manual         0.00150000          66,000.00
   ────────────────────────────────────────────────────────────────────────
-  GESAMT                       0.03474000
+  GESAMT                       0.02974000
 
   noKYC-WALLET-AKTIVITÄT (bitbox/nokyc/)
   Datum        Wallet               Typ              BTC-Betrag   Gebühr BTC  Note
   ------------ -------------------- ------------ -------------- ------------  --------------------
-  2025-02-14   nokyc_wallet         gesendet         0.00300000   0.00000500  P2P Zahlung Lightning Swap | Adresse: bc1qpeer2peer0example000000000000000000000
+  2025-02-14   nokyc_wallet         gesendet         0.00300000   0.00000500  P2P Verkauf | Adresse: bc1qpeer2peer0example000000000000000000000
   ────────────────────────────────────────────────────────────────────────
   Gesamt empfangen:     0.00000000 BTC
   Gesamt gesendet:      0.00300000 BTC (zzgl. Gebühren 0.00000500 BTC)

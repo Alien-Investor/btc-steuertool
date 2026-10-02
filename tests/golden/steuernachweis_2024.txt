@@ -9,43 +9,23 @@
 ============================================================================
 
   Erstellt am:        02.10.2026
-  Berechnungsmethode: First In, First Out (FiFo)
+  Berechnungsmethode: First In, First Out (FiFo), walletbezogen
+                      (BMF-Schreiben vom 06.03.2025, Rn. 61 f.)
   Veräußerungsfrist:  ein Jahr (§ 23 Abs. 1 Satz 1 Nr. 2 EStG i.V.m.
                       §§ 187 Abs. 1, 188 Abs. 2 BGB)
   Freigrenze 2024:    1.000,00 EUR
-
-============================================================================
-  WICHTIGE HINWEISE — BITTE VOR VERWENDUNG PRÜFEN
-============================================================================
-
-Beim Einlesen der Daten bzw. bei der Berechnung sind Hinweise aufgetreten.
-Dieser Nachweis ist möglicherweise unvollständig, solange die folgenden
-Punkte nicht geklärt sind:
-
-- Abgang am 2024-03-16 über 0.00300000 BTC aus strike: kein passender
-Eingang in einer eingelesenen Wallet. Der Bestand wird als Übertrag in eine
-nicht eingelesene eigene Wallet behandelt (keine Veräußerung). War es eine
-Zahlung, ein Verkauf oder eine Schenkung, bitte erfassen.
-- Verkauf am 2024-06-15 über 0.00500000 BTC ohne Wallet-Angabe und ohne
-passenden Abgang aus einer eingelesenen Wallet: nach FiFo aus Beständen ohne
-bekannten Verwahrort bedient (Abgänge in nicht eingelesene Wallets, nicht
-zugeordnete Lieferungen). Bitte in manual_sales.csv die Spalte wallet
-ergänzen.
-- WARNUNG: Verkauf am 2024-06-15 über 0.00500000 BTC kann nicht vollständig
-FiFo-Lots zugeordnet werden. Fehlende Menge: 0.00100000 BTC. Prüfe ob alle
-Käufe in den CSV-Dateien vorhanden sind.
 
 ============================================================================
   ERGEBNIS
 ============================================================================
 
 Im Steuerjahr 2024 wurden 3 Bitcoin-Veräußerung(en) mit einem Gesamterlös
-von 785,00 EUR durchgeführt.
+von 655,00 EUR durchgeführt.
 
-Daneben wurden 4 in Bitcoin entrichtete Netzwerk- bzw. Auszahlungsgebühren
-über insgesamt 0.00001160 BTC als Veräußerung des jeweiligen Gebührenanteils
+Daneben wurden 5 in Bitcoin entrichtete Netzwerk- bzw. Auszahlungsgebühren
+über insgesamt 0.00001460 BTC als Veräußerung des jeweiligen Gebührenanteils
 erfasst (Tausch gegen eine Dienstleistung, BMF-Schreiben vom 06.03.2025, Rn.
-54, 60); Veräußerungserlös zum Tageskurs insgesamt 0,81 EUR. Die daraus
+54, 60); Veräußerungserlös zum Tageskurs insgesamt 1,00 EUR. Die daraus
 resultierenden Gewinne bzw. Verluste sind in den nachfolgenden Summen
 enthalten.
 
@@ -54,14 +34,15 @@ Ferner wurden 1 unentgeltliche Übertragung(en) über insgesamt 0.00050000 BTC
 EStG und in den Gewinnsummen nicht enthalten; sie vermindern den Bestand
 (Einzelheiten unten).
 
-ACHTUNG: Bei 1 Veräußerung(en) konnte die veräußerte Menge nicht
-(vollständig) einem Anschaffungsgeschäft zugeordnet werden. Ohne Zuordnung
-bleiben insgesamt 0.00100000 BTC. Haltedauer und Steuerfreiheit sind für
-diese Menge NICHT nachgewiesen. Dieser Nachweis ist insoweit unvollständig —
-bitte fehlende Anschaffungsdaten ergänzen.
+ALLE Veräußerungen (einschließlich der Gebührenanteile) sind gemäß § 23 Abs.
+1 Satz 1 Nr. 2 EStG STEUERFREI, da die veräußerten Bitcoin-Einheiten jeweils
+länger als ein Jahr gehalten wurden (Haltedauer > 1 Jahr).
 
-  Steuerpflichtiger Gewinn 2024:    4,11 EUR
-  Steuerfreier Gewinn 2024:         248,36 EUR
+  Steuerpflichtiger Gewinn 2024:    0,00 EUR
+  Steuerfreier Gewinn 2024:         352,61 EUR
+  In Anlage SO anzugeben:           NEIN (kein steuerpflichtiger Vorgang,
+                                    sofern keine weiteren privaten
+                                    Veräußerungsgeschäfte vorliegen)
 
 ============================================================================
   DETAILNACHWEIS DER VERÄUSSERUNGEN
@@ -71,26 +52,22 @@ bitte fehlende Anschaffungsdaten ergänzen.
 ----------------------------------------------------------------------------
   Datum:              15.06.2024 14:00 Uhr (UTC: 15.06.2024 12:00)
   Handelsplattform:   MANUAL
-  Veräußerte Menge:   0.00500000 BTC
-  Veräußerungserlös:  325,00 EUR
+  FiFo-Bestand aus:   BitBox-Wallet
+  Veräußerte Menge:   0.00300000 BTC
+  Veräußerungserlös:  195,00 EUR
   Kurs zum Verkauf:   65.000,00 EUR / BTC
 
   FiFo-Zuordnung (Anschaffungsgeschäfte):
   Nr.  Anschaffung  Quelle              Menge BTC   Kurs EUR/BTC  Tage* Status      
   ──── ──────────── ────────────── ────────────── ────────────── ────── ────────────
-  1    15.03.2024   strike             0.00300000      63,630.00     92 PFLICHTIG   
-  2    01.06.2024   pocket             0.00100000      65,000.00     14 PFLICHTIG   
-  —    unbekannt    NICHT ZUGEORD      0.00100000              —      — UNGEKLÄRT   
+  1    01.05.2022   21bitcoin          0.00300000      30,300.00    775 STEUERFREI  
 
-  Gewinn gesamt:                        4,11 EUR
-  davon steuerfrei (>1 Jahr):           0,00 EUR
-  davon steuerpflichtig:                4,11 EUR
+  Gewinn gesamt:                      104,10 EUR
+  davon steuerfrei (>1 Jahr):         104,10 EUR
+  davon steuerpflichtig:                0,00 EUR
 
-  ACHTUNG: Für 0.00100000 BTC dieser Veräußerung konnte KEIN
-           Anschaffungsgeschäft zugeordnet werden. Haltedauer und
-           Steuerfreiheit sind für diese Teilmenge NICHT nachgewiesen.
-           Die Veräußerung ist daher NICHT vollständig als steuerfrei
-           nachgewiesen.
+  → Diese Veräußerung ist vollständig STEUERFREI.
+    Alle veräußerten Einheiten wurden vor mehr als einem Jahr erworben.
 
 ----------------------------------------------------------------------------
 
@@ -98,6 +75,7 @@ bitte fehlende Anschaffungsdaten ergänzen.
 ----------------------------------------------------------------------------
   Datum:              01.09.2024 12:00 Uhr (UTC: 01.09.2024 10:00)
   Handelsplattform:   BISON
+  FiFo-Bestand aus:   bison
   Veräußerte Menge:   0.00400000 BTC
   Veräußerungserlös:  260,00 EUR
   Kurs zum Verkauf:   65.000,00 EUR / BTC
@@ -120,6 +98,7 @@ bitte fehlende Anschaffungsdaten ergänzen.
 ----------------------------------------------------------------------------
   Datum:              15.10.2024 11:00 Uhr (UTC: 15.10.2024 09:00)
   Handelsplattform:   BISON
+  FiFo-Bestand aus:   bison
   Veräußerte Menge:   0.00300000 BTC
   Veräußerungserlös:  200,00 EUR
   Kurs zum Verkauf:   66.666,67 EUR / BTC
@@ -127,10 +106,11 @@ bitte fehlende Anschaffungsdaten ergänzen.
   FiFo-Zuordnung (Anschaffungsgeschäfte):
   Nr.  Anschaffung  Quelle              Menge BTC   Kurs EUR/BTC  Tage* Status      
   ──── ──────────── ────────────── ────────────── ────────────── ────── ────────────
-  1    01.05.2022   21bitcoin          0.00300000      30,300.00    897 STEUERFREI  
+  1    01.05.2022   21bitcoin          0.00299000      30,300.00    897 STEUERFREI  
+  2    15.08.2023   swissquote         0.00001000      26,807.67    427 STEUERFREI  
 
-  Gewinn gesamt:                      109,10 EUR
-  davon steuerfrei (>1 Jahr):         109,10 EUR
+  Gewinn gesamt:                      109,14 EUR
+  davon steuerfrei (>1 Jahr):         109,14 EUR
   davon steuerpflichtig:                0,00 EUR
 
   → Diese Veräußerung ist vollständig STEUERFREI.
@@ -155,14 +135,15 @@ derselben Methode wie bei den Verkäufen.
 
   Datum        Quelle           Gebühr BTC  Kurs EUR/BTC Anschaffung   Einst./BTC  Tage*  Gewinn EUR Status    
   ──────────── ────────────── ──────────── ───────────── ──────────── ─────────── ────── ─────────── ──────────
+  15.06.2024   BitBox-Wallet    0.00000300     61,827.00 01.05.2022     30,300.00    776       +0.09 STEUERFREI
   31.08.2024   BitBox-Wallet    0.00000400     53,396.00 01.05.2022     30,300.00    853       +0.09 STEUERFREI
   14.10.2024   BitBox-Wallet    0.00000300     60,501.00 01.05.2022     30,300.00    896       +0.09 STEUERFREI
-  20.11.2024   BitBox-Wallet    0.00000210     89,222.00 01.05.2022     30,300.00    933       +0.12 STEUERFREI
-  20.12.2024   BitBox-Wallet    0.00000250     93,911.00 01.05.2022     30,300.00    964       +0.16 STEUERFREI
+  20.11.2024   BitBox-Wallet    0.00000210     89,222.00 15.08.2023     26,807.67    463       +0.13 STEUERFREI
+  20.12.2024   BitBox-Wallet    0.00000250     93,911.00 15.08.2023     26,807.67    493       +0.17 STEUERFREI
 
-  Gebühren gesamt:                  0.00001160 BTC
-  Veräußerungserlös gesamt:               0,81 EUR
-  davon Gewinn steuerfrei:                0,46 EUR
+  Gebühren gesamt:                  0.00001460 BTC
+  Veräußerungserlös gesamt:               1,00 EUR
+  davon Gewinn steuerfrei:                0,57 EUR
   davon Gewinn steuerpflichtig:           0,00 EUR
 
 ----------------------------------------------------------------------------
@@ -182,10 +163,32 @@ Tageskurs ist eine nachrichtliche Angabe.
 
   Datum        Quelle            Menge BTC Anschaffung   Einst./BTC   Einstand  Wert Tagesk.
   ──────────── ────────────── ──────────── ──────────── ─────────── ────────── ─────────────
-  20.12.2024   BitBox-Wallet    0.00050000 01.05.2022     30,300.00      15.15         46.96
+  20.12.2024   BitBox-Wallet    0.00050000 15.08.2023     26,807.67      13.40         46.96
 
   Übertragen gesamt:                0.00050000 BTC
-  Anschaffungskosten gesamt:             15,15 EUR
+  Anschaffungskosten gesamt:             13,40 EUR
+
+----------------------------------------------------------------------------
+
+============================================================================
+  UMBUCHUNGEN ZWISCHEN EIGENEN WALLETS 2024 (keine Veräußerung)
+============================================================================
+
+Überträge zwischen eigenen Wallets und Konten sind keine Veräußerung. Da die
+FiFo-Methode walletbezogen angewendet wird (BMF-Schreiben vom 06.03.2025,
+Rn. 62), gibt die abgebende Wallet bei jedem Übertrag ihre zuerst
+angeschafften Einheiten ab; Anschaffungsdatum und Anschaffungskosten gehen
+unverändert auf die empfangende Wallet über und werden dort nach dem
+Anschaffungsdatum eingereiht. Die Spalte Anschaffung nennt die
+Anschaffungstage der übertragenen Einheiten, die Spalte Zuordnung, woran
+Abgang und Eingang einander zugeordnet wurden.
+
+  Datum      Von               Nach                Menge BTC Anschaffung           Zuordnung
+  ---------- ----------------- ----------------- ----------- --------------------- -----------
+  2024-03-16 strike            BitBox-Wallet      0.00300000 2024-03-15            TX-ID
+  2024-06-01 pocket            BitBox-Wallet      0.00100000 2024-06-01            Betrag/Zeit
+  2024-08-31 BitBox-Wallet     bison              0.00400000 2022-05-01            Betrag/Zeit
+  2024-10-14 BitBox-Wallet     bison              0.00300000 2022-05-01–2023-08-15 Betrag/Zeit
 
 ----------------------------------------------------------------------------
 
@@ -217,6 +220,17 @@ veräußert betrachtet. Maßgeblich für die Veräußerungsfrist ist § 23 Abs. 
 Satz 1 Nr. 2 EStG: Gewinne aus der Veräußerung von Kryptowährungen sind
 steuerfrei, wenn zwischen Anschaffung und Veräußerung mehr als ein Jahr
 liegt.
+
+Die FiFo-Methode wird walletbezogen angewendet (BMF-Schreiben vom
+06.03.2025, Rn. 62): Jede Wallet und jedes Konto bei einem Handelsplatz
+bildet einen eigenen Bestand. Eine Veräußerung verbraucht die zuerst
+angeschafften Einheiten der Wallet, aus der veräußert wird. Bei Überträgen
+zwischen eigenen Wallets wandern die zuerst angeschafften Einheiten der
+abgebenden Wallet mit ihrem Anschaffungsdatum und ihren Anschaffungskosten
+in die empfangende Wallet; sie werden dort nach dem Anschaffungsdatum
+eingereiht. Wie Einheiten beim Übertrag zuzuordnen sind, regelt das
+BMF-Schreiben nicht ausdrücklich; die hier gewählte Zuordnung ist
+dokumentiert (Abschnitt Umbuchungen).
 
 Die Jahresfrist wird nach §§ 187 Abs. 1, 188 Abs. 2 BGB berechnet: der Tag
 der Anschaffung zählt nicht mit, die Frist endet mit Ablauf des Tages des
@@ -255,19 +269,22 @@ Schenkung/Spende).
     - Manuell erfasste Transaktionen (CSV)
     - Fremdwährung in EUR umgerechnet: teils manuell erfasste Kurse
       (fx_cache.json)
+    - Wallets bzw. Konten mit eigenem FiFo-Bestand: 21bitcoin, BitBox-
+      Wallet, bison, strike, swissquote
 
   Verarbeitete Transaktionen gesamt:
     Käufe:                  6
     Verkäufe:               3
-    Überträge (eigene):    10
+    Überträge (eigene):    13
     Unentgeltl. Übertr.:    1
-    Gesamt:                20
+    Gesamt:                23
 
 Hinweis: Überträge zwischen eigenen Wallets und Konten (BitBox ↔ Broker)
 stellen hinsichtlich des übertragenen Bestands keine steuerpflichtigen
-Vorgänge dar und fließen insoweit nicht in die Gewinnberechnung ein.
-Lediglich eine dabei in Bitcoin entrichtete Gebühr wird als Veräußerung des
-Gebührenanteils erfasst (siehe oben). Die Überträge dienen im Übrigen der
-lückenlosen Dokumentation aller Bewegungen.
+Vorgänge dar und lösen keinen Gewinn aus. Sie übertragen bei walletbezogener
+Betrachtung die Anschaffungsdaten der abgegebenen Einheiten in die
+empfangende Wallet (siehe Umbuchungen). Eine dabei in Bitcoin entrichtete
+Gebühr wird als Veräußerung des Gebührenanteils aus dem Bestand der
+abgebenden Wallet erfasst (siehe oben).
 
 ============================================================================

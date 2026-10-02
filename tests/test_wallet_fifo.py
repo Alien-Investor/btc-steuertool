@@ -2,6 +2,7 @@
 
 Etappe 1: Übertrags-Zuordnung (src/transfer_matching.py).
 Etappe 2: Engine mit einem FiFo-Topf je Wallet (src/fifo_engine.py).
+Etappe 3: Reports (Umbuchungen, Bestand je Wallet, interner Wallet-Abgleich).
 
 Aufruf:  python -m unittest discover tests
 """
@@ -293,6 +294,33 @@ class WalletEngineTest(unittest.TestCase):
         e = run(txs, mode="global")
         self.assertEqual(sum(l.btc_amount for l in e.lots_at_year_end(2023)), D("0.006"))
         self.assertEqual(sum(l.btc_amount for l in e.lots_at_year_end(2024)), D("0.004"))
+
+
+class WalletReportPrivacyTest(unittest.TestCase):
+    """Etappe 3: Umbuchungen und Bestand je Wallet in den offiziellen Dokumenten —
+    ohne Wallet-Namen (SA-016) und ohne noKYC-Spuren; der Wallet-Abgleich ist intern."""
+
+    def test_official_docs_without_wallet_names(self):
+        import re, tempfile
+        from tests.test_golden import _examples_copy, _run
+        from src.main import is_internal_report
+        official = re.compile(r"^(steuerreport|steuernachweis|kaeufe|verkaeufe)_\d{4}\.(txt|csv)$")
+        with tempfile.TemporaryDirectory() as tmp:
+            reports = _run(_examples_copy(tmp))
+            names = [p.name for p in reports.iterdir()]
+            self.assertIn("wallet_abgleich_intern_2024.txt", names)
+            self.assertTrue(is_internal_report("wallet_abgleich_intern_2024.txt"))
+            for name in names:
+                if not official.match(name):
+                    continue
+                text = (reports / name).read_text(encoding="utf-8")
+                for leak in ("wallet1", "nokyc_wallet", "noKYC", "nokyc"):
+                    self.assertNotIn(leak, text, f"{leak} in {name}")
+            nachweis = (reports / "steuernachweis_2024.txt").read_text(encoding="utf-8")
+            self.assertIn("walletbezogen", nachweis)
+            self.assertIn("UMBUCHUNGEN ZWISCHEN EIGENEN WALLETS 2024", nachweis)
+            abgleich = (reports / "wallet_abgleich_intern_2024.txt").read_text(encoding="utf-8")
+            self.assertIn("wallet1", abgleich)
 
 
 def de_year(dt):

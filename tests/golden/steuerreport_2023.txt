@@ -1,6 +1,6 @@
 ========================================================================
   Bitcoin Steuerreport Deutschland — 2023
-  Methode: FiFo  |  Veräußerungsfrist: ein Jahr  |  § 23 EStG
+  Methode: FiFo, walletbezogen  |  Veräußerungsfrist: ein Jahr  |  § 23 EStG
 ========================================================================
 
 KÄUFE
@@ -10,6 +10,16 @@ KÄUFE
   2023-08-15   swissquote         0.00200000        26,542.25         0.53          53.62
   ────────────────────────────────────────────────────────────────────────
   SUMME                            0.00200000                          0.53          53.62
+
+UMBUCHUNGEN ZWISCHEN EIGENEN WALLETS — keine Veräußerung
+------------------------------------------------------------------------
+  FiFo je Wallet (BMF-Schreiben v. 06.03.2025, Rn. 62): bei einem Übertrag gibt
+  die abgebende Wallet ihre zuerst angeschafften Einheiten ab; Anschaffungsdatum
+  und -kosten gehen mit in die empfangende Wallet.
+
+  Datum      Von               Nach                Menge BTC Anschaffung           Zuordnung
+  ---------- ----------------- ----------------- ----------- --------------------- -----------
+  2023-08-16 swissquote        BitBox-Wallet      0.00200000 2023-08-15            Betrag/Zeit
 
 ZUSAMMENFASSUNG 2023
 ========================================================================
@@ -28,6 +38,7 @@ VERBLEIBENDE BTC-BESTÄNDE (noch nicht veräußert) — Stand 31.12.2023
 ------------------------------------------------------------------------
   Kaufdatum    Quelle            BTC-Bestand   Einstand EUR/BTC     Wert EUR
   ------------ -------------- -------------- ------------------ ------------
+  BitBox-Wallet:  0.01200000 BTC
   2022-05-01   21bitcoin          0.01000000          30,300.00       303.00
   2023-08-15   swissquote         0.00200000          26,807.67        53.62
   ────────────────────────────────────────────────────────────────────────

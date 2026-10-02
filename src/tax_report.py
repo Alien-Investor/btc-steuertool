@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .models import Transaction, TxType, SellResult, Lot, DisposalKind, de_date
 from . import btc_prices
+from .wallet_report import label as wallet_label, move_table, lots_by_wallet
 
 CENT = Decimal("0.01")
 SATOSHI_8 = Decimal("0.00000001")
@@ -71,7 +72,7 @@ def _fee_status(sr: SellResult) -> str:
     return "gemischt"
 
 
-def _fee_table(fees: list[SellResult], show_wallet: bool) -> list[str]:
+def _fee_table(fees: list[SellResult], show_wallet: bool, labels: dict | None = None) -> list[str]:
     """Tabelle der Gebühren-Abgänge (eine Zeile je Gebühr, Lots aggregiert —
     die Lot-Aufschlüsselung steht in verkaeufe_*.csv bzw. im Nachweis)."""
     lines = []
@@ -80,7 +81,7 @@ def _fee_table(fees: list[SellResult], show_wallet: bool) -> list[str]:
     t_btc = Decimal("0"); t_erl = Decimal("0"); t_ak = Decimal("0"); t_gain = Decimal("0")
     for sr in sorted(fees, key=lambda r: r.sell_tx.date):
         tx = sr.sell_tx
-        src = tx.source.replace("bitbox:", "") if show_wallet else _src_label(tx.source)
+        src = wallet_label(tx.wallet, None if show_wallet else (labels or {}))
         kurs = f"{_r(sr.price_per_btc):,.2f}" if sr.is_priced else "—"
         erl = f"{_r(sr.proceeds_eur):,.2f}" if sr.is_priced else "—"
         ak = _cost_sum(sr)
@@ -109,7 +110,7 @@ def _fee_table(fees: list[SellResult], show_wallet: bool) -> list[str]:
     return lines
 
 
-def _gift_table(gifts: list[SellResult], show_wallet: bool) -> list[str]:
+def _gift_table(gifts: list[SellResult], show_wallet: bool, labels: dict | None = None) -> list[str]:
     """Tabelle der unentgeltlichen Übertragungen, eine Zeile je Anschaffungs-Lot:
     Für den Empfänger laufen Anschaffungszeitpunkt und -kosten weiter
     (§ 23 Abs. 1 Satz 3 EStG), deshalb sind sie hier ausgewiesen."""
@@ -119,7 +120,7 @@ def _gift_table(gifts: list[SellResult], show_wallet: bool) -> list[str]:
     t_btc = Decimal("0"); t_ak = Decimal("0"); t_val = Decimal("0"); any_val = False
     for sr in sorted(gifts, key=lambda r: r.sell_tx.date):
         tx = sr.sell_tx
-        src = tx.source.replace("bitbox:", "") if show_wallet else _src_label(tx.source)
+        src = wallet_label(tx.wallet, None if show_wallet else (labels or {}))
         price = btc_prices.price_for_date(de_date(tx.date))
         for m in sr.matches:
             ak = _r(m.cost_per_btc * m.btc_used)
@@ -155,8 +156,14 @@ class TaxReport:
         internal_warnings: list | None = None,
         fee_results: list[SellResult] | None = None,
         gift_results: list[SellResult] | None = None,
+        wallet_labels: dict[str, str] | None = None,
+        moves: list | None = None,
     ):
         self.all_transactions = all_transactions
+        # Neutrale Wallet-Bezeichnungen für die offiziellen Dokumente (SA-016)
+        # und die Umbuchungen des Jahres (BMF Rn. 103, nur KYC hier sichtbar)
+        self.labels = wallet_labels or {}
+        self.moves = [r for r in (moves or []) if not r.no_kyc]
         self.sell_results = sell_results
         self.remaining_lots = remaining_lots
         self.warnings = warnings                       # nur Finanzamt-taugliche
@@ -212,7 +219,7 @@ class TaxReport:
 
         lines.append("=" * 72)
         lines.append(f"  Bitcoin Steuerreport Deutschland — {year_label}")
-        lines.append(f"  Methode: FiFo  |  Veräußerungsfrist: ein Jahr  |  § 23 EStG")
+        lines.append(f"  Methode: FiFo, walletbezogen  |  Veräußerungsfrist: ein Jahr  |  § 23 EStG")
         lines.append("=" * 72)
 
         if self.warnings:
@@ -284,14 +291,14 @@ class TaxReport:
             lines.append("STEUERPFLICHTIGE VERÄUSSERUNGEN (Veräußerung innerhalb eines Jahres)")
             lines.append("-" * 72)
             for sr in taxable_sells:
-                lines.extend(_format_sell(sr, only_taxable=True))
+                lines.extend(_format_sell(sr, only_taxable=True, labels=self.labels))
 
         if tax_free_sells:
             lines.append("")
             lines.append("STEUERFREIE VERÄUSSERUNGEN (Veräußerung nach mehr als einem Jahr)")
             lines.append("-" * 72)
             for sr in tax_free_sells:
-                lines.extend(_format_sell(sr, only_taxable=False))
+                lines.extend(_format_sell(sr, only_taxable=False, labels=self.labels))
 
         # --- Gebühren in BTC (Veräußerung des Gebührenanteils) ---
         if self.fees:
@@ -304,7 +311,7 @@ class TaxReport:
             lines.append("  bei Überträgen zwischen eigenen Wallets steuerneutral. Bewertung: Tagesschluss-")
             lines.append("  kurs BTC/EUR (Bitstamp) des Kalendertags (Rn. 43, 91).")
             lines.append("")
-            lines.extend(_fee_table(self.fees, show_wallet=False))
+            lines.extend(_fee_table(self.fees, show_wallet=False, labels=self.labels))
 
         # --- Unentgeltliche Übertragungen ---
         if self.gifts:
@@ -316,7 +323,18 @@ class TaxReport:
             lines.append("  Anschaffungszeitpunkt und -kosten des Übertragenden fort (§ 23 Abs. 1 Satz 3")
             lines.append("  EStG). Einstufung: Wallet-Notiz enthält ein Schenkungs-/Spendenwort.")
             lines.append("")
-            lines.extend(_gift_table(self.gifts, show_wallet=False))
+            lines.extend(_gift_table(self.gifts, show_wallet=False, labels=self.labels))
+
+        # --- Umbuchungen zwischen eigenen Wallets (walletbezogenes FiFo) ---
+        if self.moves:
+            lines.append("")
+            lines.append("UMBUCHUNGEN ZWISCHEN EIGENEN WALLETS — keine Veräußerung")
+            lines.append("-" * 72)
+            lines.append("  FiFo je Wallet (BMF-Schreiben v. 06.03.2025, Rn. 62): bei einem Übertrag gibt")
+            lines.append("  die abgebende Wallet ihre zuerst angeschafften Einheiten ab; Anschaffungsdatum")
+            lines.append("  und -kosten gehen mit in die empfangende Wallet.")
+            lines.append("")
+            lines.extend(move_table(self.moves, self.labels))
 
         # --- Jahres-Zusammenfassung ---
         lines.extend(self._summary_section())
@@ -444,13 +462,18 @@ class TaxReport:
         lines.append(f"  {'Kaufdatum':<12} {'Quelle':<14} {'BTC-Bestand':>14} {'Einstand EUR/BTC':>18} {'Wert EUR':>12}")
         lines.append(f"  {'-'*12} {'-'*14} {'-'*14} {'-'*18} {'-'*12}")
         total_btc = Decimal("0")
-        for lot in sorted(self.remaining_lots, key=lambda l: l.purchase_date):
-            wert = _r(lot.btc_amount * lot.cost_per_btc)
-            lines.append(
-                f"  {de_date(lot.purchase_date)!s:<12} {lot.source:<14} {lot.btc_amount:>14.8f} "
-                f"{lot.cost_per_btc:>18,.2f} {wert:>12,.2f}"
-            )
-            total_btc += lot.btc_amount
+        # Je Wallet ein Block: walletbezogen ist der Bestand je Wallet die
+        # Grundlage der nächsten FiFo-Zuordnung (Rn. 62)
+        for wallet, lots in lots_by_wallet(self.remaining_lots):
+            sub = sum((l.btc_amount for l in lots), Decimal("0"))
+            lines.append(f"  {wallet_label(wallet, self.labels)}:  {sub:.8f} BTC")
+            for lot in lots:
+                wert = _r(lot.btc_amount * lot.cost_per_btc)
+                lines.append(
+                    f"  {de_date(lot.purchase_date)!s:<12} {lot.source:<14} {lot.btc_amount:>14.8f} "
+                    f"{lot.cost_per_btc:>18,.2f} {wert:>12,.2f}"
+                )
+            total_btc += sub
         lines.append(f"  {'─'*72}")
         lines.append(f"  {'GESAMT':<28} {total_btc:>14.8f}")
         return lines
@@ -499,7 +522,7 @@ class TaxReport:
                 for m in sr.matches:
                     status = "haltefrist abgelaufen" if m.is_tax_free else f"{m.holding_days} Tage — innerhalb Haltefrist"
                     lines.append(
-                        f"    Lot: Kauf {de_date(m.lot_purchase_date)}  ({m.lot_source})  "
+                        f"    Lot: Kauf {de_date(m.lot_purchase_date)}  ({_lot_origin(m, None, tx.wallet)})  "
                         f"{m.btc_used:.8f} BTC  @  {m.cost_per_btc:,.2f} EUR/BTC"
                         f"  →  {_signed(m.gain_eur)} EUR  [{status}]"
                     )
@@ -602,13 +625,17 @@ class TaxReport:
                 # Verkauf_EUR ihr Wert zum Tageskurs; bei Schenkung ist der
                 # Erloes 0 und Steuerfrei "entfaellt" (kein Veraeusserungsgeschaeft).
                 "Art",
+                # Wallet, aus der das Lot verbraucht wurde (walletbezogenes FiFo,
+                # BMF Rn. 62) — am Ende angehängt, damit bestehende Auswertungen
+                # ihre Spalten behalten
+                "Wallet",
             ])
             _ART = {DisposalKind.SELL: "Verkauf", DisposalKind.FEE: "Gebuehr", DisposalKind.GIFT: "Schenkung"}
             all_disposals = sorted(self.sells + self.fees + self.gifts, key=lambda r: r.sell_tx.date)
             for sr in all_disposals:
                 unmatched = f"{sr.unmatched_btc:.8f}"
                 art = _ART[sr.kind]
-                src = sr.sell_tx.source if sr.kind == DisposalKind.SELL else _src_label(sr.sell_tx.source)
+                src = sr.sell_tx.source if sr.kind == DisposalKind.SELL else wallet_label(sr.sell_tx.wallet, self.labels)
                 erloes = f"{_r(sr.proceeds_eur):.2f}" if sr.is_priced else ""
                 for m in sr.matches:
                     if sr.kind == DisposalKind.GIFT:
@@ -634,6 +661,7 @@ class TaxReport:
                         frei,
                         unmatched,
                         art,
+                        wallet_label(m.lot_wallet, self.labels) if m.lot_wallet else "",
                     ])
                 # Restzeile für die ungedeckte Menge. Ohne sie erscheint ein
                 # komplett unzugeordneter Verkauf GAR NICHT in der Datei (die
@@ -651,13 +679,24 @@ class TaxReport:
                         "NICHT NACHGEWIESEN",
                         unmatched,
                         art,
+                        "",
                     ])
         saved.append(sells_path)
 
         return saved
 
 
-def _format_sell(sr: SellResult, only_taxable: bool) -> list[str]:
+def _lot_origin(m, labels, sale_wallet: str) -> str:
+    """Kaufquelle — plus die Wallet, aus der das Lot kam, wenn der Verkauf aus
+    einer anderen Wallet bedient wurde (P2P-/Pocket-Verkauf aus der BitBox,
+    Verkauf ohne Wallet-Angabe). Wie ein Lot in die verkaufende Wallet kam,
+    zeigt der Abschnitt Umbuchungen."""
+    if m.lot_wallet and m.lot_wallet != sale_wallet:
+        return f"{m.lot_source}, aus {wallet_label(m.lot_wallet, labels)}"
+    return m.lot_source
+
+
+def _format_sell(sr: SellResult, only_taxable: bool, labels: dict | None = None) -> list[str]:
     lines = []
     tx = sr.sell_tx
     lines.append(
@@ -672,7 +711,7 @@ def _format_sell(sr: SellResult, only_taxable: bool) -> list[str]:
         status = "STEUERFREI" if m.is_tax_free else f"{m.holding_days} Tage"
         gain_str = f"{_signed(m.gain_eur)} EUR"
         lines.append(
-            f"    Lot: Kauf {de_date(m.lot_purchase_date)}  ({m.lot_source})  "
+            f"    Lot: Kauf {de_date(m.lot_purchase_date)}  ({_lot_origin(m, labels or {}, tx.wallet)})  "
             f"{m.btc_used:.8f} BTC  @  {m.cost_per_btc:,.2f} EUR/BTC"
             f"  →  {gain_str}  [{status}]"
         )

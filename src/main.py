@@ -17,6 +17,7 @@ import src.parsers as parsers
 from src.fifo_engine import FifoEngine
 from src.tax_report import TaxReport
 from src.formal_report import generate_tax_free_proof
+import src.wallet_report as wallet_report
 from src.models import TxType, de_date
 import src.fx_rates as fx_rates
 
@@ -311,6 +312,11 @@ def run_engine(transactions, mode: str = "wallet") -> FifoEngine:
     06.03.2025 Rn. 62; mode="global" nur für den Vergleich im internen Report."""
     engine = FifoEngine(mode=mode)
     engine.process(transactions)
+    if mode == "wallet":
+        # Vergleichslauf nach der früheren gemeinsamen Rechnung — nur für die
+        # interne Datei wallet_abgleich_intern_JJJJ.txt, nie für ein Finanzamt-Dokument
+        engine.comparison = FifoEngine(mode="global")
+        engine.comparison.process(transactions)
     return engine
 
 
@@ -360,6 +366,8 @@ def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir
     # Der Nutzer sieht diese Warnungen ohnehin im GUI-Log und im internen Report.
 
     lots_at_cutoff = _lots_at_year_end(transactions, engine, year)
+    labels = wallet_report.official_labels(transactions)
+    moves = wallet_report.move_rows(engine, year)
 
     report = TaxReport(
         all_transactions=transactions,
@@ -370,6 +378,8 @@ def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir
         year=year,
         fee_results=engine.fee_results,
         gift_results=engine.gift_results,
+        wallet_labels=labels,
+        moves=moves,
     )
 
     text = report.print_report()
@@ -395,6 +405,14 @@ def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir
         nokyc_path.write_text(nokyc_text, encoding="utf-8")
         print(f"  noKYC intern:       {nokyc_path}  ← NUR INTERN, nicht für Finanzamt")
 
+    # Wallet-Abgleich (echte Wallet-Namen, Vergleich zur gemeinsamen Rechnung)
+    comparison = getattr(engine, "comparison", None)
+    if year and comparison is not None:
+        abgleich_path = reports_dir / f"wallet_abgleich_intern_{year}.txt"
+        abgleich_path.write_text(
+            wallet_report.internal_report(engine, comparison, transactions, year), encoding="utf-8")
+        print(f"  Wallet-Abgleich:    {abgleich_path}  ← NUR INTERN, nicht für Finanzamt")
+
     if nachweis and year:
         nachweis_path = reports_dir / f"steuernachweis_{year}.txt"
         generate_tax_free_proof(
@@ -406,6 +424,8 @@ def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir
             warnings=official_warnings,
             fee_results=engine.fee_results,
             gift_results=engine.gift_results,
+            wallet_labels=labels,
+            moves=moves,
         )
         print(f"  Nachweis gespeichert: {nachweis_path}")
 

@@ -1,0 +1,27 @@
+========================================================================
+  !! INTERN — NICHT FÜR FINANZAMT BESTIMMT !!
+
+  Wallet-Abgleich 2023: walletbezogene FiFo-Rechnung (BMF 06.03.2025
+  Rn. 62) mit echten Wallet-Namen, Vergleich zur früheren gemeinsamen
+  Rechnung über alle Wallets und alle offenen Zuordnungen.
+  Enthält Wallet-Namen und ggf. noKYC-Angaben — NICHT weitergeben.
+========================================================================
+
+VERGLEICH: WALLETBEZOGEN (Reports) ↔ GEMEINSAM (bis Oktober 2026)
+------------------------------------------------------------------------
+                               walletbezogen       gemeinsam    Differenz
+  (steuerpflichtig inkl. Gebühren in BTC; ohne Freigrenzen-Kürzung)
+
+UMBUCHUNGEN 2023 (echte Namen)
+------------------------------------------------------------------------
+  KYC:
+  Datum      Von               Nach                Menge BTC Anschaffung           Zuordnung
+  ---------- ----------------- ----------------- ----------- --------------------- -----------
+  2023-08-16 swissquote        wallet1            0.00200000 2023-08-15            Betrag/Zeit
+
+BESTAND JE WALLET — Stand 31.12.2023 (echte Namen)
+------------------------------------------------------------------------
+  wallet1: 0.01200000 BTC in 2 Lot(s)
+    Kauf 2022-05-01  (21bitcoin)    0.01000000  @ 30,300.00 EUR/BTC
+    Kauf 2023-08-15  (swissquote)    0.00200000  @ 26,807.67 EUR/BTC
+========================================================================

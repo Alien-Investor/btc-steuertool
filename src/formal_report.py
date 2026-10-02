@@ -10,7 +10,8 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from .models import Transaction, TxType, SellResult, Lot, de_date
-from .tax_report import _freigrenze, _src_label
+from .tax_report import _freigrenze
+from .wallet_report import label as wallet_label, move_table
 from . import btc_prices, fx_rates
 
 CENT = Decimal("0.01")
@@ -42,8 +43,13 @@ def generate_tax_free_proof(
     warnings: list[str] | None = None,
     fee_results: list[SellResult] | None = None,
     gift_results: list[SellResult] | None = None,
+    wallet_labels: dict[str, str] | None = None,
+    moves: list | None = None,
 ) -> None:
     """Erzeugt einen formalen Steuernachweis als Textdatei."""
+    labels = wallet_labels or {}
+    # Umbuchungen des Jahres — nur KYC (noKYC erscheint nie im Nachweis)
+    moves_in_year = [r for r in (moves or []) if not r.no_kyc and de_date(r.date).year == year]
 
     # Jahres-Zuordnung nach deutschem Kalenderdatum (Europe/Berlin), nicht UTC
     sells_in_year = [
@@ -111,7 +117,8 @@ def generate_tax_free_proof(
     # in UTC, und am Jahreswechsel stünde sonst ein anderes Erstellungsdatum im
     # Dokument als in der CLI-Fassung derselben Daten (SA2-14).
     lines.append(f"  Erstellt am:        {datetime.now(_TZ_DE).strftime('%d.%m.%Y')}")
-    lines.append(f"  Berechnungsmethode: First In, First Out (FiFo)")
+    lines.append(f"  Berechnungsmethode: First In, First Out (FiFo), walletbezogen")
+    lines.append(f"                      (BMF-Schreiben vom 06.03.2025, Rn. 61 f.)")
     lines.append(f"  Veräußerungsfrist:  ein Jahr (§ 23 Abs. 1 Satz 1 Nr. 2 EStG i.V.m.")
     lines.append(f"                      §§ 187 Abs. 1, 188 Abs. 2 BGB)")
     lines.append(f"  Freigrenze {year}:    {_eur(_freigrenze(year))}")
@@ -262,6 +269,9 @@ def generate_tax_free_proof(
         sep("-")
         lines.append(f"  Datum:              {tx.date.astimezone(_TZ_DE).strftime('%d.%m.%Y %H:%M Uhr')} (UTC: {tx.date.astimezone(timezone.utc).strftime('%d.%m.%Y %H:%M')})")
         lines.append(f"  Handelsplattform:   {tx.source.upper()}")
+        pots = sorted({m.lot_wallet for m in sr.matches if m.lot_wallet})
+        if pots:
+            lines.append(f"  FiFo-Bestand aus:   {', '.join(wallet_label(w, labels) for w in pots)}")
         lines.append(f"  Veräußerte Menge:   {_btc(tx.btc_amount)}")
         lines.append(f"  Veräußerungserlös:  {_eur(tx.eur_amount)}")
         lines.append(f"  Kurs zum Verkauf:   {_eur(tx.eur_price_per_btc)} / BTC")
@@ -356,13 +366,13 @@ def generate_tax_free_proof(
                     gewinn = f"{_r(m.gain_eur):+,.2f}"
                     status = "STEUERFREI" if m.is_tax_free else "PFLICHTIG"
                 lines.append(
-                    f"  {de_date(tx.date).strftime('%d.%m.%Y'):<12} {_src_label(tx.source):<14} "
+                    f"  {de_date(tx.date).strftime('%d.%m.%Y'):<12} {wallet_label(tx.wallet, labels)[:14]:<14} "
                     f"{m.btc_used:>12.8f} {kurs:>13} {de_date(m.lot_purchase_date).strftime('%d.%m.%Y'):<12} "
                     f"{m.cost_per_btc:>11,.2f} {m.holding_days:>6} {gewinn:>11} {status:<10}"
                 )
             if sr.unmatched_btc > 0:
                 lines.append(
-                    f"  {de_date(tx.date).strftime('%d.%m.%Y'):<12} {_src_label(tx.source):<14} "
+                    f"  {de_date(tx.date).strftime('%d.%m.%Y'):<12} {wallet_label(tx.wallet, labels)[:14]:<14} "
                     f"{sr.unmatched_btc:>12.8f} {kurs:>13} {'unbekannt':<12} {'—':>11} {'—':>6} {'—':>11} {'UNGEKLÄRT':<10}"
                 )
         blank()
@@ -407,20 +417,51 @@ def generate_tax_free_proof(
                 ak = _r(m.cost_per_btc * m.btc_used)
                 val = f"{_r(m.btc_used * price):,.2f}" if price is not None else "—"
                 lines.append(
-                    f"  {de_date(tx.date).strftime('%d.%m.%Y'):<12} {_src_label(tx.source):<14} "
+                    f"  {de_date(tx.date).strftime('%d.%m.%Y'):<12} {wallet_label(tx.wallet, labels)[:14]:<14} "
                     f"{m.btc_used:>12.8f} {de_date(m.lot_purchase_date).strftime('%d.%m.%Y'):<12} "
                     f"{m.cost_per_btc:>11,.2f} {ak:>10,.2f} {val:>13}"
                 )
                 g_btc += m.btc_used; g_ak += ak
             if sr.unmatched_btc > 0:
                 lines.append(
-                    f"  {de_date(tx.date).strftime('%d.%m.%Y'):<12} {_src_label(tx.source):<14} "
+                    f"  {de_date(tx.date).strftime('%d.%m.%Y'):<12} {wallet_label(tx.wallet, labels)[:14]:<14} "
                     f"{sr.unmatched_btc:>12.8f} {'unbekannt':<12} {'—':>11} {'—':>10} {'—':>13}  UNGEKLÄRT"
                 )
                 g_btc += sr.unmatched_btc
         blank()
         lines.append(f"  Übertragen gesamt:          {_btc(g_btc):>20}")
         lines.append(f"  Anschaffungskosten gesamt:  {_eur(g_ak):>20}")
+        blank()
+        sep("-")
+
+    # =========================================================
+    # UMBUCHUNGEN ZWISCHEN EIGENEN WALLETS (Rn. 62, Dokumentation Rn. 103)
+    # =========================================================
+    if moves_in_year:
+        blank()
+        sep()
+        lines.append(f"  UMBUCHUNGEN ZWISCHEN EIGENEN WALLETS {year} (keine Veräußerung)")
+        sep()
+        blank()
+        para(
+            "Überträge zwischen eigenen Wallets und Konten sind keine Veräußerung. Da die "
+            "FiFo-Methode walletbezogen angewendet wird (BMF-Schreiben vom 06.03.2025, "
+            "Rn. 62), gibt die abgebende Wallet bei jedem Übertrag ihre zuerst "
+            "angeschafften Einheiten ab; Anschaffungsdatum und Anschaffungskosten gehen "
+            "unverändert auf die empfangende Wallet über und werden dort nach dem "
+            "Anschaffungsdatum eingereiht. Die Spalte Anschaffung nennt die Anschaffungstage "
+            "der übertragenen Einheiten, die Spalte Zuordnung, woran Abgang und Eingang "
+            "einander zugeordnet wurden."
+        )
+        blank()
+        lines.extend(move_table(moves_in_year, labels))
+        if any(r.dst == "extern" for r in moves_in_year):
+            blank()
+            para(
+                "Zeilen mit dem Ziel \"nicht eingelesen\": Abgänge, zu denen in den "
+                "eingelesenen Daten kein Eingang gefunden wurde. Sie werden als Übertrag in "
+                "eine eigene, hier nicht ausgewertete Wallet behandelt (keine Veräußerung)."
+            )
         blank()
         sep("-")
 
@@ -473,6 +514,19 @@ def generate_tax_free_proof(
         "ist § 23 Abs. 1 Satz 1 Nr. 2 EStG: Gewinne aus der Veräußerung von "
         "Kryptowährungen sind steuerfrei, wenn zwischen Anschaffung und "
         "Veräußerung mehr als ein Jahr liegt."
+    )
+    blank()
+    para(
+        "    Die FiFo-Methode wird walletbezogen angewendet (BMF-Schreiben vom "
+        "06.03.2025, Rn. 62): Jede Wallet und jedes Konto bei einem Handelsplatz "
+        "bildet einen eigenen Bestand. Eine Veräußerung verbraucht die zuerst "
+        "angeschafften Einheiten der Wallet, aus der veräußert wird. Bei Überträgen "
+        "zwischen eigenen Wallets wandern die zuerst angeschafften Einheiten der "
+        "abgebenden Wallet mit ihrem Anschaffungsdatum und ihren Anschaffungskosten "
+        "in die empfangende Wallet; sie werden dort nach dem Anschaffungsdatum "
+        "eingereiht. Wie Einheiten beim Übertrag zuzuordnen sind, regelt das "
+        "BMF-Schreiben nicht ausdrücklich; die hier gewählte Zuordnung ist "
+        "dokumentiert (Abschnitt Umbuchungen)."
     )
     blank()
     para(
@@ -543,6 +597,19 @@ def generate_tax_free_proof(
         lines.extend(textwrap.wrap(
             "- Fremdwährung in EUR umgerechnet: teils manuell erfasste Kurse (fx_cache.json)",
             width=W, initial_indent="    ", subsequent_indent="      "))
+    # Wallets mit eigenem FiFo-Bestand (Rn. 62, 103) — BitBox-Wallets nur mit
+    # neutraler Bezeichnung, nie mit dem Namen aus der Dateiablage
+    # Direktgeschäfte (Pocket, manual) ohne eigene Wallet-Angabe sind keine Wallet:
+    # ihr Bestand liegt in der Wallet, an die geliefert wurde
+    kyc_wallets = sorted({t.wallet for t in kyc_transactions
+                          if t.wallet not in ("*", "extern")
+                          and not (t.direct and t.wallet == t.source)},
+                         key=lambda w: wallet_label(w, labels))
+    if kyc_wallets:
+        lines.extend(textwrap.wrap(
+            "- Wallets bzw. Konten mit eigenem FiFo-Bestand: "
+            + ", ".join(wallet_label(w, labels) for w in kyc_wallets),
+            width=W, initial_indent="    ", subsequent_indent="      "))
     blank()
     # Label bewusst neutral — das Dokument erwähnt nicht, was es nicht enthält
     lines.append("  Verarbeitete Transaktionen gesamt:")
@@ -559,10 +626,11 @@ def generate_tax_free_proof(
     para(
         "Hinweis: Überträge zwischen eigenen Wallets und Konten (BitBox ↔ Broker) "
         "stellen hinsichtlich des übertragenen Bestands keine steuerpflichtigen "
-        "Vorgänge dar und fließen insoweit nicht in die Gewinnberechnung ein. "
-        "Lediglich eine dabei in Bitcoin entrichtete Gebühr wird als Veräußerung "
-        "des Gebührenanteils erfasst (siehe oben). Die Überträge dienen im Übrigen "
-        "der lückenlosen Dokumentation aller Bewegungen."
+        "Vorgänge dar und lösen keinen Gewinn aus. Sie übertragen bei walletbezogener "
+        "Betrachtung die Anschaffungsdaten der abgegebenen Einheiten in die "
+        "empfangende Wallet (siehe Umbuchungen). Eine dabei in Bitcoin entrichtete "
+        "Gebühr wird als Veräußerung des Gebührenanteils aus dem Bestand der "
+        "abgebenden Wallet erfasst (siehe oben)."
     )
     blank()
     sep()

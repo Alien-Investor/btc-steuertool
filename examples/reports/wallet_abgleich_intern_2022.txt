@@ -1,0 +1,26 @@
+========================================================================
+  !! INTERN — NICHT FÜR FINANZAMT BESTIMMT !!
+
+  Wallet-Abgleich 2022: walletbezogene FiFo-Rechnung (BMF 06.03.2025
+  Rn. 62) mit echten Wallet-Namen, Vergleich zur früheren gemeinsamen
+  Rechnung über alle Wallets und alle offenen Zuordnungen.
+  Enthält Wallet-Namen und ggf. noKYC-Angaben — NICHT weitergeben.
+========================================================================
+
+VERGLEICH: WALLETBEZOGEN (Reports) ↔ GEMEINSAM (bis Oktober 2026)
+------------------------------------------------------------------------
+                               walletbezogen       gemeinsam    Differenz
+  (steuerpflichtig inkl. Gebühren in BTC; ohne Freigrenzen-Kürzung)
+
+UMBUCHUNGEN 2022 (echte Namen)
+------------------------------------------------------------------------
+  KYC:
+  Datum      Von               Nach                Menge BTC Anschaffung           Zuordnung
+  ---------- ----------------- ----------------- ----------- --------------------- -----------
+  2022-05-02 21bitcoin         wallet1            0.01000000 2022-05-01            Betrag/Zeit
+
+BESTAND JE WALLET — Stand 31.12.2022 (echte Namen)
+------------------------------------------------------------------------
+  wallet1: 0.01000000 BTC in 1 Lot(s)
+    Kauf 2022-05-01  (21bitcoin)    0.01000000  @ 30,300.00 EUR/BTC
+========================================================================

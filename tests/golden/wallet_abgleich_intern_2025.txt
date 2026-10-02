@@ -1,0 +1,38 @@
+========================================================================
+  !! INTERN — NICHT FÜR FINANZAMT BESTIMMT !!
+
+  Wallet-Abgleich 2025: walletbezogene FiFo-Rechnung (BMF 06.03.2025
+  Rn. 62) mit echten Wallet-Namen, Vergleich zur früheren gemeinsamen
+  Rechnung über alle Wallets und alle offenen Zuordnungen.
+  Enthält Wallet-Namen und ggf. noKYC-Angaben — NICHT weitergeben.
+========================================================================
+
+VERGLEICH: WALLETBEZOGEN (Reports) ↔ GEMEINSAM (bis Oktober 2026)
+------------------------------------------------------------------------
+                               walletbezogen       gemeinsam    Differenz
+  noKYC (intern)
+    Gewinn steuerpflichtig            120.19          120.19        +0.00
+    Gewinn steuerfrei                   0.00            0.00        +0.00
+    BTC ohne Zuordnung            0.00000000      0.00000000  +0.00000000
+  (steuerpflichtig inkl. Gebühren in BTC; ohne Freigrenzen-Kürzung)
+
+BESTAND JE WALLET — Stand 31.12.2025 (echte Namen)
+------------------------------------------------------------------------
+  bison: 0.00500000 BTC in 1 Lot(s)
+    Kauf 2024-03-01  (bison)    0.00500000  @ 60,000.00 EUR/BTC
+  bisq [noKYC]: 0.00244500 BTC in 1 Lot(s)
+    Kauf 2024-11-05  (bisq)    0.00244500  @ 73,584.00 EUR/BTC
+  nokyc_wallet [noKYC]: 0.02179500 BTC in 3 Lot(s)
+    Kauf 2024-03-10  (manual)    0.00699500  @ 55,000.00 EUR/BTC
+    Kauf 2024-03-15  (bisq)    0.00988000  @ 62,238.00 EUR/BTC
+    Kauf 2024-07-20  (bisq)    0.00492000  @ 59,132.00 EUR/BTC
+  wallet1: 0.00548540 BTC in 3 Lot(s)
+    Kauf 2023-08-15  (swissquote)    0.00148540  @ 26,807.67 EUR/BTC
+    Kauf 2024-03-15  (strike)    0.00300000  @ 63,630.00 EUR/BTC
+    Kauf 2024-06-01  (pocket)    0.00100000  @ 65,000.00 EUR/BTC
+  manuell erfasst: 0.00200000 BTC in 1 Lot(s)
+    Kauf 2024-12-01  (manual)    0.00200000  @ 95,000.00 EUR/BTC
+  manuell erfasst [noKYC]: 0.00550000 BTC in 2 Lot(s)
+    Kauf 2024-09-10  (manual)    0.00400000  @ 70,000.00 EUR/BTC
+    Kauf 2024-11-20  (manual)    0.00150000  @ 66,000.00 EUR/BTC
+========================================================================
