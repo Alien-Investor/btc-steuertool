@@ -294,9 +294,7 @@ def main():
     transactions = load_all_transactions(data_dir)
     print(f"  → {len(transactions)} Transaktionen gesamt\n")
 
-    # FiFo-Engine läuft immer über ALLE Transaktionen (kumulativer Pool)
-    engine = FifoEngine()
-    engine.process(transactions)
+    engine = run_engine(transactions)
 
     reports_dir = data_dir / "reports"
 
@@ -307,25 +305,26 @@ def main():
         _generate_report(transactions, engine, args.year, args.csv, args.nachweis, reports_dir)
 
 
+def run_engine(transactions, mode: str = "wallet") -> FifoEngine:
+    """Ein FiFo-Lauf über ALLE Transaktionen (kumulativ) — einzige Stelle, an der
+    CLI und GUI (web/index.html) die Engine starten. Walletbezogen nach BMF
+    06.03.2025 Rn. 62; mode="global" nur für den Vergleich im internen Report."""
+    engine = FifoEngine(mode=mode)
+    engine.process(transactions)
+    return engine
+
+
 def _lots_at_year_end(transactions, engine, year):
     """Bestand zum 31.12. des Berichtsjahres (SA2-14).
 
-    Vorher zeigte der Report die Bestände nur, wenn `year == date.today().year` —
-    derselbe 2024er-Report sah 2024 anders aus als 2026, und für ein
-    abgeschlossenes Jahr fehlte die Bestandsliste ganz. Ein Steuerdokument muss
-    aus den Daten allein reproduzierbar sein.
-
-    Ein bloßes Filtern der Rest-Lots nach Kaufdatum reicht NICHT: ein Lot, das
-    2025 verkauft wurde, war zum 31.12.2024 noch vorhanden, taucht aber in
-    `engine.remaining_lots()` gar nicht mehr auf. Deshalb ein eigener FiFo-Lauf
-    über die Transaktionen bis zum Stichtag. Dessen Warnungen werden verworfen —
-    sie sind eine Teilmenge des Hauptlaufs und würden sonst doppelt erscheinen.
+    Ein Steuerdokument muss aus den Daten allein reproduzierbar sein — also der
+    Bestand zum Stichtag, nicht der von heute. Die Engine hält ihn im Hauptlauf
+    an jeder Jahresgrenze fest; ein zweiter Lauf über die Daten bis zum Stichtag
+    zerrisse Überträge über Silvester.
     """
     if not year:
         return engine.remaining_lots()
-    scoped = FifoEngine()
-    scoped.process([t for t in transactions if de_date(t.date).year <= year])
-    return scoped.remaining_lots()
+    return engine.lots_at_year_end(year)
 
 
 def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir):

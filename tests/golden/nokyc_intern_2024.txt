@@ -9,6 +9,10 @@
   Formaler Nachweis:  steuernachweis_2024.txt
 ========================================================================
 
+!! HINWEISE ZU noKYC-VORGÄNGEN !!
+  Überträge zwischen 2024-07-20 und 2024-07-23 nicht eindeutig zuordenbar: 2 Abgänge/Lieferungen und 1 Eingänge/Direktverkäufe mit passenden Beträgen in verschiedenen Wallets. Nicht verbunden — die Lots bleiben in der abgebenden Wallet. Bitte die Zuordnung in transfer_zuordnung.csv festlegen.
+
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   INTERNE ÜBERSICHT — noKYC (Bisq/Robosats/P2P)
   Nicht für Finanzamt — nur für interne Kalkulation und Rückfragen
@@ -28,18 +32,18 @@
   noKYC-GEBÜHREN IN BTC (Veräußerung des Gebührenanteils, aus noKYC-Pool)
   Datum        Quelle           Gebühr BTC  Kurs EUR/BTC     Erlös  Einstand    Gewinn  Status
   ------------ -------------- ------------ ------------- --------- --------- ---------  ----------------
-  2024-03-15   bisq             0.00012000     63,864.00      7.66      6.60     +1.06  5 Tage
-  2024-07-20   bisq             0.00008000     61,665.00      4.93      4.40     +0.53  131 Tage
-  2024-11-05   bisq             0.00005500     63,476.00      3.49      3.03     +0.47  240 Tage
+  2024-03-15   bisq             0.00012000     63,864.00      7.66      7.47     +0.20  0 Tage
+  2024-07-20   bisq             0.00008000     61,665.00      4.93      4.98     -0.05  126 Tage
+  2024-11-05   bisq             0.00005500     63,476.00      3.49      3.42     +0.07  235 Tage
   ───────────────────────────────────────────────────────────────────────────────────────────────────
-  SUMME                         0.00025500                   16.08     14.03     +2.06
-  davon steuerpflichtig (bis 1 Jahr): +2.06 EUR   steuerfrei (über 1 Jahr): +0.00 EUR
+  SUMME                         0.00025500                   16.08     15.87     +0.22
+  davon steuerpflichtig (bis 1 Jahr): +0.22 EUR   steuerfrei (über 1 Jahr): +0.00 EUR
 
   VERBLEIBENDE noKYC-BESTÄNDE — Stand 31.12.2024
   Kaufdatum    Quelle        BTC-Bestand   Einstand EUR/BTC
   ------------ ---------- -------------- ------------------
-  2024-03-10   manual         0.00974500          55,000.00
-  2024-03-15   bisq           0.01000000          62,238.00
+  2024-03-10   manual         0.01000000          55,000.00
+  2024-03-15   bisq           0.00974500          62,238.00
   2024-07-20   bisq           0.00500000          59,132.00
   2024-07-22   manual         0.00500000          56,000.00
   2024-11-05   manual         0.00250000          59,400.00

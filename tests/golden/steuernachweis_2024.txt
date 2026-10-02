@@ -15,6 +15,27 @@
   Freigrenze 2024:    1.000,00 EUR
 
 ============================================================================
+  WICHTIGE HINWEISE — BITTE VOR VERWENDUNG PRÜFEN
+============================================================================
+
+Beim Einlesen der Daten bzw. bei der Berechnung sind Hinweise aufgetreten.
+Dieser Nachweis ist möglicherweise unvollständig, solange die folgenden
+Punkte nicht geklärt sind:
+
+- Abgang am 2024-03-16 über 0.00300000 BTC aus strike: kein passender
+Eingang in einer eingelesenen Wallet. Der Bestand wird als Übertrag in eine
+nicht eingelesene eigene Wallet behandelt (keine Veräußerung). War es eine
+Zahlung, ein Verkauf oder eine Schenkung, bitte erfassen.
+- Verkauf am 2024-06-15 über 0.00500000 BTC ohne Wallet-Angabe und ohne
+passenden Abgang aus einer eingelesenen Wallet: nach FiFo aus Beständen ohne
+bekannten Verwahrort bedient (Abgänge in nicht eingelesene Wallets, nicht
+zugeordnete Lieferungen). Bitte in manual_sales.csv die Spalte wallet
+ergänzen.
+- WARNUNG: Verkauf am 2024-06-15 über 0.00500000 BTC kann nicht vollständig
+FiFo-Lots zugeordnet werden. Fehlende Menge: 0.00100000 BTC. Prüfe ob alle
+Käufe in den CSV-Dateien vorhanden sind.
+
+============================================================================
   ERGEBNIS
 ============================================================================
 
@@ -33,8 +54,14 @@ Ferner wurden 1 unentgeltliche Übertragung(en) über insgesamt 0.00050000 BTC
 EStG und in den Gewinnsummen nicht enthalten; sie vermindern den Bestand
 (Einzelheiten unten).
 
-  Steuerpflichtiger Gewinn 2024:    0,19 EUR
-  Steuerfreier Gewinn 2024:         428,31 EUR
+ACHTUNG: Bei 1 Veräußerung(en) konnte die veräußerte Menge nicht
+(vollständig) einem Anschaffungsgeschäft zugeordnet werden. Ohne Zuordnung
+bleiben insgesamt 0.00100000 BTC. Haltedauer und Steuerfreiheit sind für
+diese Menge NICHT nachgewiesen. Dieser Nachweis ist insoweit unvollständig —
+bitte fehlende Anschaffungsdaten ergänzen.
+
+  Steuerpflichtiger Gewinn 2024:    4,11 EUR
+  Steuerfreier Gewinn 2024:         248,36 EUR
 
 ============================================================================
   DETAILNACHWEIS DER VERÄUSSERUNGEN
@@ -51,14 +78,19 @@ EStG und in den Gewinnsummen nicht enthalten; sie vermindern den Bestand
   FiFo-Zuordnung (Anschaffungsgeschäfte):
   Nr.  Anschaffung  Quelle              Menge BTC   Kurs EUR/BTC  Tage* Status      
   ──── ──────────── ────────────── ────────────── ────────────── ────── ────────────
-  1    01.05.2022   21bitcoin          0.00500000      30,300.00    775 STEUERFREI  
+  1    15.03.2024   strike             0.00300000      63,630.00     92 PFLICHTIG   
+  2    01.06.2024   pocket             0.00100000      65,000.00     14 PFLICHTIG   
+  —    unbekannt    NICHT ZUGEORD      0.00100000              —      — UNGEKLÄRT   
 
-  Gewinn gesamt:                      173,50 EUR
-  davon steuerfrei (>1 Jahr):         173,50 EUR
-  davon steuerpflichtig:                0,00 EUR
+  Gewinn gesamt:                        4,11 EUR
+  davon steuerfrei (>1 Jahr):           0,00 EUR
+  davon steuerpflichtig:                4,11 EUR
 
-  → Diese Veräußerung ist vollständig STEUERFREI.
-    Alle veräußerten Einheiten wurden vor mehr als einem Jahr erworben.
+  ACHTUNG: Für 0.00100000 BTC dieser Veräußerung konnte KEIN
+           Anschaffungsgeschäft zugeordnet werden. Haltedauer und
+           Steuerfreiheit sind für diese Teilmenge NICHT nachgewiesen.
+           Die Veräußerung ist daher NICHT vollständig als steuerfrei
+           nachgewiesen.
 
 ----------------------------------------------------------------------------
 
@@ -95,13 +127,14 @@ EStG und in den Gewinnsummen nicht enthalten; sie vermindern den Bestand
   FiFo-Zuordnung (Anschaffungsgeschäfte):
   Nr.  Anschaffung  Quelle              Menge BTC   Kurs EUR/BTC  Tage* Status      
   ──── ──────────── ────────────── ────────────── ────────────── ────── ────────────
-  1    01.05.2022   21bitcoin          0.00099300      30,300.00    897 STEUERFREI  
-  2    15.08.2023   swissquote         0.00200000      26,807.67    427 STEUERFREI  
-  3    01.03.2024   bison              0.00000700      60,000.00    227 PFLICHTIG   
+  1    01.05.2022   21bitcoin          0.00300000      30,300.00    897 STEUERFREI  
 
-  Gewinn gesamt:                      115,88 EUR
-  davon steuerfrei (>1 Jahr):         115,83 EUR
-  davon steuerpflichtig:                0,05 EUR
+  Gewinn gesamt:                      109,10 EUR
+  davon steuerfrei (>1 Jahr):         109,10 EUR
+  davon steuerpflichtig:                0,00 EUR
+
+  → Diese Veräußerung ist vollständig STEUERFREI.
+    Alle veräußerten Einheiten wurden vor mehr als einem Jahr erworben.
 
 ----------------------------------------------------------------------------
 
@@ -124,13 +157,13 @@ derselben Methode wie bei den Verkäufen.
   ──────────── ────────────── ──────────── ───────────── ──────────── ─────────── ────── ─────────── ──────────
   31.08.2024   BitBox-Wallet    0.00000400     53,396.00 01.05.2022     30,300.00    853       +0.09 STEUERFREI
   14.10.2024   BitBox-Wallet    0.00000300     60,501.00 01.05.2022     30,300.00    896       +0.09 STEUERFREI
-  20.11.2024   BitBox-Wallet    0.00000210     89,222.00 01.03.2024     60,000.00    263       +0.06 PFLICHTIG 
-  20.12.2024   BitBox-Wallet    0.00000250     93,911.00 01.03.2024     60,000.00    294       +0.08 PFLICHTIG 
+  20.11.2024   BitBox-Wallet    0.00000210     89,222.00 01.05.2022     30,300.00    933       +0.12 STEUERFREI
+  20.12.2024   BitBox-Wallet    0.00000250     93,911.00 01.05.2022     30,300.00    964       +0.16 STEUERFREI
 
   Gebühren gesamt:                  0.00001160 BTC
   Veräußerungserlös gesamt:               0,81 EUR
-  davon Gewinn steuerfrei:                0,18 EUR
-  davon Gewinn steuerpflichtig:           0,14 EUR
+  davon Gewinn steuerfrei:                0,46 EUR
+  davon Gewinn steuerpflichtig:           0,00 EUR
 
 ----------------------------------------------------------------------------
 
@@ -149,10 +182,10 @@ Tageskurs ist eine nachrichtliche Angabe.
 
   Datum        Quelle            Menge BTC Anschaffung   Einst./BTC   Einstand  Wert Tagesk.
   ──────────── ────────────── ──────────── ──────────── ─────────── ────────── ─────────────
-  20.12.2024   BitBox-Wallet    0.00050000 01.03.2024     60,000.00      30.00         46.96
+  20.12.2024   BitBox-Wallet    0.00050000 01.05.2022     30,300.00      15.15         46.96
 
   Übertragen gesamt:                0.00050000 BTC
-  Anschaffungskosten gesamt:             30,00 EUR
+  Anschaffungskosten gesamt:             15,15 EUR
 
 ----------------------------------------------------------------------------
 

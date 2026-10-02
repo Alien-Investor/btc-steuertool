@@ -9,6 +9,10 @@
   Formaler Nachweis:  steuernachweis_2025.txt
 ========================================================================
 
+!! HINWEISE ZU noKYC-VORGÄNGEN !!
+  Abgang am 2025-02-14 über 0.00300000 BTC aus BitBox-Wallet „nokyc_wallet“: kein passender Eingang in einer eingelesenen Wallet. Der Bestand wird als Übertrag in eine nicht eingelesene eigene Wallet behandelt (keine Veräußerung). War es eine Zahlung, ein Verkauf oder eine Schenkung, bitte erfassen.
+
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   INTERNE ÜBERSICHT — noKYC (Bisq/Robosats/P2P)
   Nicht für Finanzamt — nur für interne Kalkulation und Rückfragen
@@ -25,8 +29,9 @@
   VERBLEIBENDE noKYC-BESTÄNDE — Stand 31.12.2025
   Kaufdatum    Quelle        BTC-Bestand   Einstand EUR/BTC
   ------------ ---------- -------------- ------------------
-  2024-03-10   manual         0.00974000          55,000.00
-  2024-03-15   bisq           0.01000000          62,238.00
+  2024-03-10   manual         0.00699500          55,000.00
+  2024-03-10   manual         0.00300000          55,000.00
+  2024-03-15   bisq           0.00974500          62,238.00
   2024-07-20   bisq           0.00500000          59,132.00
   2024-07-22   manual         0.00500000          56,000.00
   2024-11-05   manual         0.00250000          59,400.00

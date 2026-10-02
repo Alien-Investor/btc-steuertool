@@ -1084,6 +1084,8 @@
     const SRC_FILES = [
       'src/__init__.py', 'src/models.py', 'src/fifo_engine.py', 'src/tax_report.py',
       'src/formal_report.py', 'src/fx_rates.py', 'src/main.py',
+      // Übertrags-Zuordnung der walletbezogenen FiFo-Rechnung (BMF Rn. 62)
+      'src/transfer_matching.py',
       // Kurstabelle fuer in BTC entrichtete Gebuehren (H8) — Teil des Python-Kerns,
       // gleich-origin geladen, kein externer Kursdienst (Vertraulichkeit + CSP)
       'src/btc_prices.py', 'src/data/btc_eur_daily.csv',
@@ -1115,8 +1117,7 @@ if "/work" not in sys.path:
 for _m in [m for m in sys.modules if m == "src" or m.startswith("src.")]:
     del sys.modules[_m]
 
-from src.main import load_all_transactions, _generate_report, is_internal_report, report_years
-from src.fifo_engine import FifoEngine
+from src.main import load_all_transactions, _generate_report, is_internal_report, report_years, run_engine
 import src.parsers as _parsers
 import src.fx_rates as fx_rates
 
@@ -1126,8 +1127,8 @@ fx_rates.init(data_dir)
 buf = io.StringIO()
 with redirect_stdout(buf):
     transactions = load_all_transactions(data_dir)
-    engine = FifoEngine()
-    engine.process(transactions)
+    # Engine-Start nur über den Kern (run_engine) — walletbezogen wie die CLI
+    engine = run_engine(transactions)
     # Jahresliste kommt aus dem Kern (report_years), nicht aus einer Kopie hier —
     # seit H8 zaehlt auch ein Jahr mit Gebuehren-Abgang oder Schenkung (Prinzip H5)
     years = report_years(transactions)
