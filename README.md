@@ -87,7 +87,10 @@ Pyodide, Rechenkern und Kurstabellen sind eingebaut. Das Flatpak hat **kein Netz
 fehlt) und **keinen Dateisystem-Zugriff** — CSVs kommen über den Datei-Dialog oder per Drag&Drop
 herein, Reports gehen über den Speichern-Dialog hinaus. Anleitung in der App über den „?“-Knopf.
 
-Download: Bundle `btc-steuertool-<Version>-linux-x86_64.flatpak` mit `SHA256SUMS` und GPG-Signatur
+**Noch nicht veröffentlicht** — das erste Release erscheint zusammen mit der Android-App.
+Selbst bauen geht schon jetzt (siehe unten).
+
+Download (ab dem ersten Release): Bundle `btc-steuertool-<Version>-linux-x86_64.flatpak` mit `SHA256SUMS` und GPG-Signatur
 `SHA256SUMS.asc` aus den GitHub-Releases bzw. unter https://api.alien-investor.org/downloads/steuertool/.
 
 ```bash
