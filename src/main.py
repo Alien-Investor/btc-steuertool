@@ -150,10 +150,13 @@ def _resolve_manual_wallets(transactions) -> None:
         datei = "manual_buys.csv" if t.type == TxType.BUY else "manual_sales.csv"
         wallet = transfer_zuordnung.resolve_wallet(t.wallet, known)
         if wallet is None:
+            # Nur Wallets derselben Klasse aufzählen: die Meldung kann in einer
+            # Bug-Mail landen, und ein KYC-Vorgang soll keine noKYC-Wallet nennen
+            same = sorted(w.replace("bitbox:", "") for w in known if cls.get(w) == {t.no_kyc})
             raise ValueError(
                 f"{datei}: Wallet '{t.wallet}' ({de_date(t.date)}, {t.btc_amount} BTC) gehört zu "
                 f"keiner eingelesenen Datei. Erlaubt: Dateiname des BitBox-Exports ohne .csv "
-                f"oder ein Broker — bekannt: {', '.join(sorted(w.replace('bitbox:', '') for w in known))}."
+                f"oder ein Broker" + (f" — passend: {', '.join(same)}." if same else ".")
             )
         if cls.get(wallet) and t.no_kyc not in cls[wallet]:
             raise ValueError(

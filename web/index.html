@@ -777,7 +777,7 @@
         logSrc: 'Lade Steuertool-Code (unverändert aus dem Open-Source-Repo)...',
         logFxBad: 'fx_cache.json unlesbar — wird ignoriert.',
         logFxMerged: (ok, bad) => `${ok} Wechselkurs(e) übernommen${bad ? `, ${bad} ungültige verworfen` : ''}.`,
-        zipInternHint: 'Achtung: Das ZIP enthält den internen noKYC-Report im Ordner INTERN-NICHT-WEITERGEBEN/ — vor dem Weiterleiten an den Steuerberater entfernen.',
+        zipInternHint: 'Achtung: Das ZIP enthält interne Dateien (noKYC-Report, Wallet-Abgleich mit Wallet-Namen) im Ordner INTERN-NICHT-WEITERGEBEN/ — vor dem Weiterleiten an den Steuerberater entfernen.',
         logPlaced: n => `${n} Datei(en) im lokalen Speicher platziert — berechne...`,
         logDone: (tx, ys, s) => `Fertig: ${tx} Transaktionen, Jahre: ${ys} (${s}s)`,
         errPrefix: 'FEHLER: ',
@@ -907,7 +907,7 @@
         logSrc: 'Loading tax tool code (unmodified from the open-source repo)...',
         logFxBad: 'fx_cache.json unreadable — ignoring it.',
         logFxMerged: (ok, bad) => `${ok} exchange rate(s) loaded${bad ? `, ${bad} invalid discarded` : ''}.`,
-        zipInternHint: 'Note: the ZIP contains the internal noKYC report under INTERN-NICHT-WEITERGEBEN/ — remove it before forwarding to your tax advisor.',
+        zipInternHint: 'Note: the ZIP contains internal files (noKYC report, wallet check with wallet names) under INTERN-NICHT-WEITERGEBEN/ — remove it before forwarding to your tax advisor.',
         logPlaced: n => `${n} file(s) placed in local storage — calculating...`,
         logDone: (tx, ys, s) => `Done: ${tx} transactions, years: ${ys} (${s}s)`,
         errPrefix: 'ERROR: ',
@@ -1574,10 +1574,15 @@ json.dumps({
         // etwas korrigiert hat, keinerlei Unterschied — er lädt stillschweigend
         // ein veraltetes Steuerdokument herunter.
         invalidateResults();
-        log(i18n[currentLang].errPrefix + (err.message || err), 'err');
+        // Eingaben während des Laufs geändert: dann ist auch ein FEHLER dieses
+        // Laufs nicht aussagekräftig (er kann aus der halb übernommenen Änderung
+        // stammen, z.B. der KYC/noKYC-Sperre) — der Hinweis „erneut berechnen“ gilt
+        const msg = inputVersion !== myVersion
+          ? i18n[currentLang].errInputsChanged : String(err.message || err);
+        log(i18n[currentLang].errPrefix + msg, 'err');
         console.error(err);
         window.__GUI_RESULT = null;
-        window.__GUI_ERROR = String(err.message || err);
+        window.__GUI_ERROR = msg;
         window.__GUI_DONE = true;
       } finally {
         running = false;

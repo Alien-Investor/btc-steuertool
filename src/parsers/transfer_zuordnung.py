@@ -84,8 +84,10 @@ def parse(filepath: Path) -> list[ManualLinkRow]:
             except (ValueError, InvalidOperation) as e:
                 raise ValueError(f"{FILENAME} Zeile {i}: ungültiger Wert — {e}") from e
             r = rows[-1]
-            if r.giver_amount <= 0 or r.taker_amount <= 0 or not r.giver_amount.is_finite():
-                raise ValueError(f"{FILENAME} Zeile {i}: Mengen müssen positiv sein.")
+            # is_finite() VOR dem Vergleich: NaN-Vergleiche werfen InvalidOperation
+            if not (r.giver_amount.is_finite() and r.taker_amount.is_finite()) \
+                    or r.giver_amount <= 0 or r.taker_amount <= 0:
+                raise ValueError(f"{FILENAME} Zeile {i}: Mengen müssen endliche positive Zahlen sein.")
     return rows
 
 

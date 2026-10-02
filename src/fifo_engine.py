@@ -35,7 +35,8 @@ from decimal import Decimal, ROUND_HALF_UP
 from .models import (Transaction, TxType, Lot, DisposalMatch, SellResult, DisposalKind,
                      de_date, ANY_WALLET, EXTERN_WALLET, wallet_label)
 from .parsers import make_warning, make_warning_fmt
-from .transfer_matching import match_transfers, MatchResult, LinkKind, giver_residual
+from .transfer_matching import (match_transfers, MatchResult, LinkKind, giver_residual,
+                                WINDOW, DELIVERY_AFTER)
 from . import btc_prices
 
 CENT = Decimal("0.01")
@@ -93,6 +94,9 @@ class FifoEngine:
         self.parked: list[tuple] = []
         # Eingänge ohne Abgang: (Transaktion, Lots, die aus „extern" kamen)
         self.pulled: list[tuple] = []
+        # Unterwegs: Lots, die die Quelle beim Abgang verlassen haben und beim
+        # Eingang in der Ziel-Wallet ankommen (id(Link) → (Link, Lots))
+        self._transit: dict[int, tuple] = {}
         # Bestand zum 31.12. je Jahr — im selben Lauf festgehalten. Ein zweiter
         # Lauf über die Daten bis zum Stichtag zerrisse Überträge über Silvester
         # (Abgang 31.12., Eingang 01.01.) und sähe ein anderes Matching.
@@ -148,35 +152,65 @@ class FifoEngine:
         """Verarbeitet alle Transaktionen chronologisch.
 
         manual_links: Zeilen aus transfer_zuordnung.csv (nur mode="wallet")."""
-        sale_wallet: dict[int, str] = {}   # id(SELL) → Wallet aus VERKAUF-Verbindung
-        events: list[tuple] = []
-        for tx in transactions:
-            events.append((tx.date, self._TYPE_ORDER[tx.type], len(events), "tx", tx))
+        # Direktverkauf über VERKAUF-Verbindung(en): je Abgang (Wallet, Menge) —
+        # ein Verkauf kann aus mehreren Wallets bedient werden (Audit F5)
+        sale_parts: dict[int, list[tuple[str, Decimal]]] = {}
+        # Verarbeitungszeitpunkt abweichend vom Zeitstempel: manual_* kennen nur
+        # das Datum (12:00 UTC). Ein verbundener Verkauf läuft frühestens, wenn
+        # die Coins die Wallet verlassen (F2); ein manueller Kauf, dessen
+        # Lieferung am selben Tag früher ankommt, zum Zeitpunkt der Lieferung (F4).
+        when_of: dict[int, datetime] = {}
+        links = []
         if self.mode == "wallet":
             self._untracked = self._untracked_wallets(transactions)
             self.matching = match_transfers(transactions, manual_links)
             self.warnings.extend(self.matching.warnings)
-            for link in self.matching.links:
+            links = self.matching.links
+            for link in links:
+                g, t = link.giver, link.taker
                 if link.kind == LinkKind.VERKAUF:
-                    sale_wallet[id(link.taker)] = link.giver.wallet
-                else:
-                    # Verfügbar ab Zugang — und nie vor dem Abgang (Zeitzonen-Versatz)
-                    when = max(link.giver.date, link.taker.date)
-                    events.append((when, self._MOVE_ORDER, len(events), "move", link))
+                    sale_parts.setdefault(id(t), []).append((g.wallet, link.btc_amount))
+                    # nur innerhalb des Kalendertags — dort ist die Uhrzeit eines
+                    # datumslosen Eintrags unbekannt; über den Tag hinaus verbräuchte
+                    # der Verkauf sonst Käufe, die nach seinem Verkaufsdatum liegen
+                    if g.date > t.date and de_date(g.date) == de_date(t.date):
+                        when_of[id(t)] = max(when_of.get(id(t), t.date), g.date)
+                elif (link.kind == LinkKind.LIEFERUNG and g.source == "manual"
+                      and t.date < g.date and de_date(t.date) == de_date(g.date)):
+                    when_of[id(g)] = min(when_of.get(id(g), g.date), t.date)
+        events: list[tuple] = []
+        for tx in transactions:
+            events.append((when_of.get(id(tx), tx.date), self._TYPE_ORDER[tx.type], len(events), "tx", tx))
+        for link in links:
+            g, t = link.giver, link.taker
+            if link.kind == LinkKind.VERKAUF or g.wallet == t.wallet:
+                continue        # Verkauf verbraucht direkt; Lieferung in dieselbe Wallet: nichts zu bewegen
+            # Zweiphasig (Audit F1): die Lots verlassen die Quelle beim Abgang —
+            # ein Verkauf dort, während der Übertrag unterwegs ist, darf sie nicht
+            # mehr verbrauchen — und kommen beim Eingang an (nie vor dem Abgang).
+            take_at = when_of.get(id(g), g.date)
+            put_at = max(take_at, t.date)
+            order = self._TYPE_ORDER[g.type]
+            events.append((take_at, order, len(events), "take", link))
+            events.append((put_at, self._MOVE_ORDER if put_at > take_at else order,
+                           len(events), "put", link))
         events.sort(key=lambda e: (e[0], e[1], e[2]))
         moved = self._moved_per_giver()
         orphans = {id(t) for t in self.matching.unmatched_in} if self.matching else set()
 
         for when, _, _, what, obj in events:
             self._roll_year(de_date(when).year)
-            if what == "move":
-                self._move(obj)
+            if what == "take":
+                self._take_for_move(obj)
+                continue
+            if what == "put":
+                self._put_for_move(obj)
                 continue
             tx = obj
             if tx.type == TxType.BUY:
-                self._add_lot(tx)
+                self._add_lot(tx, when)
             elif tx.type == TxType.SELL:
-                self._process_sell(tx, sale_wallet.get(id(tx), tx.wallet))
+                self._process_sell(tx, tx.wallet, sale_parts.get(id(tx)))
             elif tx.type == TxType.GIFT_OUT:
                 self._process_gift(tx)
             elif tx.type == TxType.TRANSFER_OUT and self.mode == "wallet":
@@ -214,11 +248,12 @@ class FifoEngine:
 
     # ── Zugänge und Umbuchungen ──
 
-    def _add_lot(self, tx: Transaction) -> None:
+    def _add_lot(self, tx: Transaction, when: datetime | None = None) -> None:
         # Einstandspreis inkl. Kaufgebühren
         cost_per_btc = _round((tx.eur_amount + tx.fee_eur) / tx.btc_amount) if tx.btc_amount else ZERO
         lot = Lot(
-            purchase_date=tx.date,
+            # when: nur bei datumslosem manuellem Kauf früher (gleicher Kalendertag)
+            purchase_date=when or tx.date,
             btc_amount=tx.btc_amount,
             cost_per_btc=cost_per_btc,
             source=tx.source,
@@ -250,28 +285,30 @@ class FifoEngine:
                   first: Lot | None = None) -> tuple[list[Lot], Decimal]:
         """Bewegt `quantity` BTC FiFo von src nach dst. `first`: dieses Lot
         zuerst (Lieferung eines bestimmten Kaufs), nur der Rest FiFo."""
-        pot = self._pot(no_kyc, src)
-        taken: list[Lot] = []
-        if first is not None and quantity > 0 and any(l is first for l in pot):
-            part, quantity = self._take_lot(pot, first, quantity)
-            taken.append(part)
-        more, missing = self._take(pot, quantity)
-        taken += more
+        taken, missing = self._take_from(self._pot(no_kyc, src), quantity, first)
         target = self._pot(no_kyc, dst)
         for lot in taken:
             lot.wallet = dst
             insort(target, lot, key=_lot_key)
         return taken, missing
 
-    def _move(self, link) -> None:
+    def _take_from(self, pot: list[Lot], quantity: Decimal,
+                   first: Lot | None = None) -> tuple[list[Lot], Decimal]:
+        """Wie _take, aber `first` (das Lot eines bestimmten Kaufs) zuerst."""
+        taken: list[Lot] = []
+        if first is not None and quantity > 0 and any(l is first for l in pot):
+            part, quantity = self._take_lot(pot, first, quantity)
+            taken.append(part)
+        more, missing = self._take(pot, quantity)
+        return taken + more, missing
+
+    def _take_for_move(self, link) -> None:
         g, t = link.giver, link.taker
-        if g.wallet == t.wallet:
-            # Kauf mit ausdrücklicher Wallet: das Lot liegt schon dort, der
-            # Eingang ist nur seine Lieferung — nichts zu bewegen
-            return
         own = self._lot_of.get(id(g)) if link.kind == LinkKind.LIEFERUNG else None
-        taken, missing = self._transfer(g.no_kyc, g.wallet, t.wallet, link.btc_amount, first=own)
-        self.moves.append((link, [replace(l) for l in taken]))
+        taken, missing = self._take_from(self._pot(g.no_kyc, g.wallet), link.btc_amount, first=own)
+        for lot in taken:
+            lot.wallet = self._wallet(t.wallet)     # unterwegs gehört es schon der Ziel-Wallet
+        self._transit[id(link)] = (link, taken)
         if missing > 0:
             what = "Lieferung des Kaufs" if link.kind == LinkKind.LIEFERUNG else "Übertrag"
             self.warnings.append(make_warning_fmt(
@@ -283,6 +320,13 @@ class FifoEngine:
                 tag=de_date(g.date), menge=f"{link.btc_amount:.8f}",
                 quelle=wallet_label(g.wallet), ziel=wallet_label(t.wallet), fehlt=f"{missing:.8f}",
             ))
+
+    def _put_for_move(self, link) -> None:
+        _, taken = self._transit.pop(id(link))
+        target = self._pot(link.taker.no_kyc, link.taker.wallet)
+        for lot in taken:
+            insort(target, lot, key=_lot_key)
+        self.moves.append((link, [replace(l) for l in taken]))
 
     def _park_unmatched(self, tx: Transaction, moved: Decimal) -> None:
         """Abgang ohne (vollständigen) Eingang: der Rest geht in die Wallet
@@ -301,17 +345,38 @@ class FifoEngine:
         erfundenen Lots); ein späterer Abgang daraus meldet die Lücke.
         Beispiel aus echten Daten: Broker → nicht exportierte Wallet → zurück
         zum Broker → Verkauf. Ohne diese Regel stünde der Verkauf ohne Kauf da."""
+        pending = [b for b in (self.matching.unmatched_buys if self.matching else [])
+                   if b.wallet == tx.wallet and b.wallet != b.source and b.no_kyc == tx.no_kyc
+                   and -WINDOW <= tx.date - b.date <= DELIVERY_AFTER]
+        if pending:
+            # Ein Kauf mit Wallet-Angabe liegt schon als Lot in dieser Wallet; der
+            # Eingang ist sehr wahrscheinlich seine Lieferung mit abweichendem
+            # Betrag. Zusätzlich aus „extern" zu ziehen ergäbe doppelten Bestand
+            # mit falschen Anschaffungsdaten (Audit F3) — also nicht ziehen, melden.
+            b = pending[0]
+            self.warnings.append(make_warning_fmt(
+                "Eingang am {tag} über {menge} BTC in {ziel} ohne zugeordneten Abgang. In dieser "
+                "Wallet ist ein Kauf mit Wallet-Angabe vom {tag2} über {menge2} BTC ohne passenden "
+                "Eingang erfasst — vermutlich dieselbe Lieferung mit abweichendem Betrag. Bitte "
+                "btc_amount in manual_buys.csv prüfen. Kein Bestand aus nicht eingelesenen Wallets "
+                "übernommen.",
+                internal=tx.no_kyc, year=de_date(tx.date).year, tag=de_date(tx.date),
+                menge=f"{tx.btc_amount:.8f}", ziel=wallet_label(tx.wallet),
+                tag2=de_date(b.date), menge2=f"{b.btc_amount:.8f}",
+            ))
+            self.pulled.append((tx, [], tx.btc_amount))
+            return
         taken, missing = self._transfer(tx.no_kyc, EXTERN_WALLET, tx.wallet, tx.btc_amount)
         self.pulled.append((tx, [replace(l) for l in taken], missing))
 
     # ── Abgänge ──
 
-    def _process_sell(self, tx: Transaction, wallet: str) -> None:
+    def _process_sell(self, tx: Transaction, wallet: str, parts=None) -> None:
         # Netto-Verkaufspreis pro BTC (Erlös minus Verkaufsgebühren)
         net_proceeds = tx.eur_amount - tx.fee_eur
         net_sell_price_per_btc = _round(net_proceeds / tx.btc_amount) if tx.btc_amount else ZERO
         self.sell_results.append(
-            self._consume(tx, tx.btc_amount, DisposalKind.SELL, net_sell_price_per_btc, wallet)
+            self._consume(tx, tx.btc_amount, DisposalKind.SELL, net_sell_price_per_btc, wallet, parts)
         )
 
     def _process_fee(self, tx: Transaction) -> None:
@@ -330,7 +395,11 @@ class FifoEngine:
                 internal=tx.no_kyc,
                 year=de_date(tx.date).year,
             ))
-        result = self._consume(tx, tx.fee_btc, DisposalKind.FEE, price, tx.wallet)
+        # Handelsgebühr eines Kaufs (Bisq): aus dem eigenen Lot, nicht aus einem
+        # älteren Kauf beim selben Anbieter (Audit F8)
+        # (nur walletbezogen — mode="global" bleibt die alte Rechnung)
+        own = self._lot_of.get(id(tx)) if tx.type == TxType.BUY and self.mode == "wallet" else None
+        result = self._consume(tx, tx.fee_btc, DisposalKind.FEE, price, tx.wallet, first=own)
         result.fee_price_per_btc = price
         self.fee_results.append(result)
 
@@ -346,7 +415,8 @@ class FifoEngine:
     }
 
     def _consume(self, tx: Transaction, quantity: Decimal, kind: DisposalKind,
-                 price_per_btc: Decimal | None, wallet: str) -> SellResult:
+                 price_per_btc: Decimal | None, wallet: str, parts=None,
+                 first: Lot | None = None) -> SellResult:
         """Verbraucht `quantity` BTC FiFo aus dem Topf der Wallet.
 
         price_per_btc: Netto-Erlös je BTC (SELL), Tageskurs (FEE) oder None
@@ -358,11 +428,21 @@ class FifoEngine:
         Abgang): Er kann aus keiner eingelesenen Wallet stammen — deren Exporte
         sind vollständig, ein Abgang stünde darin. Bedient wird er deshalb nur aus
         Beständen ohne bekannten Verwahrort, FiFo über diese Töpfe, mit Warnung.
+
+        parts: [(Wallet, Menge)] aus VERKAUF-Verbindungen — jeder Anteil aus
+        seiner Wallet, erst ein Rest nach `wallet`.
         """
-        cross_wallet = self.mode == "wallet" and wallet == ANY_WALLET
-        if cross_wallet:
-            taken: list[Lot] = []
-            remaining = quantity
+        taken: list[Lot] = []
+        remaining = quantity
+        for w, amount in (parts or []):
+            q = min(amount, remaining)
+            got, miss = self._take(self._pot(tx.no_kyc, w), q)
+            taken += got
+            remaining -= q - miss
+        cross_wallet = self.mode == "wallet" and wallet == ANY_WALLET and remaining > ZERO
+        if remaining <= ZERO:
+            pass
+        elif cross_wallet:
             for pot, lot in self._untracked_lots(tx.no_kyc):
                 if remaining <= ZERO:
                     break
@@ -378,7 +458,8 @@ class FifoEngine:
                 internal=tx.no_kyc, year=de_date(tx.date).year,
             ))
         else:
-            taken, remaining = self._take(self._pot(tx.no_kyc, wallet), quantity)
+            got, remaining = self._take_from(self._pot(tx.no_kyc, wallet), remaining, first)
+            taken += got
 
         matches: list[DisposalMatch] = []
         for lot in taken:
@@ -464,8 +545,11 @@ class FifoEngine:
     # ── Abfragen ──
 
     def remaining_lots(self) -> list[Lot]:
-        """Alle verbleibenden Lots (KYC + noKYC) — Filterung übernimmt der Report."""
-        return [lot for pot in self.pots.values() for lot in pot]
+        """Alle verbleibenden Lots (KYC + noKYC) — Filterung übernimmt der Report.
+        Lots unterwegs zählen zur Ziel-Wallet (Bestand zum 31.12. bei einem
+        Übertrag über Silvester)."""
+        return ([lot for pot in self.pots.values() for lot in pot]
+                + [lot for _, lots in self._transit.values() for lot in lots])
 
     def lots_at_year_end(self, year: int) -> list[Lot]:
         """Bestand zum 31.12. des Jahres, im Hauptlauf festgehalten."""

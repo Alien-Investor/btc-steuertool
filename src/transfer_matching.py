@@ -30,6 +30,7 @@ einem Finanzamt-Dokument). Ein solches Paar wird erkannt und nur intern gemeldet
 """
 from __future__ import annotations
 
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass, field
 from datetime import timedelta
 from decimal import Decimal
@@ -146,7 +147,9 @@ def transferable(giver: Transaction) -> Decimal:
 
 
 def _find(pool: list[Transaction], day, wallet: str, amount: Decimal, line: int, side: str):
-    hits = [t for t in pool if de_date(t.date) == day and t.wallet == wallet
+    # Ein manueller Verkauf ohne Spalte wallet (ANY_WALLET) heißt hier „manual“
+    hits = [t for t in pool if de_date(t.date) == day
+            and (t.wallet == wallet or (t.wallet == ANY_WALLET and t.source == wallet))
             and amount in (t.btc_amount, t.btc_amount + t.fee_btc)]
     if len(hits) != 1:
         raise ValueError(
@@ -183,9 +186,10 @@ def match_transfers(transactions: list[Transaction], manual_rows=()) -> MatchRes
 
     # ── Stufe 0: transfer_zuordnung.csv (Absicht des Nutzers, Rn. 90) ──
     if manual_rows:
-        known = {t.wallet for t in transactions}
+        known = {t.wallet for t in transactions} | {t.source for t in transactions}
         filled: dict[int, Decimal] = {}     # id(taker) → bereits zugeordnet
         manual_takers: list[Transaction] = []
+        resolved = []
         for row in manual_rows:
             wallets = []
             for raw in (row.giver_wallet, row.taker_wallet):
@@ -196,6 +200,17 @@ def match_transfers(transactions: list[Transaction], manual_rows=()) -> MatchRes
                 wallets.append(w)
             g = _find(givers, row.giver_date, wallets[0], row.giver_amount, row.line, "Abgang/Kauf")
             t = _find(takers, row.taker_date, wallets[1], row.taker_amount, row.line, "Eingang/Verkauf")
+            resolved.append((row, g, t))
+        # Mehrere Abgänge in einen Eingang: enthalten die Abgangsbeträge die
+        # Gebühr (Summe minus Gebühren = Eingang), zählt je Abgang der Betrag
+        # ohne Gebühr — die Gebühr verbucht die Engine separat (Audit F7).
+        net_takers = set()
+        for t in {id(t): t for _, _, t in resolved}.values():
+            gs = [g for _, g, t2 in resolved if t2 is t]
+            if (sum((transferable(g) for g in gs), Decimal("0")) != t.btc_amount
+                    and sum((transferable(g) - g.fee_btc for g in gs), Decimal("0")) == t.btc_amount):
+                net_takers.add(id(t))
+        for row, g, t in resolved:
             kind = _kind(g, t)
             if kind is None:
                 raise ValueError(f"{ZUORDNUNG} Zeile {row.line}: ein Kauf kann nicht direkt mit einem "
@@ -204,7 +219,8 @@ def match_transfers(transactions: list[Transaction], manual_rows=()) -> MatchRes
                 # Wortlaut ohne „noKYC“: Fehlermeldung, kein Dokument — trotzdem neutral
                 raise ValueError(f"{ZUORDNUNG} Zeile {row.line}: Abgang und Eingang gehören zu "
                                  f"getrennten Beständen (KYC/noKYC) — nicht verbindbar.")
-            amount = min(transferable(g) - moved.get(id(g), Decimal("0")),
+            avail = transferable(g) - (g.fee_btc if id(t) in net_takers else Decimal("0"))
+            amount = min(avail - moved.get(id(g), Decimal("0")),
                          t.btc_amount - filled.get(id(t), Decimal("0")))
             if amount <= 0:
                 raise ValueError(f"{ZUORDNUNG} Zeile {row.line}: Abgang oder Eingang ist durch "
@@ -242,6 +258,44 @@ def match_transfers(transactions: list[Transaction], manual_rows=()) -> MatchRes
             for t in ins:
                 link(LinkKind.TRANSFER, g, t, "tx-id")
 
+    # Kandidatensuche nur im Zeitfenster (bisect statt jeder gegen jeden: ein
+    # mehrjähriger Sparplan hat tausende gleich hohe Auszahlungen)
+    taker_dates = [t.date for t in takers]     # takers ist nach Datum sortiert
+
+    def window(g):
+        """Noch offene Eingänge/Direktverkäufe im weitesten Zeitfenster um g."""
+        lo = bisect_left(taker_dates, g.date - WINDOW)
+        hi = bisect_right(taker_dates, g.date + DELIVERY_AFTER)
+        return [t for t in takers[lo:hi] if id(t) not in taken]
+
+    # ── Stufe 1b: Käufe mit ausdrücklicher Wallet (manual_buys, Spalte wallet) ──
+    # Der Nutzer hat erklärt, wohin geliefert wurde. Ein Eingang in dieser Wallet
+    # ist die Lieferung — exakt, sonst ein einziger fast passender Betrag. Ohne
+    # diese Stufe würde ein abweichender Eingang als „ohne Abgang“ zusätzlich
+    # Bestand aus „extern“ holen (doppelter Bestand, Audit F3).
+    for g in givers:
+        if g.type != TxType.BUY or g.wallet == g.source or id(g) in moved:
+            continue
+        cands = [t for t in window(g)
+                 if t.no_kyc == g.no_kyc
+                 and _structurally_possible(g, t) == LinkKind.LIEFERUNG]
+        exact = [t for t in cands if t.btc_amount in (g.btc_amount, transferable(g))]
+        near = [t for t in cands if t.btc_amount > 0
+                and abs(t.btc_amount - g.btc_amount) / g.btc_amount <= NEAR_MISS]
+        pick = exact if exact else near
+        if len(pick) == 1:
+            t = pick[0]
+            link(LinkKind.LIEFERUNG, g, t, "betrag")
+            if not exact:
+                result.warnings.append(make_warning_fmt(
+                    "Kauf vom {tag} über {menge} BTC (manual_buys.csv, Wallet {ziel}): der Eingang am "
+                    "{tag2} über {menge2} BTC weicht im Betrag ab und wurde als seine Lieferung "
+                    "zugeordnet. Bitte btc_amount prüfen — maßgeblich ist die angekommene Menge.",
+                    internal=g.no_kyc, year=de_date(g.date).year, tag=de_date(g.date),
+                    menge=f"{g.btc_amount:.8f}", ziel=wallet_label(g.wallet),
+                    tag2=de_date(t.date), menge2=f"{t.btc_amount:.8f}",
+                ))
+
     # ── Stufe 2: Betrag im Zeitfenster ──
     open_givers = [g for g in givers if id(g) not in moved]
     open_takers = [t for t in takers if id(t) not in taken]
@@ -249,7 +303,7 @@ def match_transfers(transactions: list[Transaction], manual_rows=()) -> MatchRes
     back: dict[int, list[Transaction]] = {id(t): [] for t in open_takers}
     kinds: dict[tuple[int, int], LinkKind] = {}
     for g in open_givers:
-        for t in open_takers:
+        for t in window(g):
             kind = _structurally_possible(g, t)
             if kind and g.no_kyc == t.no_kyc and _amount_fits(g, t.btc_amount):
                 edges[id(g)].append(t)
@@ -257,19 +311,19 @@ def match_transfers(transactions: list[Transaction], manual_rows=()) -> MatchRes
                 kinds[(id(g), id(t))] = kind
 
     # 2a: gegenseitig eindeutige Paare, solange sich etwas löst
-    changed = True
-    while changed:
-        changed = False
-        for g in open_givers:
+    pending = list(open_givers)
+    while pending:
+        nxt = []
+        for g in pending:
             if id(g) in moved:
                 continue
             cands = [t for t in edges[id(g)] if id(t) not in taken]
-            if len(cands) != 1:
-                continue
-            t = cands[0]
-            if len([x for x in back[id(t)] if id(x) not in moved]) == 1:
+            if len(cands) == 1 and len([x for x in back[id(cands[0])] if id(x) not in moved]) == 1:
+                t = cands[0]
                 link(kinds[(id(g), id(t))], g, t, "betrag")
-                changed = True
+                # Nachbarn des verbundenen Eingangs können jetzt eindeutig sein
+                nxt += [x for t2 in edges[id(g)] for x in back[id(t2)] if id(x) not in moved]
+        pending = nxt
 
     # 2b: verbleibende Konflikt-Gruppen (Zusammenhangskomponenten)
     seen: set[int] = set()
@@ -288,31 +342,80 @@ def match_transfers(transactions: list[Transaction], manual_rows=()) -> MatchRes
                     continue
                 seen.add(id(nb))
                 stack.append(by_id[id(nb)])
-        comp_kinds = {kinds[(id(g), id(t))] for g in comp_g for t in edges[id(g)] if t in comp_t}
-        if (len(comp_kinds) == 1 and len({g.wallet for g in comp_g}) == 1
-                and len({t.wallet for t in comp_t}) == 1):
-            # Alle zwischen denselben beiden Wallets: steuerlich gleichwertig,
-            # chronologisch paaren (jeder Abgang nimmt den frühesten Kandidaten).
+        comp_t_ids = {id(t) for t in comp_t}
+        comp_kinds = {kinds[(id(g), id(t))] for g in comp_g for t in edges[id(g)] if id(t) in comp_t_ids}
+        same_pair = (len(comp_kinds) == 1 and len({g.wallet for g in comp_g}) == 1
+                     and len({t.wallet for t in comp_t}) == 1)
+        if same_pair and comp_kinds != {LinkKind.LIEFERUNG}:
+            # Alle zwischen denselben beiden Wallets: welche Einheiten wandern,
+            # entscheidet FiFo der Quelle — steuerlich gleichwertig. Chronologisch
+            # paaren, exakte Beträge vor gebührenbereinigten (Audit F9).
             for g in sorted(comp_g, key=_sort_key):
-                cands = sorted((t for t in edges[id(g)] if id(t) not in taken), key=_sort_key)
+                cands = sorted((t for t in edges[id(g)] if id(t) not in taken),
+                               key=lambda t: (t.btc_amount != g.btc_amount, _sort_key(t)))
                 if cands:
                     link(kinds[(id(g), id(cands[0]))], g, cands[0], "betrag")
             continue
+        if same_pair:
+            # Lieferungen: es wandert das Lot des gelieferten KAUFS — welcher
+            # Kauf es war, bestimmt die Anschaffung (Audit F6). Je Eingang der
+            # zeitlich nächste Kauf; gleich nahe Käufe → mehrdeutig.
+            plan, clash = [], False
+            used: set[int] = set()
+            for t in sorted(comp_t, key=_sort_key):
+                cands = [g for g in back[id(t)] if id(g) not in moved and id(g) not in used]
+                if not cands:
+                    continue
+                dist = sorted(cands, key=lambda g: abs((t.date - g.date).total_seconds()))
+                if len(dist) > 1 and abs((t.date - dist[0].date).total_seconds()) == \
+                        abs((t.date - dist[1].date).total_seconds()):
+                    clash = True
+                    break
+                plan.append((dist[0], t))
+                used.add(id(dist[0]))
+            if not clash:
+                for g, t in plan:
+                    link(LinkKind.LIEFERUNG, g, t, "betrag")
+                continue
         for g in comp_g:
             ambiguous.add(id(g))
         first = min(x.date for x in comp_g + comp_t)
         last = max(x.date for x in comp_g + comp_t)
         result.warnings.append(make_warning_fmt(
             "Überträge zwischen {von} und {bis} nicht eindeutig zuordenbar: {n} Abgänge/Lieferungen "
-            "und {m} Eingänge/Direktverkäufe mit passenden Beträgen in verschiedenen Wallets. "
-            "Nicht verbunden — die Lots bleiben in der abgebenden Wallet. Bitte die Zuordnung "
-            "in transfer_zuordnung.csv festlegen.",
+            "und {m} Eingänge/Direktverkäufe mit passenden Beträgen. Nicht verbunden — die Lots "
+            "bleiben in der abgebenden Wallet. Bitte die Zuordnung in transfer_zuordnung.csv festlegen.",
             internal=comp_g[0].no_kyc, year=de_date(first).year,
             von=de_date(first), bis=de_date(last), n=len(comp_g), m=len(comp_t),
         ))
 
     # ── Offene Vorgänge einsammeln und melden ──
     rest_takers = [t for t in takers if id(t) not in taken]
+
+    def fits_any(g, t):
+        return t.btc_amount in (g.btc_amount, transferable(g)) or _amount_fits(g, t.btc_amount)
+
+    # Kreuzfälle KYC ↔ noKYC (nie verbunden). Richtung noKYC → KYC würde den
+    # noKYC-Vorgang in den Finanzamt-Dokumenten sichtbar machen: der Eingang in
+    # der KYC-Wallet stünde dort mit Datum und genauem Betrag als „nicht
+    # eingelesen“ (Datenschutz-Audit Fund 1). Deshalb harter Abbruch mit
+    # Anleitung — der Bestand lässt sich so nicht vorzeigbar dokumentieren.
+    for g in givers:
+        if not g.no_kyc or id(g) in moved:
+            continue
+        hit = [t for t in window(g)
+               if not t.no_kyc and _structurally_possible(g, t) and fits_any(g, t)]
+        if hit:
+            t = hit[0]
+            raise ValueError(
+                f"Der Vorgang vom {de_date(g.date)} über {g.btc_amount:.8f} BTC aus dem noKYC-Bestand "
+                f"ist offenbar am {de_date(t.date)} ({t.btc_amount:.8f} BTC) in einer KYC-Wallet "
+                f"angekommen. KYC- und noKYC-Bestände bleiben strikt getrennt; die Steuerdokumente "
+                f"würden den Eingang sonst mit Datum und Betrag zeigen. Bitte den Export der "
+                f"empfangenden Wallet nach bitbox/nokyc/ verschieben (bzw. in der App als „BitBox noKYC“ "
+                f"einstufen) oder die Einstufung des Kaufs prüfen. Berechnung abgebrochen."
+            )
+
     for g in givers:
         if g.type == TxType.BUY:
             if id(g) not in moved:
@@ -322,22 +425,26 @@ def match_transfers(transactions: list[Transaction], manual_rows=()) -> MatchRes
         if residual <= 0:
             continue
         result.unmatched_out.append(g)
-        cross = [t for t in rest_takers
+        cross = [t for t in window(g)
                  if t.no_kyc != g.no_kyc and _structurally_possible(g, t)
                  and _amount_fits(g, t.btc_amount)]
         if cross:
-            # Nur intern: schon das Wort noKYC verriete dem Finanzamt den Bestand.
+            # Richtung KYC → noKYC: der KYC-Abgang erscheint in den offiziellen
+            # Dokumenten als Übertrag in eine „nicht eingelesene“ Wallet — sachlich
+            # richtig (die Coins verlassen den KYC-Bestand). Nur intern melden,
+            # aber ausdrücklich sagen, was die Dokumente zeigen (Fund 2).
             result.warnings.append(make_warning_fmt(
-                "Abgang am {tag} über {menge} BTC aus {quelle} passt zu einem Eingang in {ziel}, "
-                "aber zwischen KYC- und noKYC-Bestand — nicht verbunden (die Bestände bleiben "
-                "strikt getrennt). Bitte prüfen, ob die Wallet im richtigen Ordner liegt.",
+                "Abgang am {tag} über {menge} BTC aus {quelle} passt zu einem Eingang in {ziel} — "
+                "Übertrag vom KYC- in den noKYC-Bestand. Nicht verbunden (die Bestände bleiben "
+                "strikt getrennt). Steuerreport und Steuernachweis zeigen diesen Abgang mit Datum "
+                "und Betrag als Übertrag in eine nicht eingelesene eigene Wallet.",
                 internal=True, year=de_date(g.date).year, tag=de_date(g.date),
                 menge=f"{g.btc_amount:.8f}", quelle=wallet_label(g.wallet),
                 ziel=wallet_label(cross[0].wallet),
             ))
         if id(g) in ambiguous:
             continue
-        near = [t for t in rest_takers
+        near = [t for t in window(g)
                 if t.no_kyc == g.no_kyc and _structurally_possible(g, t)
                 and t.btc_amount > 0
                 and abs(t.btc_amount - g.btc_amount) / g.btc_amount <= NEAR_MISS]

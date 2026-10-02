@@ -273,10 +273,15 @@ class WalletEngineTest(unittest.TestCase):
                tx_at(at(2024, 1, 11), OUT, "0.01", "bitbox:main"),
                tx_at(at(2024, 1, 11, 13), IN, "0.01", "bison"),
                tx_at(at(2024, 1, 12), SELL, "0.01", "bison", eur="400")]
-        e = run(txs)
+        # Lieferung eines noKYC-Kaufs in eine KYC-Wallet: harter Abbruch — sonst
+        # stünde der Eingang mit Datum und Betrag im Nachweis (Datenschutz-Audit Fund 1)
+        with self.assertRaises(ValueError) as cm:
+            run(txs)
+        self.assertIn("strikt getrennt", str(cm.exception))
+        # Der Vergleichslauf (gemeinsamer Topf) hält die Klassen ebenfalls getrennt
+        e = run(txs, mode="global")
         for r in e.sell_results:
             self.assertFalse(any(m.lot_source == "bisq" for m in r.matches))
-        self.assertTrue(all(l.no_kyc for l in e.remaining_lots() if l.source == "bisq"))
 
     def test_orphan_receipt_takes_lots_from_extern(self):
         # Probelauf echte Daten (2021): Broker → nicht exportierte Wallet → zurück → Verkauf
@@ -441,6 +446,258 @@ class WalletColumnTest(unittest.TestCase):
         self.assertEqual(held(e, "bitbox:main"), D("0.002"))
         self.assertFalse(e.pulled)
         self.assertFalse(e.moves)
+
+
+def _balance_check(case, engine, txs):
+    """Mengenbilanz je Klasse: gekauft = Bestand + aus Lots verbraucht. Lots
+    entstehen nur durch Käufe; Überträge verschieben, Verbrauch entnimmt —
+    jede Abweichung ist verlorener oder doppelt gezählter Bestand."""
+    disposals = engine.sell_results + engine.fee_results + engine.gift_results
+    for no_kyc in (False, True):
+        bought = sum((t.btc_amount for t in txs if t.type == BUY and t.no_kyc == no_kyc), D("0"))
+        held_ = sum((l.btc_amount for l in engine.remaining_lots() if l.no_kyc == no_kyc), D("0"))
+        used = sum((m.btc_used for r in disposals if r.sell_tx.no_kyc == no_kyc for m in r.matches), D("0"))
+        case.assertEqual(bought, held_ + used, f"Bilanz {'noKYC' if no_kyc else 'KYC'}")
+    for lot in engine.remaining_lots():
+        case.assertGreater(lot.btc_amount, 0)
+    for r in disposals:
+        case.assertEqual(r.total_btc_matched + r.unmatched_btc, r.disposed_btc)
+        for m in r.matches:                                             # nie ein späterer Kauf
+            if r.sell_tx.source == "manual":    # datumslos: Uhrzeit innerhalb des Tages unbekannt
+                case.assertLessEqual(de_date(m.lot_purchase_date), de_date(r.sell_tx.date))
+            else:
+                case.assertLessEqual(m.lot_purchase_date, r.sell_tx.date)
+    for link, lots in engine.moves:                                     # nie über die Klassengrenze
+        case.assertTrue(all(l.no_kyc == link.giver.no_kyc for l in lots))
+
+
+class BalanceTest(unittest.TestCase):
+    """Bilanz auf den Beispieldaten und auf zufälligen Abläufen (fester Seed)."""
+
+    def test_examples_balance(self):
+        import io, contextlib
+        from src.main import load_all_transactions, run_engine
+        with contextlib.redirect_stdout(io.StringIO()):
+            txs = load_all_transactions(Path(__file__).resolve().parent.parent / "examples")
+        e = run_engine(txs)
+        _balance_check(self, e, txs)
+        _balance_check(self, e.comparison, txs)
+
+    def test_random_scenarios_balance(self):
+        import random
+        rng = random.Random(20261002)
+        brokers = ["21bitcoin", "bison", "strike"]
+        wallets = ["bitbox:a", "bitbox:b"]
+        for case in range(300):
+            txs, t = [], at(2023, 1, 2)
+            for _ in range(rng.randint(5, 40)):
+                t += timedelta(hours=rng.choice([1, 5, 30, 100, 400]))
+                amt = D(rng.randint(1, 500_000)) / D(100_000_000)
+                fee = D(rng.choice([0, 0, 141, 500])) / D(100_000_000)
+                r = rng.random()
+                nk = rng.random() < 0.2
+                if r < 0.25:
+                    if nk:
+                        txs.append(tx_at(t, BUY, amt, "bisq", eur="50", no_kyc=True, direct=True, fee_btc=fee))
+                        txs.append(tx_at(t + timedelta(hours=2), IN, amt - fee, "bitbox:nk", no_kyc=True))
+                    else:
+                        txs.append(tx_at(t, BUY, amt, rng.choice(brokers), eur="50"))
+                elif r < 0.30:
+                    txs.append(tx_at(t, BUY, amt, "pocket", eur="50", direct=True))
+                    if rng.random() < 0.7:
+                        txs.append(tx_at(t + timedelta(minutes=30), IN, amt, rng.choice(wallets)))
+                elif r < 0.60:
+                    src = "bitbox:nk" if nk else rng.choice(brokers + wallets)
+                    txs.append(tx_at(t, OUT, amt, src, fee_btc=fee, no_kyc=nk))
+                    if rng.random() < 0.8:
+                        dst = rng.choice([w for w in brokers + wallets if w != src]) if not nk else "bitbox:nk2"
+                        skew = timedelta(hours=rng.choice([-3, 1, 2, 20]))
+                        txs.append(tx_at(t + skew, IN, amt, dst, no_kyc=nk))
+                elif r < 0.65:
+                    txs.append(tx_at(t, IN, amt, rng.choice(wallets)))          # Herkunft unbekannt
+                elif r < 0.85:
+                    txs.append(tx_at(t, SELL, amt, rng.choice(brokers), eur="80"))
+                elif r < 0.92:
+                    w = "bitbox:nk" if nk else rng.choice(wallets)
+                    txs.append(tx_at(t, OUT, amt, w, fee_btc=fee, no_kyc=nk))
+                    txs.append(tx_at(t - timedelta(hours=4), SELL, amt, "manual", eur="80",
+                                     direct=True, wallet=ANY_WALLET, no_kyc=nk))
+                else:
+                    t2 = tx_at(t, OUT, amt, rng.choice(wallets), fee_btc=fee)
+                    t2.type = TxType.GIFT_OUT
+                    txs.append(t2)
+            for mode in ("wallet", "global"):
+                with self.subTest(case=case, mode=mode):
+                    _balance_check(self, run(txs, mode=mode), txs)
+
+
+class AuditRun2Test(unittest.TestCase):
+    """Regressionstests zum Audit des walletbezogenen FiFo (02.10.2026):
+    Rechenlogik F1–F9, Datenschutz Fund 1/3/4/7."""
+
+    def test_f1_sale_during_transfer_uses_remaining_lot(self):
+        txs = [tx_at(at(2022, 1, 10), BUY, "0.01", "bison", eur="300"),
+               tx_at(at(2024, 1, 10), BUY, "0.01", "bison", eur="400"),
+               tx_at(at(2024, 3, 1, 10), OUT, "0.01", "bison"),
+               tx_at(at(2024, 3, 1, 11), SELL, "0.01", "bison", eur="600"),
+               tx_at(at(2024, 3, 2, 20), IN, "0.01", "bitbox:main")]
+        e = run(txs)
+        m = e.sell_results[0].matches
+        self.assertEqual([de_year(x.lot_purchase_date) for x in m], [2024])
+        self.assertFalse(m[0].is_tax_free)
+        self.assertEqual([de_year(l.purchase_date) for l in e.remaining_lots()], [2022])
+
+    def test_f1_lots_in_transit_count_for_destination_at_year_end(self):
+        txs = [tx_at(at(2023, 6, 1), BUY, "0.01", "bison", eur="300"),
+               tx_at(datetime(2023, 12, 31, 20, 0, tzinfo=timezone.utc), OUT, "0.01", "bison"),
+               tx_at(datetime(2024, 1, 2, 9, 0, tzinfo=timezone.utc), IN, "0.01", "bitbox:main")]
+        lots = run(txs).lots_at_year_end(2023)
+        self.assertEqual([(l.wallet, l.btc_amount) for l in lots], [("bitbox:main", D("0.01"))])
+
+    def test_f2_linked_manual_sale_runs_after_same_day_receipt(self):
+        txs = [tx_at(at(2022, 1, 10), BUY, "0.01", "strike", eur="300"),
+               tx_at(at(2024, 3, 1, 8), OUT, "0.01", "strike", tx_id="h1"),
+               tx_at(at(2024, 3, 1, 14), IN, "0.01", "bitbox:main", tx_id="h1"),
+               tx_at(at(2024, 3, 1, 18), OUT, "0.01", "bitbox:main"),
+               tx_at(at(2024, 3, 1, 12), SELL, "0.01", "manual", eur="600",
+                     direct=True, wallet=ANY_WALLET)]
+        e = run(txs)
+        self.assertTrue(e.sell_results[0].is_fully_covered)
+        self.assertEqual(held(e, "bitbox:main"), D("0"))
+
+    def test_f4_manual_buy_delivered_in_the_morning(self):
+        txs = [tx_at(at(2024, 3, 1, 12), BUY, "0.01", "manual", eur="500", direct=True),
+               tx_at(at(2024, 3, 1, 7), IN, "0.01", "bitbox:main"),
+               tx_at(at(2024, 3, 1, 9), OUT, "0.01", "bitbox:main", tx_id="x"),
+               tx_at(at(2024, 3, 1, 9, ), IN, "0.01", "strike", tx_id="x"),
+               tx_at(at(2024, 3, 1, 10), SELL, "0.01", "strike", eur="600")]
+        e = run(txs)
+        self.assertTrue(e.sell_results[0].is_fully_covered)
+        self.assertEqual(held(e, "bitbox:main"), D("0"))
+
+    def test_f5_sale_from_two_wallets(self):
+        txs = [tx_at(at(2022, 1, 10), BUY, "0.006", "bison", eur="180"),
+               tx_at(at(2022, 1, 11), OUT, "0.006", "bison"),
+               tx_at(at(2022, 1, 11, 13), IN, "0.006", "bitbox:a"),
+               tx_at(at(2023, 6, 10), BUY, "0.004", "strike", eur="120"),
+               tx_at(at(2023, 6, 11), OUT, "0.004", "strike"),
+               tx_at(at(2023, 6, 11, 13), IN, "0.004", "bitbox:b"),
+               tx_at(at(2024, 3, 1, 15), OUT, "0.006", "bitbox:a"),
+               tx_at(at(2024, 3, 1, 16), OUT, "0.004", "bitbox:b"),
+               tx_at(at(2024, 3, 1, 12), SELL, "0.01", "manual", eur="600",
+                     direct=True, wallet=ANY_WALLET)]
+        rows = [zrow(2, "2024-03-01", "a", "0.006", "2024-03-01", "manual", "0.01"),
+                zrow(3, "2024-03-01", "b", "0.004", "2024-03-01", "manual", "0.01")]
+        e = FifoEngine()
+        e.process(txs, rows)
+        sale = e.sell_results[0]
+        self.assertTrue(sale.is_fully_covered)
+        self.assertEqual(sorted(m.lot_wallet for m in sale.matches), ["bitbox:a", "bitbox:b"])
+        self.assertEqual(held(e, "bitbox:a") + held(e, "bitbox:b"), D("0"))
+
+    def test_f6_delivery_takes_nearest_purchase(self):
+        txs = [tx_at(at(2023, 3, 1, 12), BUY, "0.001", "pocket", eur="30", direct=True),
+               tx_at(at(2023, 3, 2, 11), BUY, "0.001", "pocket", eur="35", direct=True),
+               tx_at(at(2023, 3, 2, 11, ), IN, "0.001", "bitbox:main")]
+        txs[2].date = datetime(2023, 3, 2, 11, 30, tzinfo=timezone.utc)
+        lots = [l for l in run(txs).remaining_lots() if l.wallet == "bitbox:main"]
+        self.assertEqual([str(de_date(l.purchase_date)) for l in lots], ["2023-03-02"])
+
+    def test_f7_manual_rows_with_fee_included_amounts(self):
+        txs = [tx_at(at(2024, 1, 1), BUY, "0.01", "21bitcoin", eur="400"),
+               tx_at(at(2024, 1, 1), BUY, "0.01", "bison", eur="400"),
+               tx_at(at(2024, 3, 1), OUT, "0.0051", "21bitcoin", fee_btc="0.0001"),
+               tx_at(at(2024, 3, 1), OUT, "0.0051", "bison", fee_btc="0.0001"),
+               tx_at(at(2024, 3, 10), IN, "0.01", "bitbox:main")]
+        rows = [zrow(2, "2024-03-01", "21bitcoin", "0.0051", "2024-03-10", "main", "0.01"),
+                zrow(3, "2024-03-01", "bison", "0.0051", "2024-03-10", "main", "0.01")]
+        e = FifoEngine()
+        e.process(txs, rows)
+        self.assertEqual((held(e, "21bitcoin"), held(e, "bison"), held(e, "extern")),
+                         (D("0.0049"), D("0.0049"), D("0")))
+
+    def test_f8_bisq_fee_from_own_lot(self):
+        txs = [tx_at(at(2023, 1, 10), BUY, "0.002", "bisq", eur="40", no_kyc=True, direct=True),
+               tx_at(at(2024, 3, 1), BUY, "0.01", "bisq", eur="600", no_kyc=True, direct=True,
+                     fee_btc="0.0001"),
+               tx_at(at(2024, 3, 2), IN, "0.0099", "bitbox:nk", no_kyc=True)]
+        e = run(txs)
+        self.assertEqual([de_year(m.lot_purchase_date) for m in e.fee_results[0].matches], [2024])
+        self.assertEqual(held(e, "bisq"), D("0.002"))
+
+    def test_f9_exact_amounts_preferred(self):
+        txs = [tx_at(at(2024, 1, 1), BUY, "0.05", "21bitcoin", eur="2000"),
+               tx_at(at(2024, 3, 1, 8), OUT, "0.0011", "21bitcoin", fee_btc="0.0001"),
+               tx_at(at(2024, 3, 1, 9), OUT, "0.0010", "21bitcoin"),
+               tx_at(at(2024, 3, 1, 8, ), IN, "0.0010", "bitbox:main"),
+               tx_at(at(2024, 3, 1, 10), IN, "0.0011", "bitbox:main")]
+        txs[3].date = datetime(2024, 3, 1, 8, 30, tzinfo=timezone.utc)
+        e = run(txs)
+        self.assertFalse(e.matching.unmatched_in or e.matching.unmatched_out)
+        self.assertEqual(held(e, "bitbox:main"), D("0.0021"))
+
+    def test_f3_explicit_buy_with_deviating_receipt_no_double_holding(self):
+        txs = [tx_at(at(2022, 1, 10), BUY, "0.02", "strike", eur="600"),
+               tx_at(at(2022, 2, 1), OUT, "0.02", "strike"),                          # → extern
+               tx_at(at(2024, 3, 1), BUY, "0.01", "manual", eur="500", direct=True, wallet="bitbox:main"),
+               tx_at(at(2024, 3, 1, 15), IN, "0.0099", "bitbox:main")]
+        e = run(txs)
+        self.assertEqual(held(e, "bitbox:main"), D("0.01"))
+        self.assertEqual(held(e, "extern"), D("0.02"))
+        self.assertTrue(any("weicht im Betrag ab" in w.full for w in e.warnings))
+
+    def test_privacy_nokyc_delivery_into_kyc_wallet_aborts(self):
+        txs = [tx_at(at(2024, 7, 20), BUY, "0.005", "bisq", eur="290", no_kyc=True, direct=True,
+                     fee_btc="0.00008"),
+               tx_at(at(2024, 7, 23), IN, "0.00492", "bitbox:main")]
+        with self.assertRaises(ValueError) as cm:
+            run(txs)
+        self.assertNotIn("main", str(cm.exception))          # keine Wallet-Namen in der Meldung
+
+    def test_privacy_kyc_to_nokyc_warning_says_what_documents_show(self):
+        txs = [tx_at(at(2024, 1, 1), BUY, "0.01", "bison", eur="400"),
+               tx_at(at(2024, 3, 1), OUT, "0.001", "bison"),
+               tx_at(at(2024, 3, 1, 13), IN, "0.001", "bitbox:nk", no_kyc=True)]
+        e = run(txs)
+        internal = [w for w in e.warnings if w.internal]
+        self.assertTrue(any("nicht eingelesene eigene Wallet" in w.full for w in internal))
+        self.assertFalse(any("KYC" in str(w) for w in e.warnings if not w.internal))
+
+    def test_privacy_wallet_error_lists_only_same_class(self):
+        from src.main import _resolve_manual_wallets
+        txs = [tx_at(at(2024, 1, 1), IN, "0.01", "bitbox:main"),
+               tx_at(at(2024, 1, 1), IN, "0.01", "bitbox:geheim", no_kyc=True),
+               tx_at(at(2024, 6, 15), SELL, "0.003", "manual", eur="195", direct=True, wallet="mian")]
+        with self.assertRaises(ValueError) as cm:
+            _resolve_manual_wallets(txs)
+        self.assertIn("main", str(cm.exception))
+        self.assertNotIn("geheim", str(cm.exception))
+
+    def test_privacy_strike_filename_redacted(self):
+        import tempfile
+        from src.parsers import broker_strike, reset_warnings, parser_warnings
+        reset_warnings()
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "strike_privat-Konto.csv"
+            f.write_text("Transaction ID,Time (UTC),Status,Transaction Type,Amount EUR,Fee EUR,Amount BTC,"
+                         "Fee BTC,Description,Exchange Rate,Transaction Hash\n"
+                         "S1,Mar 16 2024 10:00:00,Completed,Send,,,-0.003,0.5,,,h\n", encoding="utf-8")
+            broker_strike.parse(f)
+        w = parser_warnings[0]
+        self.assertIn("privat-Konto", w.full)
+        self.assertNotIn("privat-Konto", str(w))
+        self.assertEqual(w.year, 2024)
+
+    def test_privacy_zuordnung_rejects_nan_with_line(self):
+        import tempfile
+        from src.parsers import transfer_zuordnung
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "transfer_zuordnung.csv"
+            f.write_text("datum_abgang,von,menge_abgang,datum_eingang,nach,menge_eingang\n"
+                         "2024-01-01,a,0.1,2024-01-02,b,NaN\n", encoding="utf-8")
+            with self.assertRaises(ValueError) as cm:
+                transfer_zuordnung.parse(f)
+        self.assertIn("Zeile 2", str(cm.exception))
 
 
 class WalletReportPrivacyTest(unittest.TestCase):

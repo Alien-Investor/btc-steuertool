@@ -16,7 +16,7 @@ from pathlib import Path
 
 from ..models import Transaction, TxType
 from ..fx_rates import eur_rate_for_date
-from . import warn
+from . import FileRef, warn, warn_fmt
 
 FIAT = ("EUR", "CHF", "USD")
 
@@ -69,7 +69,8 @@ def parse(filepath: Path) -> list[Transaction]:
             tx = _parse_buy(row, deposit)
         else:
             # Nicht stillschweigend verwerfen — jede exchange-Zeile ist ein Trade
-            warn(f"{filepath.name}: exchange-Zeile am {row.get('date', '?')} mit cost.currency '{cost_currency}' nicht verarbeitet.", internal=False)
+            warn_fmt("{file}: exchange-Zeile am {datum} mit cost.currency '{cur}' nicht verarbeitet.",
+                     internal=False, file=FileRef(filepath.name), datum=row.get('date', '?'), cur=cost_currency)
             continue
 
         if tx:

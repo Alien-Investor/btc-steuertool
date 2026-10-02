@@ -6,7 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, TxType, de_date
-from . import warn
+from . import FileRef, warn, warn_fmt
 
 
 def parse(filepath: Path) -> list[Transaction]:
@@ -120,7 +120,8 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
     # EUR-Ein-/Auszahlungen und andere Assets (ETH etc.) sind bekannt irrelevant —
     # unbekannte BTC-Zeilen aber melden (z.B. 'Withdraw' BTC oder neue Typen)
     if asset == "BTC":
-        warn(f"{filename}: Transaktionstyp '{tx_type_raw}' (BTC) am {de_date(date)} nicht verarbeitet.", internal=False)
+        warn_fmt("{file}: Transaktionstyp '{typ}' (BTC) am {tag} nicht verarbeitet.", internal=False,
+                 year=de_date(date).year, file=FileRef(filename), typ=tx_type_raw, tag=de_date(date))
     return None
 
 

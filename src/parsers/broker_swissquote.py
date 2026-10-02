@@ -8,7 +8,7 @@ from collections import defaultdict
 
 from ..models import Transaction, TxType, TZ_DE
 from ..fx_rates import eur_rate_for_date
-from . import warn
+from . import FileRef, warn, warn_fmt
 
 
 def parse(filepath: Path) -> list[Transaction]:
@@ -35,7 +35,8 @@ def parse(filepath: Path) -> list[Transaction]:
             if order_id:
                 orders[order_id].append(row)
             else:
-                warn(f"{filepath.name}: Kauf-Zeile vom {row.get('Datum', '?')} ohne Auftragsnummer nicht verarbeitet.", internal=False)
+                warn_fmt("{file}: Kauf-Zeile vom {datum} ohne Auftragsnummer nicht verarbeitet.",
+                         internal=False, file=FileRef(filepath.name), datum=row.get('Datum', '?'))
         elif tx_type in ("Crypto Withdrawal", "Crypto Deposit"):
             other_rows.append(row)
         elif tx_type == "Verkauf":
@@ -46,7 +47,8 @@ def parse(filepath: Path) -> list[Transaction]:
                 f"erfassen, sonst ist der Report unvollständig.", internal=False
             )
         else:
-            warn(f"{filepath.name}: unbekannter Transaktionstyp '{tx_type}' vom {row.get('Datum', '?')} nicht verarbeitet.", internal=False)
+            warn_fmt("{file}: unbekannter Transaktionstyp '{typ}' vom {datum} nicht verarbeitet.",
+                     internal=False, file=FileRef(filepath.name), typ=tx_type, datum=row.get('Datum', '?'))
 
     transactions = []
 

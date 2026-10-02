@@ -16,8 +16,8 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from ..models import Transaction, TxType
-from . import warn
+from ..models import Transaction, TxType, de_date
+from . import FileRef, warn, warn_fmt
 
 
 def parse(filepath: Path) -> list[Transaction]:
@@ -37,9 +37,10 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
         # Nur abgeschlossene Vorgänge zählen — aber nicht stillschweigend
         # verwerfen: Purchase/Send/Receive sind steuerlich relevant.
         if row.get("Transaction Type", "").strip() in ("Purchase", "Send", "Receive"):
-            warn(
-                f"{filename}: {row.get('Transaction Type', '').strip()} vom "
-                f"{row.get('Time (UTC)', '?')} mit Status '{status}' nicht verarbeitet.", internal=False
+            warn_fmt(
+                "{file}: {typ} vom {zeit} mit Status '{status}' nicht verarbeitet.",
+                internal=False, file=FileRef(filename),
+                typ=row.get('Transaction Type', '').strip(), zeit=row.get('Time (UTC)', '?'), status=status,
             )
         return None
 
@@ -90,8 +91,9 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
         # Gebühr stillschweigend weg.
         fee_btc = abs(_decimal(row.get("Fee BTC", "")))
         if fee_btc > btc_amount:
-            warn(f"{filename}: Auszahlung am {date.date()} mit Gebühr {fee_btc} BTC über dem "
-                 f"Betrag {btc_amount} BTC — Gebühr nicht verarbeitet.", internal=False)
+            warn_fmt("{file}: Auszahlung am {tag} mit Gebühr {fee} BTC über dem Betrag {menge} BTC — "
+                     "Gebühr nicht verarbeitet.", internal=False, year=de_date(date).year,
+                     file=FileRef(filename), tag=de_date(date), fee=fee_btc, menge=btc_amount)
             fee_btc = Decimal("0")
         btc_amount -= fee_btc
 
@@ -128,7 +130,9 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
     # Deposit/Withdrawal (EUR-Bewegungen) sind bekannt irrelevant — alles
     # Unbekannte melden (z.B. ein künftiger Verkaufstyp wäre steuerlich relevant!)
     if tx_type_raw not in ("Deposit", "Withdrawal"):
-        warn(f"{filename}: unbekannter Transaktionstyp '{tx_type_raw}' am {date.date()} nicht verarbeitet.", internal=False)
+        warn_fmt("{file}: unbekannter Transaktionstyp '{typ}' am {tag} nicht verarbeitet.",
+                 internal=False, year=de_date(date).year, file=FileRef(filename),
+                 typ=tx_type_raw, tag=de_date(date))
     return None
 
 
