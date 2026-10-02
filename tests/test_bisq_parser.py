@@ -69,14 +69,14 @@ class EnglishEqualsGerman(unittest.TestCase):
         self.assertEqual(len(txs), 3)
         self.assertEqual(_warnings(), [])
 
-    def test_unknown_language_warns_and_returns_nothing(self):
+    def test_unknown_language_is_a_hard_error(self):
         text = ("ID de transaction,Date/Heure,Marché,Prix,Écart,Montant en BTC,Montant,Devise,"
                 "Frais de transaction,Frais BTC,Frais BSQ,Dépôt acheteur,Dépôt vendeur,Type d'offre,Statut\n"
                 "1,15 mars 2024 14:22:10,BTC/EUR,61500.0000,2.50%,0.01,615,EUR,0,0,,0,0,Acheter BTC,Terminé\n")
-        self.assertEqual(_parse_text(text), [])
-        self.assertEqual(len(parsers.parser_warnings), 1)
-        self.assertIn("Deutsch oder Englisch", _warnings()[0])
-        self.assertTrue(parsers.parser_warnings[0].internal)
+        with self.assertRaises(ValueError) as ctx:
+            _parse_text(text)
+        self.assertIn("Deutsch oder Englisch", str(ctx.exception))
+        self.assertIn("bisq_test.csv", str(ctx.exception))
 
 
 class EnglishDateFormats(unittest.TestCase):

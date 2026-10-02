@@ -1,35 +1,43 @@
-"""Parser für Bison Broker CSV-Exporte."""
+"""Parser für Bison Broker CSV-Exporte.
+
+Kopfzeile (Semikolon, Leerzeichen nach dem Trennzeichen; Pflichtspalten hart geprüft, Audit 03.10.2026):
+    Transaction ID; Transaction type; Currency; Asset; Eur (amount); Asset (amount);
+    Asset (market price); Fee; Date (UTC - Coordinated Universal Time)
+"""
 from __future__ import annotations
-import csv
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, TxType, de_date
-from . import FileRef, warn, warn_fmt
+from . import FileRef, warn, warn_fmt, read_rows, amount, LINE_KEY
+
+LABEL = "Bison"
+DATE_COL = "Date (UTC - Coordinated Universal Time)"
+REQUIRED = ("Transaction ID", "Transaction type", "Currency", "Asset", "Eur (amount)",
+            "Asset (amount)", "Asset (market price)", "Fee", DATE_COL)
 
 
 def parse(filepath: Path) -> list[Transaction]:
     transactions = []
-    with open(filepath, encoding="utf-8", newline="") as f:
-        # Semikolon als Trennzeichen, Leerzeichen nach Semikolon werden getrimmt
-        reader = csv.DictReader(f, delimiter=";")
-        for row in reader:
-            # Alle Keys und Values trimmen (Bison hat Leerzeichen nach dem Semikolon)
-            row = {k.strip(): v.strip() for k, v in row.items() if k is not None}
-            tx = _parse_row(row, filepath.name)
-            if tx is not None:
-                transactions.append(tx)
+    # Semikolon als Trennzeichen; read_rows trimmt Schlüssel und Werte (Bison
+    # hat Leerzeichen nach dem Semikolon)
+    rows, _ = read_rows(filepath, label=LABEL, required=REQUIRED, delimiter=";")
+    for row in rows:
+        tx = _parse_row(row, filepath.name)
+        if tx is not None:
+            transactions.append(tx)
     return transactions
 
 
 def _parse_row(row: dict, filename: str) -> Transaction | None:
-    tx_type_raw = row.get("Transaction type", "").strip()
-    asset = row.get("Asset", "").strip().upper()
-    currency = row.get("Currency", "").strip().upper()
+    tx_type_raw = row.get("Transaction type", "")
+    asset = row.get("Asset", "").upper()
+    currency = row.get("Currency", "").upper()
+    line = row[LINE_KEY]
 
     # Datum: "YYYY-MM-DD HH:MM:SS" UTC
-    date_str = row.get("Date (UTC - Coordinated Universal Time)", "").strip()
+    date_str = row.get(DATE_COL, "")
     if not date_str:
         # Leerzeilen filtert csv.DictReader schon vorher weg — hier landen nur
         # echte Zeilen ohne Datum. Bei BTC-Bewegungen ist das steuerlich
@@ -40,14 +48,22 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
                 f"{row.get('Asset (amount)', '?')} BTC ohne Datum — nicht verarbeitet.", internal=False
             )
         return None
-    date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    try:
+        date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    except ValueError:
+        raise ValueError(
+            f"{LABEL} {filename} Zeile {line}: Datum '{date_str}' nicht lesbar (erwartet JJJJ-MM-TT HH:MM:SS)."
+        ) from None
 
-    tx_id = row.get("Transaction ID", "").strip()
+    tx_id = row.get("Transaction ID", "")
+
+    def num(field: str) -> Decimal:
+        return amount(row, field, label=LABEL, filename=filename)
 
     if tx_type_raw == "Buy" and asset == "BTC":
-        eur_amount = _decimal(row.get("Eur (amount)", "0"))
-        btc_amount = _decimal(row.get("Asset (amount)", "0"))
-        market_price = _decimal(row.get("Asset (market price)", "0"))
+        eur_amount = num("Eur (amount)")
+        btc_amount = num("Asset (amount)")
+        market_price = num("Asset (market price)")
         # Bison hat keine explizite Gebühr — im Spread enthalten, fee_eur = 0
         return Transaction(
             date=date,
@@ -58,13 +74,13 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
             fee_eur=Decimal("0"),
             source="bison",
             tx_id=tx_id,
-            note=f"Bison Kauf",
+            note="Bison Kauf",
         )
 
     elif tx_type_raw == "Sell" and asset == "BTC":
-        eur_amount = _decimal(row.get("Eur (amount)", "0"))
-        btc_amount = _decimal(row.get("Asset (amount)", "0"))
-        market_price = _decimal(row.get("Asset (market price)", "0"))
+        eur_amount = num("Eur (amount)")
+        btc_amount = num("Asset (amount)")
+        market_price = num("Asset (market price)")
         return Transaction(
             date=date,
             type=TxType.SELL,
@@ -74,12 +90,12 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
             fee_eur=Decimal("0"),
             source="bison",
             tx_id=tx_id,
-            note=f"Bison Verkauf",
+            note="Bison Verkauf",
         )
 
     elif tx_type_raw == "Deposit" and asset == "BTC" and currency == "":
         # BTC-Eingang von eigener Wallet (für Verkauf eingesendet)
-        btc_amount = _decimal(row.get("Asset (amount)", "0"))
+        btc_amount = num("Asset (amount)")
         return Transaction(
             date=date,
             type=TxType.TRANSFER_IN,
@@ -97,8 +113,8 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
         # in echten Exporten Fee=0 aus (Netzwerkgebühr trägt Bison). Sollte doch
         # eine Gebühr stehen, ist ihre Einheit aus dem Export nicht ablesbar —
         # melden statt raten (eine Gebühr in BTC wäre ein Bestandsabgang, H8).
-        btc_amount = _decimal(row.get("Asset (amount)", "0"))
-        fee_raw = _decimal(row.get("Fee", "0"))
+        btc_amount = num("Asset (amount)")
+        fee_raw = num("Fee")
         if fee_raw > 0:
             warn(
                 f"{filename}: BTC-Auszahlung am {de_date(date)} mit Gebühr {fee_raw} — "
@@ -123,8 +139,3 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
         warn_fmt("{file}: Transaktionstyp '{typ}' (BTC) am {tag} nicht verarbeitet.", internal=False,
                  year=de_date(date).year, file=FileRef(filename), typ=tx_type_raw, tag=de_date(date))
     return None
-
-
-def _decimal(value: str) -> Decimal:
-    val = value.strip().replace(",", ".")
-    return Decimal(val) if val else Decimal("0")

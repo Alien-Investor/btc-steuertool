@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .models import Transaction, TxType, SellResult, Lot, DisposalKind, de_date
 from . import btc_prices
+from .parsers import _sanitize as _note   # Notizen im internen Report: keine Zeilenumbrüche/Trennlinien (Audit C2)
 from .wallet_report import label as wallet_label, move_table, lots_by_wallet
 
 CENT = Decimal("0.01")
@@ -517,7 +518,7 @@ class TaxReport:
                 lines.append("")
                 lines.append(
                     f"  Verkauf: {de_date(tx.date)}  {tx.btc_amount:.8f} BTC  "
-                    f"@  {_r(tx.eur_price_per_btc):,.2f} EUR/BTC  =  {_r(tx.eur_amount):,.2f} EUR  ({tx.note})"
+                    f"@  {_r(tx.eur_price_per_btc):,.2f} EUR/BTC  =  {_r(tx.eur_amount):,.2f} EUR  ({_note(tx.note)})"
                 )
                 for m in sr.matches:
                     status = "haltefrist abgelaufen" if m.is_tax_free else f"{m.holding_days} Tage — innerhalb Haltefrist"
@@ -568,7 +569,7 @@ class TaxReport:
                 wallet = tx.source.replace("bitbox:", "")
                 fee = f"{tx.fee_btc:.8f}" if tx.fee_btc else ""
                 lines.append(
-                    f"  {de_date(tx.date)!s:<12} {wallet:<20} {typ:<12} {tx.btc_amount:>14.8f} {fee:>12}  {tx.note}"
+                    f"  {de_date(tx.date)!s:<12} {wallet:<20} {typ:<12} {tx.btc_amount:>14.8f} {fee:>12}  {_note(tx.note)}"
                 )
                 if tx.type == TxType.TRANSFER_IN:
                     total_in += tx.btc_amount

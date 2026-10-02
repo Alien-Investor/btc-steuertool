@@ -1,6 +1,11 @@
-"""Parser für Swissquote CSV-Exporte."""
+"""Parser für Swissquote CSV-Exporte.
+
+Kopfzeile (Semikolon, Windows-1252 — eine als UTF-8 gespeicherte Kopie wird ebenfalls
+gelesen; Pflichtspalten hart geprüft, Audit 03.10.2026):
+    Datum;Auftrag #;Transaktionen;Symbol;Name;ISIN;Anzahl;Stückpreis;Kosten;
+    Aufgelaufene Zinsen;Nettobetrag;Saldo;Währung
+"""
 from __future__ import annotations
-import csv
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
@@ -8,25 +13,27 @@ from collections import defaultdict
 
 from ..models import Transaction, TxType, TZ_DE
 from ..fx_rates import eur_rate_for_date
-from . import FileRef, warn, warn_fmt
+from . import FileRef, warn, warn_fmt, read_rows, amount, LINE_KEY
+
+LABEL = "Swissquote"
+REQUIRED = ("Datum", "Auftrag #", "Transaktionen", "Symbol", "Anzahl", "Stückpreis", "Kosten", "Währung")
 
 
 def parse(filepath: Path) -> list[Transaction]:
-    # Encoding: Windows-1252 (Swissquote exportiert mit diesem Encoding)
-    rows = []
-    with open(filepath, encoding="windows-1252", newline="") as f:
-        reader = csv.DictReader(f, delimiter=";")
-        for row in reader:
-            rows.append({k.strip(): v.strip() for k, v in row.items() if k is not None})
+    # Encoding: Swissquote exportiert Windows-1252. UTF-8 zuerst probieren: eine in
+    # einem Editor neu gespeicherte Datei scheiterte sonst mit KeyError 'Stückpreis'
+    # (B2) — cp1252 dekodiert jedes Byte, nur eben zu „StÃ¼ckpreis".
+    rows, _ = read_rows(filepath, label=LABEL, required=REQUIRED, delimiter=";",
+                        encodings=("utf-8-sig", "windows-1252"))
 
     # Kauf-Zeilen mit gleicher Auftragsnummer zusammenfassen
     orders: dict[str, list[dict]] = defaultdict(list)
     other_rows: list[dict] = []
 
     for row in rows:
-        tx_type = row.get("Transaktionen", "").strip()
-        order_id = row.get("Auftrag #", "").strip()
-        symbol = row.get("Symbol", "").strip().upper()
+        tx_type = row.get("Transaktionen", "")
+        order_id = row.get("Auftrag #", "")
+        symbol = row.get("Symbol", "").upper()
 
         if symbol != "BTC":
             continue  # nur BTC relevant
@@ -36,7 +43,8 @@ def parse(filepath: Path) -> list[Transaction]:
                 orders[order_id].append(row)
             else:
                 warn_fmt("{file}: Kauf-Zeile vom {datum} ohne Auftragsnummer nicht verarbeitet.",
-                         internal=False, file=FileRef(filepath.name), datum=row.get('Datum', '?'))
+                         internal=False, file=FileRef(filepath.name), datum=row.get('Datum', '?'),
+                         year=_year(row, filepath.name))
         elif tx_type in ("Crypto Withdrawal", "Crypto Deposit"):
             other_rows.append(row)
         elif tx_type == "Verkauf":
@@ -44,11 +52,13 @@ def parse(filepath: Path) -> list[Transaction]:
             warn(
                 f"{filepath.name}: BTC-Verkauf vom {row.get('Datum', '?')} wird vom "
                 f"Swissquote-Parser noch nicht unterstützt — bitte als manual_sales.csv "
-                f"erfassen, sonst ist der Report unvollständig.", internal=False
+                f"erfassen, sonst ist der Report unvollständig.", internal=False,
+                year=_year(row, filepath.name),
             )
         else:
             warn_fmt("{file}: unbekannter Transaktionstyp '{typ}' vom {datum} nicht verarbeitet.",
-                     internal=False, file=FileRef(filepath.name), typ=tx_type, datum=row.get('Datum', '?'))
+                     internal=False, file=FileRef(filepath.name), typ=tx_type, datum=row.get('Datum', '?'),
+                     year=_year(row, filepath.name))
 
     transactions = []
 
@@ -60,19 +70,40 @@ def parse(filepath: Path) -> list[Transaction]:
 
     # Withdrawals & Deposits
     for row in other_rows:
-        tx = _parse_transfer(row)
+        tx = _parse_transfer(row, filepath.name)
         if tx is not None:
             transactions.append(tx)
 
     return transactions
 
 
-def _parse_date(date_str: str) -> datetime:
+def _parse_date(date_str: str, filename: str, line) -> datetime:
     # Format: "DD-MM-YYYY HH:MM:SS" — Swissquote exportiert Schweizer Lokalzeit
     # ohne Timezone-Angabe. CH und DE teilen die Zeitzone (CET/CEST), darum als
     # Europe/Berlin stempeln — so stimmt das Kalenderdatum für Steuerjahr/Haltefrist
     # auch bei Abend-Transaktionen (als UTC gestempelt wäre es um 1-2h verschoben).
-    return datetime.strptime(date_str.strip(), "%d-%m-%Y %H:%M:%S").replace(tzinfo=TZ_DE)
+    try:
+        return datetime.strptime(date_str.strip(), "%d-%m-%Y %H:%M:%S").replace(tzinfo=TZ_DE)
+    except ValueError:
+        raise ValueError(
+            f"{LABEL} {filename} Zeile {line}: Datum '{date_str}' nicht lesbar (erwartet TT-MM-JJJJ HH:MM:SS)."
+        ) from None
+
+
+def _year(row: dict, filename: str) -> int | None:
+    try:
+        return _parse_date(row.get("Datum", ""), filename, row.get(LINE_KEY, "?")).year
+    except ValueError:
+        return None
+
+
+def _currency(row: dict, filename: str) -> str:
+    # Keine EUR-Vorgabe mehr (A3): eine leere Währungsspalte buchte einen
+    # USD-Kauf still als EUR — Betrag ohne Umrechnung, keine Warnung.
+    currency = row.get("Währung", "").upper()
+    if not currency:
+        raise ValueError(f"{LABEL} {filename} Zeile {row.get(LINE_KEY, '?')}: Spalte 'Währung' ist leer.")
+    return currency
 
 
 def _merge_buy_rows(order_id: str, rows: list[dict], filename: str = "Swissquote") -> Transaction | None:
@@ -85,24 +116,25 @@ def _merge_buy_rows(order_id: str, rows: list[dict], filename: str = "Swissquote
     # mehr als einen Tag, ist die Auftragsnummer mehrfach vergeben (oder die
     # Datei manipuliert) — dann würde das Lot ein falsches Anschaffungsdatum
     # erben und die Haltefrist kippen. Lieber melden als still zusammenfassen.
-    dates = [_parse_date(r["Datum"]) for r in rows]
+    dates = [_parse_date(r["Datum"], filename, r[LINE_KEY]) for r in rows]
     if (max(dates) - min(dates)).days > 1:
         warn(
             f"{filename}: Order {order_id} enthält Zeilen von {min(dates).date()} "
-            f"bis {max(dates).date()} — nicht zusammengefasst, bitte prüfen.", internal=False
+            f"bis {max(dates).date()} — nicht zusammengefasst, bitte prüfen.", internal=False,
+            year=min(dates).year,
         )
         return None
     date = min(dates)
-    currency = rows[0].get("Währung", "EUR").strip().upper()
+    currency = _currency(rows[0], filename)
 
     total_btc = Decimal("0")
     total_cost = Decimal("0")  # Betrag in Originalwährung (ohne Gebühren)
     total_fee = Decimal("0")   # in Originalwährung
 
     for row in rows:
-        btc = Decimal(row["Anzahl"].strip())
-        price = Decimal(row["Stückpreis"].strip())
-        fee = Decimal(row["Kosten"].strip())
+        btc = amount(row, "Anzahl", label=LABEL, filename=filename)
+        price = amount(row, "Stückpreis", label=LABEL, filename=filename)
+        fee = amount(row, "Kosten", label=LABEL, filename=filename)
         total_btc += btc
         total_cost += btc * price
         total_fee += fee
@@ -131,11 +163,11 @@ def _merge_buy_rows(order_id: str, rows: list[dict], filename: str = "Swissquote
     )
 
 
-def _parse_transfer(row: dict) -> Transaction | None:
-    tx_type = row.get("Transaktionen", "").strip()
-    date = _parse_date(row["Datum"])
-    btc_amount = Decimal(row["Anzahl"].strip())
-    order_id = row.get("Auftrag #", "").strip()
+def _parse_transfer(row: dict, filename: str) -> Transaction | None:
+    tx_type = row.get("Transaktionen", "")
+    date = _parse_date(row["Datum"], filename, row[LINE_KEY])
+    btc_amount = amount(row, "Anzahl", label=LABEL, filename=filename)
+    order_id = row.get("Auftrag #", "")
 
     if tx_type == "Crypto Withdrawal":
         return Transaction(

@@ -20,14 +20,14 @@ Format (UTF-8, Komma-getrennt, Spalte no_kyc optional):
   Verwahrort bedient (walletbezogenes FiFo, BMF Rn. 62).
 """
 from __future__ import annotations
-import csv
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, TxType, ANY_WALLET
-from . import validate_header
+from . import validate_header, read_rows, amount, LINE_KEY
 
+LABEL = "manual_sales.csv"
 _KNOWN_COLUMNS = {"date", "btc_amount", "eur_amount", "note", "no_kyc", "wallet"}
 # Die Schwesterdatei manual_buys.csv nutzt 'kyc' mit UMGEKEHRTER Bedeutung —
 # der wahrscheinlichste Tippfehler, und er scheitert Richtung Offenlegung.
@@ -39,21 +39,19 @@ _COLUMN_HINTS = {
 
 def parse(filepath: Path) -> list[Transaction]:
     transactions = []
-    with open(filepath, encoding="utf-8", newline="") as f:
-        reader = csv.DictReader(f)
-        validate_header(reader.fieldnames, _KNOWN_COLUMNS, "manual_sales.csv", _COLUMN_HINTS)
-        for i, row in enumerate(reader, start=2):
-            row = {k.strip(): v.strip() for k, v in row.items()}
-            tx = _parse_row(row, i)
-            if tx is not None:
-                transactions.append(tx)
+    rows, header = read_rows(filepath, label=LABEL)
+    validate_header(header, _KNOWN_COLUMNS, LABEL, _COLUMN_HINTS)
+    for row in rows:
+        tx = _parse_row(row, row[LINE_KEY])
+        if tx is not None:
+            transactions.append(tx)
     return transactions
 
 
 def _parse_row(row: dict, line: int) -> Transaction | None:
-    date_str = row.get("date", "").strip()
-    btc_str = row.get("btc_amount", "").strip()
-    eur_str = row.get("eur_amount", "").strip()
+    date_str = row.get("date", "")
+    btc_str = row.get("btc_amount", "")
+    eur_str = row.get("eur_amount", "")
 
     if not date_str and not btc_str and not eur_str:
         return None  # komplett leere Zeile (z.B. Leerzeile am Dateiende)
@@ -68,14 +66,14 @@ def _parse_row(row: dict, line: int) -> Transaction | None:
         date = datetime.strptime(date_str, "%Y-%m-%d").replace(
             hour=12, tzinfo=timezone.utc
         )
-        btc_amount = Decimal(btc_str)
-        eur_amount = Decimal(eur_str)
-    except Exception as e:
-        raise ValueError(f"manual_sales.csv Zeile {line}: ungültiger Wert — {e}") from e
+    except ValueError as e:
+        raise ValueError(f"manual_sales.csv Zeile {line}: ungültiges Datum — {e}") from e
+    btc_amount = amount(row, "btc_amount", label=LABEL, filename="")
+    eur_amount = amount(row, "eur_amount", label=LABEL, filename="")
 
-    note = row.get("note", "").strip() or "Manueller Verkauf"
+    note = row.get("note", "") or "Manueller Verkauf"
     eur_price_per_btc = eur_amount / btc_amount if btc_amount else Decimal("0")
-    no_kyc = row.get("no_kyc", "").strip().lower() in ("ja", "1", "true", "yes", "x")
+    no_kyc = row.get("no_kyc", "").lower() in ("ja", "1", "true", "yes", "x")
 
     return Transaction(
         date=date,
@@ -93,6 +91,6 @@ def _parse_row(row: dict, line: int) -> Transaction | None:
         # Spalte wallet (optional): eigene Wallet, aus der verkauft wurde —
         # aufgelöst in main._resolve_manual_wallets. Leer → ergibt sich aus dem
         # passenden Abgang (transfer_matching), sonst walletübergreifend.
-        wallet=row.get("wallet", "").strip() or ANY_WALLET,
+        wallet=row.get("wallet", "") or ANY_WALLET,
         direct=True,
     )

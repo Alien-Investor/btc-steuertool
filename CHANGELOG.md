@@ -10,6 +10,16 @@ Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die dens
 - Bisq: Trades auf Altcoin-Märkten (XMR/BTC, BSQ/BTC …) werden als Veräußerung bzw. Anschaffung von BTC gemeldet statt nur stumm
   gezählt; eine Datei, die nur Verkäufe enthält, bekommt keine zweite Sammelwarnung mehr; eine BOM in der Kopfzeile (Excel) stört nicht mehr.
 - Oberfläche: CSV-Dateien mit BOM werden erkannt statt als „unbekannt“ gesperrt.
+- **Parser-Audit (alle Formate):** Jede Datei wird jetzt vor dem Lesen auf ihre Pflichtspalten geprüft. Bisher machte eine umbenannte
+  Spalte oder eine UTF-8-Signatur (BOM, z. B. nach Speichern in Excel) aus einer Spalte still „leer“: Pocket-, Bison- und
+  Swissquote-Dateien gingen komplett verloren, Strike-Käufe standen mit 0 BTC im Report, Gebühren wurden 0 — ohne jede Meldung.
+  Jetzt bricht der Lauf mit Datei, Zeile und Spalte ab. Ebenso bei Zeilen mit falscher Feldanzahl, einem nicht geschlossenen
+  Anführungszeichen (verschluckte bisher den Dateirest), Zeitstempeln ohne Zeitzone, mehrdeutigen Zahlen („2,500“), Nicht-Zahlen,
+  negativen Übertragsmengen und leerer Währungsspalte (Swissquote/Pocket buchten einen Fremdwährungsbetrag sonst als EUR).
+  Swissquote-Dateien, die als UTF-8 gespeichert wurden, werden gelesen. Eine Datei mit Zeilen, aber ohne eine einzige Transaktion
+  wird gemeldet. `manual_sales.csv` und Co. werden unabhängig von Groß-/Kleinschreibung gefunden, fremde CSVs im Hauptordner gemeldet.
+  Warnungen sind auf 1.000 je Lauf gedeckelt (vorher erzeugten 200.000 unbekannte Zeilen einen 15-MB-Report), das Log der App auf 500 Zeilen,
+  ZIP-Inhalte auf 64 MB je Datei / 256 MB gesamt.
 
 ## v1.2 — 2026-10-02
 - **FiFo jetzt walletbezogen** (BMF-Schreiben vom 06.03.2025, Rn. 61 f.): Jede Wallet ist ein eigener Bestand, jedes Börsenkonto behandelt das

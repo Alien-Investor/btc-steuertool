@@ -161,7 +161,7 @@ def warn(msg: str, *, internal: bool, year: int | None = None) -> None:
     durch diese Funktion, die Senken (tax_report, formal_report, GUI-Log) sind
     mehrere und würden auseinanderlaufen.
     """
-    parser_warnings.append(ParserWarning(_sanitize(msg), internal, year=year))
+    _append_warning(ParserWarning(_sanitize(msg), internal, year=year))
 
 
 # Länge, ab der ein EINGESETZTER Wert gekappt wird (H2). _MAX_WARNING_LEN kappt
@@ -193,7 +193,7 @@ def warn_fmt(template: str, *, internal: bool, year: int | None = None, **values
     was kein FileRef ist, bleibt in beiden Fassungen identisch — unsere eigenen
     Textbausteine werden also nie angetastet.
     """
-    parser_warnings.append(make_warning_fmt(template, internal=internal, year=year, **values))
+    _append_warning(make_warning_fmt(template, internal=internal, year=year, **values))
 
 
 def make_warning_fmt(template: str, *, internal: bool, year: int | None = None,
@@ -214,6 +214,7 @@ def make_warning_fmt(template: str, *, internal: bool, year: int | None = None,
 def reset_warnings() -> None:
     parser_warnings.clear()
     manual_links.clear()
+    reset_suppressed()
 
 
 def validate_header(
@@ -260,3 +261,188 @@ def validate_header(
             f"Bitte Kopfzeile korrigieren — eine unbekannte Spalte wird sonst "
             f"kommentarlos ignoriert."
         )
+
+
+# ───────────────────────── Gemeinsames Leser-Grundgerüst (Parser-Audit 03.10.2026) ─────────────────────────
+#
+# Fast alle Funde des Audits hatten eine Ursache: Die Parser lasen Spalten mit
+# `row.get("Spalte", "")`. Eine umbenannte Spalte oder eine BOM am Dateianfang
+# machte daraus still „leer" oder 0 — ganze Dateien verschwanden (Pocket, Bison,
+# Swissquote), Käufe standen mit 0 BTC im Report (Strike), Gebühren wurden 0.
+# Deshalb liest jetzt jeder Parser über `read_rows`: BOM-tolerant, Pflichtspalten
+# hart geprüft, Feldanzahl je Zeile geprüft, Zeilenumbruch im Feld (nicht
+# geschlossenes Anführungszeichen verschluckt sonst den Dateirest) hart geprüft,
+# jede Meldung mit Datei und Zeile.
+
+import csv
+import io
+from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
+from pathlib import Path
+
+LINE_KEY = "__zeile__"   # Zeilennummer der Datei, von read_rows in jede Zeile gelegt
+
+# Ab hier werden Warnungen nur noch gezählt (B6): 200.000 unbekannte Zeilen
+# erzeugten sonst 200.000 Warnobjekte und einen 15-MB-Report je Jahr.
+_MAX_WARNINGS = 1000
+_suppressed = 0
+
+
+def _append_warning(w: ParserWarning) -> None:
+    global _suppressed
+    if len(parser_warnings) < _MAX_WARNINGS:
+        parser_warnings.append(w)
+        return
+    _suppressed += 1
+    parser_warnings[-1] = ParserWarning(
+        f"{_suppressed} weitere Warnung(en) nicht angezeigt (Grenze {_MAX_WARNINGS}) — "
+        f"die eingelesenen Dateien enthalten massenhaft nicht verarbeitbare Zeilen, bitte prüfen.",
+        internal=False,
+    )
+
+
+def read_rows(filepath: Path, *, label: str, required: tuple[str, ...] | list[str] = (),
+              delimiter: str = ",", encodings: tuple[str, ...] = ("utf-8-sig",)) -> tuple[list[dict], list[str]]:
+    """Liest eine CSV vollständig als Liste von Zeilen-Dicts (Schlüssel und Werte
+    getrimmt, zusätzlich LINE_KEY = Zeilennummer) und gibt die Kopfzeile zurück.
+
+    `encodings` werden der Reihe nach probiert (Swissquote: UTF-8, sonst Windows-1252).
+    Jeder Fehler ist ein ValueError, der Datei und Zeile nennt — der Dateiname ist
+    hier richtig: Fehler brechen den Lauf ab, bevor ein Dokument entsteht, und
+    erreichen nur den Nutzer (CLI, GUI-Fehlerkarte; der Bug-Report übernimmt die
+    Meldung nicht).
+    """
+    name = Path(filepath).name
+    data = Path(filepath).read_bytes()
+    if data.startswith(b"\xef\xbb\xbf"):
+        data = data[3:]   # UTF-8-BOM auch vor einer Windows-1252-Datei abstreifen
+    text = None
+    last_err: UnicodeDecodeError | None = None
+    for enc in encodings:
+        try:
+            text = data.decode(enc)
+            break
+        except UnicodeDecodeError as e:
+            last_err = e
+    if text is None:
+        hint = " Die Datei sieht nach UTF-16 aus (Excel-Export als Unicode-Text)." if data[:2] in (b"\xff\xfe", b"\xfe\xff") else ""
+        raise ValueError(
+            f"{label} {name}: Datei ist nicht {' oder '.join(e.replace('-sig', '') for e in encodings)} kodiert "
+            f"(Byte 0x{last_err.object[last_err.start]:02x} an Position {last_err.start}).{hint} "
+            f"Bitte den Export unverändert verwenden oder als UTF-8 speichern."
+        )
+
+    reader = csv.DictReader(io.StringIO(text, newline=""), delimiter=delimiter, strict=True)
+    try:
+        fieldnames = reader.fieldnames
+    except csv.Error as e:
+        raise ValueError(f"{label} {name}: Kopfzeile nicht lesbar ({e}).") from None
+    if not fieldnames or not any((h or "").strip() for h in fieldnames):
+        raise ValueError(f"{label} {name}: Datei hat keine Kopfzeile.")
+    header = [(h or "").strip() for h in fieldnames]
+    missing = [c for c in required if c not in header]
+    if missing:
+        raise ValueError(
+            f"{label} {name}: Pflichtspalte(n) fehlen in der Kopfzeile: {', '.join(missing)}. "
+            f"Gelesen: {', '.join(header[:20])}. Hat der Anbieter das Exportformat geändert oder wurde "
+            f"die Datei in einer Tabellenkalkulation umbenannt? Ohne diese Prüfung ginge die Datei still verloren."
+        )
+    if len(set(header)) != len(header):
+        dup = sorted({h for h in header if header.count(h) > 1})
+        if any(h in required for h in dup):
+            raise ValueError(f"{label} {name}: Spalte(n) {', '.join(dup)} kommen mehrfach vor — Kopfzeile prüfen.")
+
+    rows: list[dict] = []
+    n_cols = len(fieldnames)
+    try:
+        for raw in reader:
+            line = reader.line_num
+            if None in raw:
+                extra = raw.pop(None)
+                raise ValueError(
+                    f"{label} {name} Zeile {line}: {n_cols + len(extra)} Felder statt {n_cols} — "
+                    f"ein Trennzeichen im Text ohne Anführungszeichen?"
+                )
+            if any(v is None for v in raw.values()):
+                got = sum(1 for v in raw.values() if v is not None)
+                raise ValueError(
+                    f"{label} {name} Zeile {line}: {got} Felder statt {n_cols} — Zeile unvollständig "
+                    f"oder ein Anführungszeichen nicht geschlossen?"
+                )
+            row = {(k or "").strip(): v.strip() for k, v in raw.items()}
+            if any("\n" in v or "\r" in v for v in row.values()):
+                raise ValueError(
+                    f"{label} {name} Zeile {line}: Zeilenumbruch innerhalb eines Feldes — ein Anführungszeichen "
+                    f"nicht geschlossen? Ab hier würde der Rest der Datei als ein Feld gelesen und verschwände."
+                )
+            row[LINE_KEY] = line
+            rows.append(row)
+    except csv.Error as e:
+        raise ValueError(f"{label} {name} Zeile {reader.line_num}: CSV-Fehler ({e}) — Anführungszeichen prüfen.") from None
+    return rows, header
+
+
+_AMOUNT_LIMIT = Decimal("1e15")
+
+
+def parse_amount(value: str | None, *, label: str, filename: str, line: int | str, field: str) -> Decimal:
+    """Zahl aus einer CSV-Zelle. Leer und „-" (CoinTracking) sind 0.
+
+    Dezimaltrenner ist der Punkt (alle unterstützten Exporte). Ein Komma gilt nur
+    dann als Dezimaltrenner, wenn kein Punkt vorkommt, es genau einmal steht und
+    nicht wie ein Tausendertrenner aussieht („2,500" ist mehrdeutig und wird
+    abgelehnt — bisher wurde daraus still 2.5, Faktor 1000). NaN/Infinity und
+    Werte ab 1e15 werden hier abgelehnt, nicht erst in der Engine (B3).
+    """
+    text = (value or "").strip()
+    if text in ("", "-"):
+        return Decimal("0")
+    where = f"{' '.join(x for x in (label, filename) if x)} Zeile {line}, Spalte '{field}': '{text}'"
+    if "," in text:
+        if "." in text or text.count(",") > 1:
+            raise ValueError(f"{where} enthält Komma und Punkt — Tausendertrennzeichen? Zahlen bitte ohne Gruppierung, Dezimaltrenner Punkt.")
+        frac = text.split(",")[1]
+        if len(frac) == 3 and frac.isdigit():
+            raise ValueError(f"{where} ist mehrdeutig (Dezimalkomma oder Tausendertrenner?) — Zahlen bitte mit Punkt als Dezimaltrenner.")
+        text = text.replace(",", ".")
+    try:
+        d = Decimal(text)
+    except InvalidOperation:
+        raise ValueError(f"{where} ist keine Zahl.") from None
+    if not d.is_finite():
+        raise ValueError(f"{where} ist keine endliche Zahl.")
+    if abs(d) >= _AMOUNT_LIMIT:
+        raise ValueError(f"{where} ist unplausibel groß.")
+    return d
+
+
+def amount(row: dict, field: str, *, label: str, filename: str) -> Decimal:
+    """parse_amount für eine Zeile aus read_rows (Zeilennummer aus LINE_KEY)."""
+    return parse_amount(row.get(field), label=label, filename=filename, line=row.get(LINE_KEY, "?"), field=field)
+
+
+def parse_iso_datetime(value: str | None, *, label: str, filename: str, line: int | str, field: str) -> datetime:
+    """ISO-8601-Zeitstempel MIT Zeitzone → UTC. „Z" wird akzeptiert (Python 3.10 kennt es nicht).
+
+    Ohne Offset harter Fehler (A8): `fromisoformat(...).astimezone(utc)` nähme sonst die
+    Systemzeitzone — derselbe Export ergäbe im Browser und im CLI verschiedene Steuerjahre.
+    """
+    text = (value or "").strip()
+    if text.endswith(("Z", "z")):
+        text = text[:-1] + "+00:00"
+    where = f"{' '.join(x for x in (label, filename) if x)} Zeile {line}, Spalte '{field}': '{value}'"
+    try:
+        dt = datetime.fromisoformat(text)
+    except ValueError:
+        raise ValueError(f"{where} ist kein ISO-8601-Zeitstempel (erwartet z.B. 2024-03-15T14:22:10+01:00).") from None
+    if dt.tzinfo is None:
+        raise ValueError(
+            f"{where} hat keine Zeitzone — Datei in einer Tabellenkalkulation umformatiert? "
+            f"Ohne Zeitzone hinge das Steuerjahr von der Systemzeit ab; bitte den Original-Export verwenden."
+        )
+    return dt.astimezone(timezone.utc)
+
+
+def reset_suppressed() -> None:
+    global _suppressed
+    _suppressed = 0

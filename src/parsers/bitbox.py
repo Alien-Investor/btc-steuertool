@@ -16,16 +16,20 @@ Typen:
 `Amount` bei sent ist der Betrag, der beim Empfänger ankommt — OHNE Gebühr
 (15.08.2026 gegen zwei echte Transaktionen im Block-Explorer geprüft:
 Wallet-Abgang = Amount + Fee).
+
+Kopfzeile (Pflichtspalten hart geprüft, Audit 03.10.2026):
+    Time,Type,Amount,Unit,Fee,Fee Unit,Address,Transaction ID,Note
 """
 from __future__ import annotations
-import csv
 import re
-from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, TxType, sat_to_btc, de_date
-from . import warn, warn_fmt, FileRef
+from . import warn_fmt, FileRef, read_rows, amount, parse_iso_datetime, LINE_KEY
+
+LABEL = "BitBox"
+REQUIRED = ("Time", "Type", "Amount", "Fee", "Fee Unit", "Transaction ID")
 
 # Ganze Wörter, Groß-/Kleinschreibung egal. Bewusst KEINE Teilwort-Treffer
 # („Vergiftung", „Geschenkgutschein-Kauf" wären falsch positiv) und keine
@@ -62,20 +66,35 @@ def parse(filepath: Path) -> list[Transaction]:
     # behandelt — der Fehler geht Richtung Offenlegung (SA2-04).
     no_kyc = filepath.parent.name.lower() == "nokyc"
     transactions = []
+    # Unbekannte Typen je (Typ, Jahr) zählen statt je Zeile warnen (B6) — und mit
+    # Jahr, sonst stünde der Block in jedem Jahresreport.
+    unknown: dict[tuple[str, int | None], int] = {}
 
-    with open(filepath, encoding="utf-8", newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            tx = _parse_row(row, source, filepath.name, no_kyc=no_kyc)
-            if tx is not None:
-                transactions.append(tx)
+    rows, _ = read_rows(filepath, label=LABEL, required=REQUIRED)
+    for row in rows:
+        tx = _parse_row(row, source, filepath.name, no_kyc, unknown)
+        if tx is not None:
+            transactions.append(tx)
 
+    for (typ, year), n in sorted(unknown.items(), key=lambda kv: (kv[0][1] or 0, kv[0][0])):
+        # internal bei noKYC-Wallets: der Dateiname allein verrät sonst dem
+        # Finanzamt die Existenz einer noKYC-Wallet. Bei KYC-Wallets bleibt die
+        # Warnung offiziell, der Wallet-Name wird aber redigiert — er ist ein
+        # privates Label und gehört nicht in den Nachweis.
+        warn_fmt(
+            "{file}: {n} Zeile(n) mit unbekanntem Typ '{typ}' nicht verarbeitet.",
+            internal=no_kyc, year=year, file=FileRef(filepath.name), n=n, typ=typ,
+        )
     return transactions
 
 
-def _parse_row(row: dict, source: str, filename: str, no_kyc: bool = False) -> Transaction | None:
-    tx_type_raw = row["Type"].strip().lower()
-    note = row.get("Note", "").strip()
+def _parse_row(row: dict, source: str, filename: str, no_kyc: bool, unknown: dict) -> Transaction | None:
+    line = row[LINE_KEY]
+    # Datum zuerst: ISO 8601 MIT Timezone-Offset (ohne → harter Fehler, A8)
+    date = parse_iso_datetime(row["Time"], label=LABEL, filename=filename, line=line, field="Time")
+
+    tx_type_raw = row["Type"].lower()
+    note = row.get("Note", "")
     self_transfer = False
     if tx_type_raw == "sent":
         tx_type = TxType.GIFT_OUT if is_gift_note(note) else TxType.TRANSFER_OUT
@@ -89,32 +108,30 @@ def _parse_row(row: dict, source: str, filename: str, no_kyc: bool = False) -> T
         tx_type = TxType.TRANSFER_OUT
         self_transfer = True
     else:
-        # internal bei noKYC-Wallets: der Dateiname allein verrät sonst dem
-        # Finanzamt die Existenz einer noKYC-Wallet. Bei KYC-Wallets bleibt die
-        # Warnung offiziell, der Wallet-Name wird aber redigiert — er ist ein
-        # privates Label und gehört nicht in den Nachweis.
-        warn_fmt(
-            "{file}: unbekannter Typ '{typ}' nicht verarbeitet.",
-            internal=no_kyc, file=FileRef(filename), typ=tx_type_raw,
-        )
+        key = (tx_type_raw, de_date(date).year)
+        unknown[key] = unknown.get(key, 0) + 1
         return None
 
-    # Datum parsen (ISO 8601 mit Timezone-Offset)
-    date = datetime.fromisoformat(row["Time"].strip()).astimezone(timezone.utc)
-
-    # Betrag von Satoshi in BTC (abs: Vorzeichen steckt schon im Typ sent/received)
-    btc_amount = abs(sat_to_btc(row["Amount"].strip()))
+    # Betrag in Satoshi (abs: Vorzeichen steckt schon im Typ sent/received).
+    # Satoshi sind ganzzahlig — ein Bruchteil wäre eine umformatierte Datei (C8).
+    sat = amount(row, "Amount", label=LABEL, filename=filename)
+    if sat != sat.to_integral_value():
+        raise ValueError(f"{LABEL} {filename} Zeile {line}: Betrag '{row['Amount']}' Satoshi ist keine ganze Zahl.")
+    btc_amount = abs(sat_to_btc(sat))
 
     # Gebühr — Unit heißt je nach BitBox-Version "satoshi" oder "sat". Bei
     # received ist eine eingetragene Fee die des Absenders, nicht unsere: 0.
-    fee_raw = row.get("Fee", "").strip()
-    fee_unit = row.get("Fee Unit", "").strip().lower()
+    fee_raw = row.get("Fee", "")
+    fee_unit = row.get("Fee Unit", "").lower()
     fee_btc = Decimal("0")
     if tx_type != TxType.TRANSFER_IN and fee_raw and fee_raw != "0":
+        fee_val = amount(row, "Fee", label=LABEL, filename=filename)
         if fee_unit in ("satoshi", "sat"):
-            fee_btc = sat_to_btc(fee_raw)
+            if fee_val != fee_val.to_integral_value():
+                raise ValueError(f"{LABEL} {filename} Zeile {line}: Gebühr '{fee_raw}' Satoshi ist keine ganze Zahl.")
+            fee_btc = sat_to_btc(fee_val)
         elif fee_unit == "btc":
-            fee_btc = Decimal(fee_raw)
+            fee_btc = fee_val
         else:
             # Nicht stillschweigend 0: eine Gebühr in unbekannter Einheit ist ein
             # unbebuchter Bestandsabgang.
@@ -131,8 +148,8 @@ def _parse_row(row: dict, source: str, filename: str, no_kyc: bool = False) -> T
         btc_amount = Decimal("0")
         note = f"wallet-intern (kein Bestandsabgang, nur Gebühr){' | ' + note if note else ''}"
 
-    tx_id = row.get("Transaction ID", "").strip()
-    address = row.get("Address", "").strip()
+    tx_id = row.get("Transaction ID", "")
+    address = row.get("Address", "")
 
     # BitBox-Transfers haben keinen EUR-Wert
     return Transaction(

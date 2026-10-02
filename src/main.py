@@ -168,6 +168,49 @@ def _resolve_manual_wallets(transactions) -> None:
         t.wallet = wallet
 
 
+def _nonempty_lines(path: Path) -> int:
+    try:
+        return sum(1 for line in path.read_bytes().splitlines() if line.strip())
+    except OSError:
+        return 0
+
+
+def _parse_file(label: str, module, path: Path, *, internal: bool = False) -> list:
+    """Ruft `module.parse(path)` auf und sorgt für zwei Dinge (Parser-Audit 03.10.2026, B5/A2):
+
+    1. Jeder Abbruch nennt Datei und Ursache in Klartext. Ein `KeyError: 'Type'`
+       oder `InvalidOperation` ohne Dateibezug half niemandem — und erreichte die
+       GUI als roher Traceback. Der Dateiname ist hier richtig: der Fehler bricht
+       den Lauf ab, bevor ein Dokument entsteht, und der Bug-Report der GUI
+       übernimmt Fehlermeldungen nicht.
+    2. Eine Datei mit Zeilen, aber ohne eine einzige Transaktion und ohne eigene
+       Warnung wird gemeldet — das war der stille Totalverlust (Pocket mit BOM,
+       umbenannte Spalte). Die Kopfzeilenprüfung fängt die meisten Fälle vorher;
+       dies ist das Netz darunter.
+    """
+    before = len(parsers.parser_warnings)
+    try:
+        txs = module.parse(path)
+    except ValueError as e:
+        msg = str(e)
+        raise ValueError(msg if path.name in msg else f"{label} {path.name}: {msg}") from None
+    except (KeyError, AttributeError, TypeError, IndexError, ArithmeticError, UnicodeDecodeError) as e:
+        raise ValueError(
+            f"{label} {path.name}: Datei konnte nicht gelesen werden ({type(e).__name__}: {e}). "
+            f"Hat der Anbieter das Exportformat geändert oder ist die Datei beschädigt?"
+        ) from e
+    if not txs and len(parsers.parser_warnings) == before:
+        n = _nonempty_lines(path) - 1
+        if n > 0:
+            parsers.warn_fmt(
+                "{label}: {file} enthält {n} Datenzeile(n), aber keine davon ergab eine Transaktion — "
+                "bitte prüfen, ob das die richtige Datei ist (Exportformat, Zeitraum).",
+                internal=internal, label=label, n=n,
+                file=parsers.FileRef(path.name, "eine der eingelesenen Dateien"),
+            )
+    return txs
+
+
 def load_all_transactions(data_dir: Path):
     parsers.reset_warnings()
     transactions = []
@@ -180,7 +223,7 @@ def load_all_transactions(data_dir: Path):
     if bitbox_dir.exists():
         per_file = []
         for csv_file in _find(bitbox_dir, "*.csv"):
-            txs = bitbox.parse(csv_file)
+            txs = _parse_file("BitBox", bitbox, csv_file)
             per_file.append((csv_file.name, txs))
             loaded_bitbox.add(csv_file)
             print(f"  BitBox {csv_file.stem}: {len(txs)} Transaktionen{_bitbox_extras(txs)}")
@@ -190,7 +233,7 @@ def load_all_transactions(data_dir: Path):
     if nokyc_dir is not None:
         per_file = []
         for csv_file in _find(nokyc_dir, "*.csv"):
-            txs = bitbox.parse(csv_file)
+            txs = _parse_file("BitBox", bitbox, csv_file, internal=True)
             per_file.append((csv_file.name, txs))
             loaded_bitbox.add(csv_file)
             print(f"  BitBox noKYC {csv_file.stem}: {len(txs)} Transaktionen{_bitbox_extras(txs)}")
@@ -204,7 +247,7 @@ def load_all_transactions(data_dir: Path):
     # Broker: 21bitcoin (Dateiname kann variieren, z.B. 21bitcoin-gesamt.csv oder 21bitcoin_name_gesamt.csv)
     btc21_files = _find(broker_dir, "21bitcoin*.csv")
     if btc21_files:
-        btc21_txs = _dedup_files([(bf.name, broker_21bitcoin.parse(bf)) for bf in btc21_files], "21bitcoin")
+        btc21_txs = _dedup_files([(bf.name, _parse_file("21bitcoin", broker_21bitcoin, bf)) for bf in btc21_files], "21bitcoin")
         transactions.extend(btc21_txs)
         print(f"  21bitcoin: {len(btc21_txs)} Transaktionen")
 
@@ -213,35 +256,35 @@ def load_all_transactions(data_dir: Path):
     # nicht stillschweigend auf eine reduziert werden)
     bison_files = _find(broker_dir, "Bison-CSV-Gesamt.csv")
     if bison_files:
-        bison_txs = _dedup_files([(bf.name, broker_bison.parse(bf)) for bf in bison_files], "Bison")
+        bison_txs = _dedup_files([(bf.name, _parse_file("Bison", broker_bison, bf)) for bf in bison_files], "Bison")
         transactions.extend(bison_txs)
         print(f"  Bison: {len(bison_txs)} Transaktionen")
 
     # Broker: Swissquote
     sq_files = _find(broker_dir, "Swissquote_CSV-Gesamt.csv")
     if sq_files:
-        sq_txs = _dedup_files([(sf.name, broker_swissquote.parse(sf)) for sf in sq_files], "Swissquote")
+        sq_txs = _dedup_files([(sf.name, _parse_file("Swissquote", broker_swissquote, sf)) for sf in sq_files], "Swissquote")
         transactions.extend(sq_txs)
         print(f"  Swissquote: {len(sq_txs)} Transaktionen")
 
     # Broker: Strike (mehrere CSV-Dateien möglich)
     strike_files = _find(broker_dir, "strike_*.csv")
     if strike_files:
-        strike_txs = _dedup_files([(sf.name, broker_strike.parse(sf)) for sf in strike_files], "Strike")
+        strike_txs = _dedup_files([(sf.name, _parse_file("Strike", broker_strike, sf)) for sf in strike_files], "Strike")
         transactions.extend(strike_txs)
         print(f"  Strike: {len(strike_txs)} Transaktionen ({len(strike_files)} Dateien)")
 
     # Broker: Pocket (mehrere CSV-Dateien möglich, z.B. Pocket_-_2025.csv)
     pocket_files = _find(broker_dir, "Pocket*.csv")
     if pocket_files:
-        pocket_txs = _dedup_files([(pf.name, broker_pocket.parse(pf)) for pf in pocket_files], "Pocket")
+        pocket_txs = _dedup_files([(pf.name, _parse_file("Pocket", broker_pocket, pf)) for pf in pocket_files], "Pocket")
         transactions.extend(pocket_txs)
         print(f"  Pocket: {len(pocket_txs)} Transaktionen ({len(pocket_files)} Dateien)")
 
     # Broker: Bisq (noKYC P2P, mehrere CSV-Dateien möglich)
     bisq_files = _find(broker_dir, "bisq*.csv")
     if bisq_files:
-        bisq_txs = _dedup_files([(bf.name, bisq.parse(bf)) for bf in bisq_files], "Bisq", internal=True)
+        bisq_txs = _dedup_files([(bf.name, _parse_file("Bisq", bisq, bf, internal=True)) for bf in bisq_files], "Bisq", internal=True)
         transactions.extend(bisq_txs)
         print(f"  Bisq (noKYC): {len(bisq_txs)} Transaktionen ({len(bisq_files)} Dateien)")
 
@@ -249,28 +292,41 @@ def load_all_transactions(data_dir: Path):
     # BEWUSST vor den Verkäufen geladen: beide Parser stempeln 12:00 UTC, also
     # entscheidet bei gleichem Kalendertag sonst die Ladereihenfolge, und ein
     # gleichtägiger Verkauf liefe vor seinem Kauf.
-    manual_buys_file = data_dir / "manual_buys.csv"
-    if manual_buys_file.exists():
-        txs = manual_buys.parse(manual_buys_file)
+    # _find statt fester Pfad (A6): Manual_Sales.csv wurde auf Linux still ignoriert.
+    root_consumed: set[str] = set()
+    for manual_buys_file in _find(data_dir, "manual_buys.csv"):
+        txs = _parse_file("manual_buys.csv", manual_buys, manual_buys_file, internal=True)
         transactions.extend(txs)
+        root_consumed.add(manual_buys_file.name)
         print(f"  Manuell (Käufe):   {len(txs)} Transaktionen")
 
     # Manuelle Verkäufe (private Peer-to-Peer Transaktionen)
-    manual_file = data_dir / "manual_sales.csv"
-    if manual_file.exists():
-        txs = manual_sales.parse(manual_file)
+    for manual_file in _find(data_dir, "manual_sales.csv"):
+        txs = _parse_file("manual_sales.csv", manual_sales, manual_file)
         transactions.extend(txs)
+        root_consumed.add(manual_file.name)
         print(f"  Manuell (Verkäufe): {len(txs)} Transaktionen")
 
     # Spalte wallet in manual_*.csv gegen die eingelesenen Wallets auflösen
     _resolve_manual_wallets(transactions)
 
     # Manuelle Übertrags-Zuordnung (walletbezogenes FiFo, BMF Rn. 90)
-    zuordnung = data_dir / transfer_zuordnung.FILENAME
-    if zuordnung.exists():
+    for zuordnung in _find(data_dir, transfer_zuordnung.FILENAME):
         rows = transfer_zuordnung.parse(zuordnung)
         parsers.manual_links.extend(rows)
+        root_consumed.add(zuordnung.name)
         print(f"  Übertrags-Zuordnung: {len(rows)} Zeilen")
+
+    # Auffang-Warner fürs Wurzelverzeichnis (A6): eine CSV mit anderem Namen
+    # (manual-sales.csv, verkaeufe.csv) verschwand bisher ohne ein Wort.
+    for p in _find(data_dir, "*.csv"):
+        if p.name not in root_consumed:
+            parsers.warn_fmt(
+                "{file}: keinem Parser zugeordnet — NICHT geladen. Im Hauptordner werden nur "
+                "manual_buys.csv, manual_sales.csv und transfer_zuordnung.csv gelesen; Broker-Exporte "
+                "gehören nach Broker/, BitBox-Exporte nach bitbox/.",
+                file=parsers.FileRef(p.name, "Eine Datei im Hauptordner"), internal=False,
+            )
 
     # Nicht zugeordnete CSVs im Broker-Ordner melden — CLI-Pendant zum GUI-Prinzip
     # "nicht erkannte Dateien sperren die Berechnung" (z.B. falsch benannte

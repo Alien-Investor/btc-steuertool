@@ -4,6 +4,14 @@ Ausgelagert aus `CLAUDE.md` (02.10.2026, Wortlaut unverändert). Vor jeder Arbei
 
 ## Datenquellen
 
+**Leseregeln für alle Parser (seit dem Parser-Audit 03.10.2026, `src/parsers/__init__.py`):** Jeder Parser liest über
+`read_rows(...)` mit einer Liste von Pflichtspalten. Fehlt eine, bricht der Lauf hart ab (Datei + Spalte); eine BOM am
+Dateianfang wird abgestreift, Schlüssel und Werte getrimmt, Zeilen mit falscher Feldanzahl und Zeilenumbrüche innerhalb
+eines Feldes (nicht geschlossenes Anführungszeichen) sind harte Fehler mit Zeilennummer. Zahlen gehen durch `parse_amount`
+(Punkt als Dezimaltrenner; ein Komma nur, wenn eindeutig; `-` und leer = 0; NaN/Infinity/≥ 1e15 abgelehnt), ISO-Zeitstempel
+durch `parse_iso_datetime` (Zeitzone Pflicht, `Z` erlaubt). Warnungen sind auf 1.000 je Lauf gedeckelt. **Neue Parser
+nutzen genau diese Helfer** — `row.get("Spalte", "")` ohne Pflichtspaltenprüfung ist der Fehler, den das Audit gefunden hat.
+
 ### BitBox-Wallets (`bitbox/`)
 Eine oder mehrere eigene Wallets, alle im gleichen Format (CSV, Komma-getrennt, UTF-8):
 

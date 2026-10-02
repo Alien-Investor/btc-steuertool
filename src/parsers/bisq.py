@@ -44,14 +44,13 @@ Altcoin-Märkte (XMR/BTC, BSQ/BTC …):
     → laute Warnung mit Handlungsanweisung, kein stilles Mitzählen.
 """
 from __future__ import annotations
-import csv
 import re
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, TxType, TZ_DE
-from . import warn, parser_warnings
+from . import warn, parser_warnings, read_rows, parse_amount, LINE_KEY
 
 # Spaltenköpfe und feste Werte je Oberflächensprache. Quelle: Bisq-Quellcode
 # (`desktop/.../closedtrades/ClosedTradesView.java`, `core/.../i18n/displayStrings.properties`
@@ -97,34 +96,30 @@ def parse(filepath: Path) -> list[Transaction]:
     rows_seen = 0
     skipped: dict[tuple[str, int | None], int] = {}
     warned = 0  # Zeilen, die bereits eine eigene Warnung bekommen haben
-    # utf-8-sig: Bisq schreibt UTF-8 ohne BOM, aber eine in Excel/LibreOffice erneut
-    # gespeicherte Datei bekommt eine. Mit "utf-8" hieße die erste Spalte dann
-    # "﻿Handels-ID", keine Zeile würde erkannt — und die Datei wäre still weg.
-    with open(filepath, encoding="utf-8-sig", newline="") as f:
-        reader = csv.DictReader(f)
-        lang = detect_language(reader.fieldnames)
-        if lang is None:
-            header = ",".join(h.strip() for h in (reader.fieldnames or []))[:120]
-            warn(
-                f"{filepath.name}: Kopfzeile nicht als Bisq-Export erkannt (Deutsch oder Englisch). "
-                f"Bisq-Oberfläche auf Deutsch oder Englisch stellen und neu exportieren. "
-                f"Gelesene Kopfzeile: {header}",
-                internal=True,
-            )
-            return []
-        names = LANGUAGES[lang]
-        # Kopfzeile ggf. mit Leerraum oder BOM → auf die bekannten Namen abbilden
-        key_of = {names[c]: c for c in _COLUMNS}
-        for raw_row in reader:
-            rows_seen += 1
-            row = {key_of[k.strip().lstrip("﻿")]: (v or "")
-                   for k, v in raw_row.items()
-                   if k is not None and k.strip().lstrip("﻿") in key_of}
-            before = len(parser_warnings)
-            tx = _parse_row(row, names, lang, filepath.name, skipped)
-            if tx is not None:
-                transactions.append(tx)
-            warned += len(parser_warnings) - before
+    # read_rows: BOM-tolerant (eine in Excel/LibreOffice erneut gespeicherte Datei
+    # bekommt eine; mit "utf-8" hieße die erste Spalte dann "<BOM>Handels-ID" und
+    # keine Zeile würde erkannt), Feldanzahl und Anführungszeichen geprüft.
+    raw_rows, header = read_rows(filepath, label="Bisq")
+    lang = detect_language(header)
+    if lang is None:
+        # Harter Fehler wie bei jedem anderen Parser (Audit A2): die Datei liegt mit
+        # Absicht unter Broker/bisq*.csv — still nichts zu liefern wäre der alte Fehler.
+        raise ValueError(
+            f"Bisq {filepath.name}: Kopfzeile nicht als Bisq-Export erkannt (Deutsch oder Englisch). "
+            f"Bisq-Oberfläche auf Deutsch oder Englisch stellen und neu exportieren. "
+            f"Gelesene Kopfzeile: {','.join(header)[:160]}"
+        )
+    names = LANGUAGES[lang]
+    key_of = {names[c]: c for c in _COLUMNS}
+    for raw_row in raw_rows:
+        rows_seen += 1
+        row = {key_of[k]: v for k, v in raw_row.items() if k in key_of}
+        row[LINE_KEY] = raw_row[LINE_KEY]
+        before = len(parser_warnings)
+        tx = _parse_row(row, names, lang, filepath.name, skipped)
+        if tx is not None:
+            transactions.append(tx)
+        warned += len(parser_warnings) - before
     for (reason, year), count in sorted(skipped.items(), key=lambda kv: (kv[0][1] or 0, kv[0][0])):
         # Jahr mitfuehren, sonst taucht eine abgebrochene Zeile aus 2021 im
         # 2024er-Report auf und erzeugt dort einen internen Report (SA2-09)
@@ -290,12 +285,16 @@ def _parse_row(row: dict, names: dict[str, str], lang: str, filename: str,
         )
         return None
 
-    btc_amount = _decimal(row.get("amount_btc", "0"))
-    eur_amount = _decimal(row.get("volume", "0"))
-    eur_price_per_btc = _decimal(row.get("price", "0"))
+    def num(col: str) -> Decimal:
+        return parse_amount(row.get(col), label="Bisq", filename=filename, line=row.get(LINE_KEY, "?"),
+                            field=names[col])
+
+    btc_amount = num("amount_btc")
+    eur_amount = num("volume")
+    eur_price_per_btc = num("price")
 
     # Gebühren in BTC → EUR umrechnen (Kautionen sind keine Gebühren)
-    fee_btc = _decimal(row.get("tx_fee", "0")) + _decimal(row.get("trade_fee_btc", "0"))
+    fee_btc = num("tx_fee") + num("trade_fee_btc")
     fee_eur = _round(fee_btc * eur_price_per_btc) if eur_price_per_btc else Decimal("0")
 
     return Transaction(
@@ -312,11 +311,6 @@ def _parse_row(row: dict, names: dict[str, str], lang: str, filename: str,
         no_kyc=True,
         direct=True,  # Bisq-Kauf landet in der eigenen Wallet (keine Auszahlungszeile im Export)
     )
-
-
-def _decimal(value: str) -> Decimal:
-    val = value.strip().replace(",", ".")
-    return Decimal(val) if val else Decimal("0")
 
 
 def _round(val: Decimal) -> Decimal:

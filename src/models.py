@@ -110,6 +110,13 @@ class Transaction:
                     f"{self.source}: unendlicher oder undefinierter Wert bei {f} "
                     f"({val}) — bitte den Betrag in der CSV korrigieren."
                 )
+        # Auch Überträge (A4, Audit 03.10.2026): ein negativer Eingang/Abgang
+        # kippte die FiFo-Reihenfolge und damit die Haltefrist — ohne Meldung.
+        if self.btc_amount < 0:
+            raise ValueError(
+                f"{self.source} {de_date(self.date)}: negative Menge {self.btc_amount} BTC bei "
+                f"{self.type.value} — Beträge immer positiv angeben."
+            )
         if self.type in (TxType.BUY, TxType.SELL):
             if self.btc_amount < 0 or self.eur_amount < 0 or self.fee_eur < 0:
                 raise ValueError(

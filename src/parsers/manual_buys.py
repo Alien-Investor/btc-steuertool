@@ -27,14 +27,14 @@ Ein Report mit korrekten Anschaffungskosten reicht in der Regel; im Einzelfall k
 Finanzamt aber Adressen, Transaktions-Hashes und Bestände anfordern (BMF 06.03.2025 Rn. 101, 104).
 """
 from __future__ import annotations
-import csv
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, TxType
-from . import validate_header
+from . import validate_header, read_rows, amount, LINE_KEY
 
+LABEL = "manual_buys.csv"
 _KNOWN_COLUMNS = {"date", "btc_amount", "eur_amount", "note", "kyc", "wallet"}
 # Die Schwesterdatei manual_sales.csv nutzt 'no_kyc' mit UMGEKEHRTER Bedeutung.
 _COLUMN_HINTS = {
@@ -45,21 +45,19 @@ _COLUMN_HINTS = {
 
 def parse(filepath: Path) -> list[Transaction]:
     transactions = []
-    with open(filepath, encoding="utf-8", newline="") as f:
-        reader = csv.DictReader(f)
-        validate_header(reader.fieldnames, _KNOWN_COLUMNS, "manual_buys.csv", _COLUMN_HINTS)
-        for i, row in enumerate(reader, start=2):
-            row = {k.strip(): v.strip() for k, v in row.items()}
-            tx = _parse_row(row, i)
-            if tx is not None:
-                transactions.append(tx)
+    rows, header = read_rows(filepath, label=LABEL)
+    validate_header(header, _KNOWN_COLUMNS, LABEL, _COLUMN_HINTS)
+    for row in rows:
+        tx = _parse_row(row, row[LINE_KEY])
+        if tx is not None:
+            transactions.append(tx)
     return transactions
 
 
 def _parse_row(row: dict, line: int) -> Transaction | None:
-    date_str = row.get("date", "").strip()
-    btc_str = row.get("btc_amount", "").strip()
-    eur_str = row.get("eur_amount", "").strip()
+    date_str = row.get("date", "")
+    btc_str = row.get("btc_amount", "")
+    eur_str = row.get("eur_amount", "")
 
     if not date_str and not btc_str and not eur_str:
         return None  # komplett leere Zeile (z.B. Leerzeile am Dateiende)
@@ -74,15 +72,15 @@ def _parse_row(row: dict, line: int) -> Transaction | None:
         date = datetime.strptime(date_str, "%Y-%m-%d").replace(
             hour=12, tzinfo=timezone.utc
         )
-        btc_amount = Decimal(btc_str)
-        eur_amount = Decimal(eur_str)
-    except Exception as e:
-        raise ValueError(f"manual_buys.csv Zeile {line}: ungültiger Wert — {e}") from e
+    except ValueError as e:
+        raise ValueError(f"manual_buys.csv Zeile {line}: ungültiges Datum — {e}") from e
+    btc_amount = amount(row, "btc_amount", label=LABEL, filename="")
+    eur_amount = amount(row, "eur_amount", label=LABEL, filename="")
 
-    note = row.get("note", "").strip() or "Manueller Kauf"
+    note = row.get("note", "") or "Manueller Kauf"
     eur_price_per_btc = eur_amount / btc_amount if btc_amount else Decimal("0")
     # Spalte kyc=ja → KYC-Kauf (Broker ohne eigenen Parser); Standard bleibt noKYC
-    kyc = row.get("kyc", "").strip().lower() in ("ja", "1", "true", "yes", "x")
+    kyc = row.get("kyc", "").lower() in ("ja", "1", "true", "yes", "x")
 
     return Transaction(
         date=date,
@@ -98,5 +96,5 @@ def _parse_row(row: dict, line: int) -> Transaction | None:
         direct=True,  # Lieferung an eine eigene Wallet (Zuordnung über den Eingang)
         # Name wie geschrieben; main._resolve_manual_wallets ordnet ihn einer
         # eingelesenen Wallet zu (leer → Quelle „manual“)
-        wallet=row.get("wallet", "").strip(),
+        wallet=row.get("wallet", ""),
     )

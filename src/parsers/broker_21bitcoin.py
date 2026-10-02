@@ -1,40 +1,56 @@
-"""Parser für 21bitcoin CSV-Exporte."""
+"""Parser für 21bitcoin CSV-Exporte.
+
+Kopfzeile (Pflichtspalten hart geprüft, Audit 03.10.2026):
+    id,exchange_name,depot_name,transaction_date,buy_asset,buy_amount,sell_asset,
+    sell_amount,fee_asset,fee_amount,transaction_type,note,linked_transaction
+"""
 from __future__ import annotations
-import csv
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, TxType, de_date
-from . import warn, warn_fmt, FileRef
+from . import warn_fmt, FileRef, read_rows, amount, LINE_KEY
+
+LABEL = "21bitcoin"
+REQUIRED = ("id", "transaction_date", "transaction_type", "buy_asset", "buy_amount",
+            "sell_asset", "sell_amount", "fee_asset", "fee_amount")
 
 
 def parse(filepath: Path) -> list[Transaction]:
     transactions = []
-    with open(filepath, encoding="utf-8", newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            tx = _parse_row(row, filepath.name)
-            if tx is not None:
-                transactions.append(tx)
+    rows, _ = read_rows(filepath, label=LABEL, required=REQUIRED)
+    for row in rows:
+        tx = _parse_row(row, filepath.name)
+        if tx is not None:
+            transactions.append(tx)
     return transactions
 
 
 def _parse_row(row: dict, filename: str) -> Transaction | None:
-    tx_type_raw = row["transaction_type"].strip().lower()
+    tx_type_raw = row["transaction_type"].lower()
+    line = row[LINE_KEY]
 
     # Datum: "DD.MM.YYYY HH:MM:SS" — 21bitcoin gibt keine Timezone an,
     # laut Support handelt es sich um UTC
-    date_str = row["transaction_date"].strip()
-    date = datetime.strptime(date_str, "%d.%m.%Y %H:%M:%S").replace(tzinfo=timezone.utc)
+    date_str = row["transaction_date"]
+    try:
+        date = datetime.strptime(date_str, "%d.%m.%Y %H:%M:%S").replace(tzinfo=timezone.utc)
+    except ValueError:
+        raise ValueError(
+            f"{LABEL} {filename} Zeile {line}: Datum '{date_str}' nicht lesbar (erwartet TT.MM.JJJJ HH:MM:SS)."
+        ) from None
 
-    note = row.get("note", "").strip()
-    row_id = row.get("id", "").strip()
+    note = row.get("note", "")
+    row_id = row.get("id", "")
+
+    def num(field: str) -> Decimal:
+        return amount(row, field, label=LABEL, filename=filename)
 
     if tx_type_raw == "trade":
         # BTC-Kauf: buy_asset=BTC, sell_asset=EUR
-        buy_asset = row.get("buy_asset", "").strip().upper()
-        sell_asset = row.get("sell_asset", "").strip().upper()
+        buy_asset = row.get("buy_asset", "").upper()
+        sell_asset = row.get("sell_asset", "").upper()
         if buy_asset != "BTC" or sell_asset != "EUR":
             # Nicht stillschweigend verwerfen — ein BTC-Verkauf wäre steuerlich relevant!
             if sell_asset == "BTC":
@@ -53,9 +69,9 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
                 )
             return None
 
-        btc_amount = Decimal(row["buy_amount"].strip())
-        eur_amount = Decimal(row["sell_amount"].strip())
-        fee_eur = Decimal(row["fee_amount"].strip()) if row.get("fee_amount", "").strip() else Decimal("0")
+        btc_amount = num("buy_amount")
+        eur_amount = num("sell_amount")
+        fee_eur = num("fee_amount")
         eur_price_per_btc = eur_amount / btc_amount if btc_amount else Decimal("0")
 
         return Transaction(
@@ -72,7 +88,7 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
 
     elif tx_type_raw == "withdrawal":
         # BTC-Auszahlung an eigene Wallet
-        sell_asset = row.get("sell_asset", "").strip().upper()
+        sell_asset = row.get("sell_asset", "").upper()
         if sell_asset != "BTC":
             # EUR/CHF-Auszahlungen sind bekannt irrelevant und bleiben stumm.
             # Alles andere melden: benennt 21bitcoin die Spalte je um, liefert
@@ -87,12 +103,12 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
                 )
             return None
 
-        btc_amount = Decimal(row["sell_amount"].strip())
+        btc_amount = num("sell_amount")
         # Auszahlungsgebühr in BTC: geht an den Broker als Entgelt für die
         # Auszahlung — Tausch gegen Dienstleistung, also Veräußerung des
         # Gebührenanteils (H8). Die Engine bewertet fee_btc zum Tageskurs.
-        fee_btc = Decimal(row["fee_amount"].strip()) if row.get("fee_amount", "").strip() else Decimal("0")
-        fee_asset = row.get("fee_asset", "").strip().upper()
+        fee_btc = num("fee_amount")
+        fee_asset = row.get("fee_asset", "").upper()
         if fee_btc > 0 and fee_asset != "BTC":
             warn_fmt(
                 "{file}: Auszahlungsgebühr {fee} {asset} am {tag} nicht verarbeitet — "
@@ -119,7 +135,7 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
     # BTC-Einzahlung verschwand damit, waehrend die passende Auszahlung gebucht
     # wurde (SA2-11). EUR/CHF bleiben bekannt irrelevant und stumm.
     if tx_type_raw == "deposit":
-        buy_asset = row.get("buy_asset", "").strip().upper()
+        buy_asset = row.get("buy_asset", "").upper()
         if buy_asset not in ("EUR", "CHF"):
             warn_fmt(
                 "{file}: Einzahlung am {tag} mit buy_asset='{asset}' nicht "
@@ -129,9 +145,8 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
             )
         return None
 
-    if tx_type_raw != "deposit":
-        warn_fmt(
-            "{file}: unbekannter Transaktionstyp '{typ}' am {tag} nicht verarbeitet.",
-            file=FileRef(filename), typ=tx_type_raw, tag=de_date(date), year=de_date(date).year, internal=False,
-        )
+    warn_fmt(
+        "{file}: unbekannter Transaktionstyp '{typ}' am {tag} nicht verarbeitet.",
+        file=FileRef(filename), typ=tx_type_raw, tag=de_date(date), year=de_date(date).year, internal=False,
+    )
     return None

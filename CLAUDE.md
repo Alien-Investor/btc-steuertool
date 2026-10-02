@@ -43,6 +43,9 @@ Spalten, Datumsformate, Encoding und relevante Transaktionstypen je Quelle: **`d
 Parser-Arbeit lesen (dort auch das Beispiel des Text-Reports). Quellen: BitBox (`bitbox/*.csv`, `bitbox/nokyc/`), 21bitcoin,
 Bison, Swissquote (Windows-1252, USD/CHF), Bisq (noKYC), Strike, Pocket (CHF/USD), `manual_buys.csv`, `manual_sales.csv`.
 Neuer Parser = `src/parsers/` + Erkennung in der GUI (Broker-Sniffing, `BLOCKING_TYPES`) + Beispieldaten in `examples/` + Golden-Test.
+Jeder Parser liest über `parsers.read_rows(..., required=...)`, Zahlen über `parsers.amount`/`parse_amount`, ISO-Zeiten über
+`parse_iso_datetime` (Audit 03.10.2026: `row.get(...)` ohne Pflichtspaltenprüfung verlor ganze Dateien still). Harte Fehler nennen
+Datei und Zeile; `main._parse_file` setzt den Dateibezug nach.
 
 ## noKYC-Logik (Bisq + manual_buys + bitbox/nokyc/)
 

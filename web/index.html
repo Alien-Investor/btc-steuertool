@@ -765,6 +765,8 @@
         logZipShort: (n, got, want) => `„${n}": nur ${got} von ${want} Einträgen entpackt — der Rest nutzt ein nicht unterstütztes Kompressionsverfahren. Bitte manuell entpacken.`,
         logZip: (n, c) => `ZIP „${n}" entpackt: ${c} Dateien.`,
         logZipFail: n => `„${n}" konnte nicht entpackt werden — bitte manuell entpacken und die Dateien einzeln laden.`,
+        logZipTooLarge: n => `„${n}" wurde NICHT entpackt: Inhalt größer als 64 MB je Datei bzw. 256 MB gesamt — kein Export ist so groß, bitte Datei prüfen.`,
+        logTooLarge: (n, mb) => `„${n}" (${mb} MB) wurde NICHT geladen: größer als 64 MB — kein Export ist so groß, bitte Datei prüfen.`,
         logDemoLoad: 'Lade Beispieldaten (fiktive Testdaten)...',
         logDemoOk: n => `${n} Beispieldateien geladen — „Report berechnen" klicken.`,
         logDemoErr: m => 'Beispieldaten konnten nicht geladen werden: ' + m,
@@ -895,6 +897,8 @@
         logZipShort: (n, got, want) => `"${n}": only ${got} of ${want} entries extracted — the rest use an unsupported compression method. Please unzip manually.`,
         logZip: (n, c) => `Unpacked ZIP "${n}": ${c} files.`,
         logZipFail: n => `Could not unpack "${n}" — please unzip it manually and load the files individually.`,
+        logZipTooLarge: n => `"${n}" was NOT unpacked: contents exceed 64 MB per file or 256 MB in total — no export is that large, please check the file.`,
+        logTooLarge: (n, mb) => `"${n}" (${mb} MB) was NOT loaded: larger than 64 MB — no export is that large, please check the file.`,
         logDemoLoad: 'Loading sample data (fictional test data)...',
         logDemoOk: n => `${n} sample files loaded — click "Calculate report".`,
         logDemoErr: m => 'Could not load sample data: ' + m,
@@ -1171,8 +1175,22 @@ json.dumps({
 
     /* ───────────────────────── Log ───────────────────────── */
     const logEl = document.getElementById('log');
+    const LOG_MAX_LINES = 500;
     function log(msg, cls) {
       document.getElementById('status-card').classList.remove('hidden');
+      // Deckel (Parser-Audit B6): jede Zeile ist ein eigenes <div> mit Reflow — bei
+      // zehntausenden Warnungen fror der Tab ein. Der Report selbst ist in Python gedeckelt.
+      const n = logEl.childElementCount;
+      if (n >= LOG_MAX_LINES) {
+        if (n === LOG_MAX_LINES) {
+          const more = document.createElement('div'); more.className = 'warn';
+          more.textContent = currentLang === 'en'
+            ? `… further log lines suppressed (limit ${LOG_MAX_LINES}). The reports list all warnings.`
+            : `… weitere Logzeilen unterdrückt (Grenze ${LOG_MAX_LINES}). Die Reports enthalten alle Warnungen.`;
+          logEl.appendChild(more);
+        }
+        return;
+      }
       const line = document.createElement('div');
       if (cls) line.className = cls;
       line.textContent = msg;
@@ -1355,6 +1373,7 @@ json.dumps({
       const out = [];
       const skipped = [];   // Einträge, die wir NICHT liefern konnten (SA2-12)
       const nested = [];    // verschachtelte ZIPs — brauchen eine eigene Meldung
+      let totalUsize = 0;
       for (let n = 0; n < count; n++) {
         if (dv.getUint32(off, true) !== 0x02014b50) {
           // Kaputtes Central Directory: bisher stiller break mit Teilmenge
@@ -1363,6 +1382,12 @@ json.dumps({
         }
         const method = dv.getUint16(off + 10, true);
         const csize = dv.getUint32(off + 20, true);
+        const usize = dv.getUint32(off + 24, true);
+        // Größengrenzen (Parser-Audit C7): eine ZIP-Bombe legte nur den eigenen Tab lahm,
+        // aber eben den — und ohne Meldung. 64 MB je Datei, 256 MB gesamt sind weit über
+        // jedem echten Export (der größte bekannte Datensatz: 714 KB).
+        totalUsize += usize;
+        if (usize > MAX_FILE_BYTES || totalUsize > MAX_ZIP_BYTES) throw new Error('zu groß');
         const nameLen = dv.getUint16(off + 28, true);
         const extraLen = dv.getUint16(off + 30, true);
         const cmtLen = dv.getUint16(off + 32, true);
@@ -1396,7 +1421,13 @@ json.dumps({
       return { entries: out, skipped, nested, expected: count };
     }
 
+    const MAX_FILE_BYTES = 64 * 1024 * 1024;
+    const MAX_ZIP_BYTES = 256 * 1024 * 1024;
     async function intakeFile(name, bytes) {
+      if (bytes.length > MAX_FILE_BYTES) {
+        log(i18n[currentLang].logTooLarge(name, Math.round(bytes.length / 1048576)), 'warn');
+        return;
+      }
       if (name.toLowerCase().endsWith('.zip')) {
         try {
           const { entries, skipped, nested } = await extractZip(bytes);
@@ -1408,7 +1439,7 @@ json.dumps({
           }
           for (const e of entries) await intakeFile(e.name, e.bytes);
         } catch (err) {
-          log(i18n[currentLang].logZipFail(name), 'warn');
+          log(err && err.message === 'zu groß' ? i18n[currentLang].logZipTooLarge(name) : i18n[currentLang].logZipFail(name), 'warn');
         }
         return;
       }
