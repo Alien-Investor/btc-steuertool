@@ -84,6 +84,22 @@ async function fresh(){
   { const o=await tryOpen(mail,'nav'); R('Bug-Report-mailto erlaubt', o.length===1&&o[0]===mail, o); }
   for(const u of ['mailto:andere@example.org','mailto:kontakt@alien-investor.org?cc=x@example.org','mailto:kontakt@alien-investor.org,x@example.org','mailto:kontakt@alien-investor.org?body='+'a'.repeat(9000)])
     { const o=await tryOpen(u,'nav'); R('mailto verweigert: '+u.slice(0,70), o.length===0, o); }
+  // Bug-Report: Menü mit Kästchen (Vorauswahl = erkannte Typen) + freies Feld, Senden öffnet das Mailprogramm, Text bleibt kopierbar
+  await js(`openBugReport()`);
+  R('Bug-Menü hat alle 10 Typen', await js(`document.querySelectorAll('#bug-menu input[type=checkbox]').length`)===10);
+  const pre=await js(`bugPicked().join(',')`);
+  R('Vorauswahl = erkannte Typen der Beispieldaten', pre.includes('btc21')&&pre.includes('bisq')&&!pre.includes('fxcache'), pre);
+  await js(`document.getElementById('bug-pick-btn').click()`);
+  R('Menü klappt auf', await js(`!document.getElementById('bug-menu').classList.contains('hidden')`));
+  await js(`document.querySelectorAll('#bug-menu input').forEach(i=>{ if(i.checked) i.click(); }); document.querySelector('#bug-menu input[value=swissquote]').click()`);
+  R('Auswahl im Knopf sichtbar', await js(`document.getElementById('bug-pick-text').textContent==='Swissquote'`), await js(`document.getElementById('bug-pick-text').textContent`));
+  await js(`document.querySelector('#bug-title').click()`);
+  R('Klick daneben schließt das Menü', await js(`document.getElementById('bug-menu').classList.contains('hidden')`));
+  await js(`document.getElementById('bug-broker').value='Kraken'; document.getElementById('bug-desc').value='x'.repeat(9000)`);
+  opened.length=0; await js(`sendBugReport()`); await sleep(400);
+  R('Senden öffnet mailto trotz langem Text (gekürzt)', opened.length===1&&opened[0].startsWith('mailto:kontakt@alien-investor.org?subject=')&&decodeURIComponent(opened[0]).includes('Swissquote, Kraken'), opened.map(u=>u.length));
+  R('voller Text bleibt zum Kopieren sichtbar', await js(`!document.getElementById('bug-sent').classList.contains('hidden')&&document.getElementById('bug-sent-body').value.length>9000`));
+  await js(`closeBugReport()`);
   R('Bug-Report nennt Desktop', await js(`i18n.de.bugBody('x','y').startsWith('Version: BTC Steuertool Desktop')`));
 
   // Speichern: über die Brücke, nur gültige Namen, Abbruch = null, bestehende Datei wird ersetzt

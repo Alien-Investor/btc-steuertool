@@ -245,6 +245,23 @@
     .api-key-input { width:100%; box-sizing:border-box; background:rgba(0,255,204,.04); border:1px solid var(--border); border-radius:3px; color:var(--neon); font-family:'Share Tech Mono',monospace; font-size:.8rem; letter-spacing:1px; padding:10px 14px; outline:none; transition:border-color .2s; }
     .api-key-input:focus { border-color:var(--neon-mid); }
     .api-key-input::placeholder { color:var(--text-dim); font-size:.7rem; }
+    /* Bug-Report: Mehrfachauswahl als aufklappbares Menü (eigene Liste statt grauer System-Liste) + freies Feld */
+    .bug-pick { position:relative; }
+    .bug-pick-btn { display:flex; align-items:center; justify-content:space-between; gap:10px; text-align:left; cursor:pointer; }
+    .bug-pick-btn span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .bug-pick-btn::after { content:'▾'; color:var(--neon-mid); flex-shrink:0; }
+    .bug-pick.open .bug-pick-btn::after { content:'▴'; }
+    .bug-menu { position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:5; max-height:240px; overflow-y:auto;
+      background:var(--card-bg); border:1px solid var(--neon-mid); border-radius:3px; padding:6px 0; box-shadow:0 8px 24px rgba(0,0,0,.6); }
+    .bug-opt { display:flex; align-items:center; gap:10px; padding:6px 14px; font-size:.78rem; color:var(--text-mid); cursor:pointer; letter-spacing:1px; }
+    .bug-opt:hover { background:var(--neon-dim); color:var(--neon); }
+    .bug-opt input { appearance:none; -webkit-appearance:none; width:16px; height:16px; flex-shrink:0; margin:0; border:1px solid var(--neon-mid);
+      border-radius:3px; background:rgba(0,255,204,.04); cursor:pointer; display:grid; place-content:center; }
+    .bug-opt input:checked { background:var(--neon); border-color:var(--neon); box-shadow:0 0 8px rgba(0,255,204,.5); }
+    .bug-opt input:checked::after { content:''; width:9px; height:5px; border-left:2px solid var(--bg); border-bottom:2px solid var(--bg); transform:translateY(-1px) rotate(-45deg); }
+    .bug-other { margin-top:8px; }
+    .bug-sent { margin-top:18px; font-size:.74rem; color:var(--text-mid); letter-spacing:1px; line-height:1.6; }
+    .bug-sent textarea { margin-top:8px; font-size:.72rem; }
 
     /* ── DISCLAIMER ── */
     .disclaimer { font-size:.74rem; line-height:1.7; color:var(--text-dim); }
@@ -333,8 +350,12 @@
       <div class="api-dialog-title" id="bug-title">🐛 Bug melden</div>
       <div class="api-dialog-intro" id="bug-subtext">Wird als E-Mail an kontakt@alien-investor.org gesendet.</div>
       <div class="api-field">
-        <label class="api-label" for="bug-broker" id="bug-label-broker">Broker / Dateityp</label>
-        <input class="api-key-input" id="bug-broker" type="text" placeholder="z.B. Swissquote" autocomplete="off" spellcheck="false">
+        <label class="api-label" for="bug-pick-btn" id="bug-label-broker">Broker / Dateityp</label>
+        <div class="bug-pick" id="bug-pick">
+          <button type="button" class="api-key-input bug-pick-btn" id="bug-pick-btn" onclick="toggleBugMenu()" aria-haspopup="true" aria-expanded="false"><span id="bug-pick-text">—</span></button>
+          <div class="bug-menu hidden" id="bug-menu" role="group"></div>
+        </div>
+        <input class="api-key-input bug-other" id="bug-broker" type="text" placeholder="Anderer Broker / Ergänzung, z.B. Kraken" autocomplete="off" spellcheck="false">
       </div>
       <div class="api-field">
         <label class="api-label" for="bug-desc" id="bug-label-desc">Beschreibung</label>
@@ -343,6 +364,10 @@
       <div style="display:flex;gap:10px;">
         <button class="btn btn-primary" style="margin-left:0;" onclick="sendBugReport()" id="bug-send">Senden</button>
         <button class="btn" onclick="closeBugReport()" id="bug-cancel">Abbrechen</button>
+      </div>
+      <div class="bug-sent hidden" id="bug-sent">
+        <span id="bug-sent-text">Dein Mailprogramm sollte sich jetzt öffnen.</span>
+        <textarea class="api-key-input" id="bug-sent-body" rows="5" readonly></textarea>
       </div>
     </div>
   </div>
@@ -705,7 +730,10 @@
           'Nur Technik-/Format-Fragen, keine Steuerfragen.',
         bugLabelBroker: 'Broker / Dateityp',
         bugLabelDesc: 'Beschreibung',
-        bugPhBroker: 'z.B. Swissquote',
+        bugPhBroker: 'Anderer Broker / Ergänzung, z.B. Kraken',
+        bugPickNone: '— bitte wählen —',
+        bugSentText: 'Dein Mailprogramm sollte sich jetzt öffnen. Falls nicht: Text kopieren und an kontakt@alien-investor.org schicken.',
+        bugClose: 'Schließen',
         bugPhDesc: 'Was ist passiert? Welche Datei, welche Meldung?',
         bugSend: 'Senden',
         bugCancel: 'Abbrechen',
@@ -819,7 +847,10 @@
           'Technical/format questions only, no tax questions.',
         bugLabelBroker: 'Broker / file type',
         bugLabelDesc: 'Description',
-        bugPhBroker: 'e.g. Swissquote',
+        bugPhBroker: 'Other broker / details, e.g. Kraken',
+        bugPickNone: '— please choose —',
+        bugSentText: 'Your mail program should open now. If not: copy the text and send it to kontakt@alien-investor.org.',
+        bugClose: 'Close',
         bugPhDesc: 'What happened? Which file, which message?',
         bugSend: 'Send',
         bugCancel: 'Cancel',
@@ -884,6 +915,7 @@
       setText('bug-cancel', t.bugCancel);
       setText('bug-link', t.bugLink);
       document.getElementById('bug-broker').placeholder = t.bugPhBroker;
+      if (document.getElementById('bug-menu').childElementCount) renderBugMenu(bugPicked());
       document.getElementById('bug-desc').placeholder = t.bugPhDesc;
 
       const lb = document.getElementById('lang-toggle');
@@ -1619,26 +1651,76 @@ json.dumps({
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHelp(); });
 
     /* ───────────────────────── Bug-Report (Muster alien-analyzer-v2) ───────────────────────── */
+    // Auswahlliste: alle Typen, die die Erkennung kennt, plus „Anderer Broker“ — Reihenfolge wie im Datei-Dropdown
+    const BUG_TYPES = ['bitbox', 'bitbox_nokyc', 'btc21', 'bison', 'swissquote', 'strike', 'pocket', 'bisq', 'manual_buys', 'manual_sales'];
+    function bugPicked() {
+      return [...document.querySelectorAll('#bug-menu input:checked')].map(i => i.value);
+    }
+    function renderBugMenu(picked) {
+      const menu = document.getElementById('bug-menu');
+      menu.textContent = '';
+      for (const ty of BUG_TYPES) {
+        const lab = document.createElement('label'); lab.className = 'bug-opt';
+        const cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = ty; cb.checked = picked.includes(ty);
+        cb.addEventListener('change', updateBugPick);
+        lab.append(cb, document.createTextNode(typeLabel(ty)));
+        menu.append(lab);
+      }
+      updateBugPick();
+    }
+    function updateBugPick() {
+      const names = bugPicked().map(typeLabel);
+      document.getElementById('bug-pick-text').textContent = names.length ? names.join(', ') : i18n[currentLang].bugPickNone;
+    }
+    function toggleBugMenu(force) {
+      const menu = document.getElementById('bug-menu');
+      const open = force === undefined ? menu.classList.contains('hidden') : force;
+      menu.classList.toggle('hidden', !open);
+      document.getElementById('bug-pick').classList.toggle('open', open);
+      document.getElementById('bug-pick-btn').setAttribute('aria-expanded', String(open));
+    }
+    // Klick außerhalb oder Escape schließt nur das Menü, nicht den Dialog
+    document.addEventListener('click', e => { if (!e.target.closest('#bug-pick')) toggleBugMenu(false); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && !document.getElementById('bug-menu').classList.contains('hidden')) { e.stopImmediatePropagation(); toggleBugMenu(false); }
+    }, true);
+
     function openBugReport() {
-      // Vorbefüllen mit den erkannten Dateitypen — Dateinamen bewusst NICHT (können privat sein)
-      const types = [...new Set(files.filter(f => f.type !== 'ignore' && !BLOCKING_TYPES.includes(f.type)).map(f => typeLabel(f.type)))];
-      document.getElementById('bug-broker').value = types.join(', ');
+      // Vorauswahl: die erkannten Dateitypen — Dateinamen bewusst NICHT (können privat sein)
+      const types = [...new Set(files.filter(f => f.type !== 'ignore' && !BLOCKING_TYPES.includes(f.type)).map(f => f.type))];
+      renderBugMenu(types.filter(ty => BUG_TYPES.includes(ty)));
+      toggleBugMenu(false);
+      document.getElementById('bug-broker').value = '';
       document.getElementById('bug-desc').value = '';
+      document.getElementById('bug-sent').classList.add('hidden');
+      setText0('bug-cancel', i18n[currentLang].bugCancel);
       document.getElementById('bug-overlay').classList.remove('hidden');
     }
+    function setText0(id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt; }
     function closeBugReport() {
+      toggleBugMenu(false);
       document.getElementById('bug-overlay').classList.add('hidden');
     }
     function sendBugReport() {
       const t = i18n[currentLang];
-      const broker = document.getElementById('bug-broker').value.trim() || '—';
+      const parts = bugPicked().map(typeLabel);
+      const other = document.getElementById('bug-broker').value.trim();
+      if (other) parts.push(other);
+      const broker = parts.join(', ') || '—';
       const desc = document.getElementById('bug-desc').value.trim() || '—';
       // Bewusst keine Dateinamen im Report (können privat sein)
       const bodyText = t.bugBody(broker, desc);
-      const subject = encodeURIComponent('[BTC Steuertool] Bug: ' + broker);
-      window.location.href = 'mailto:kontakt@alien-investor.org?subject=' + subject + '&body=' + encodeURIComponent(bodyText);
-      navigator.clipboard.writeText(bodyText).catch(() => {});
-      setTimeout(() => closeBugReport(), 2500);
+      // mailto bleibt unter der Grenze der Desktop-Hülle (8000 Zeichen); der volle Text steht unten zum Kopieren
+      const subject = encodeURIComponent('[BTC Steuertool] Bug: ' + broker.slice(0, 120));
+      let body = encodeURIComponent(bodyText);
+      if (body.length > 6000) body = encodeURIComponent(bodyText.slice(0, 1500) + '\n[…]');
+      window.location.href = 'mailto:kontakt@alien-investor.org?subject=' + subject + '&body=' + body;
+      if (!DESK && navigator.clipboard) navigator.clipboard.writeText(bodyText).catch(() => {});
+      // Kein Auto-Schließen: ohne eingerichtetes Mailprogramm passiert sonst scheinbar nichts
+      setText0('bug-sent-text', t.bugSentText);
+      document.getElementById('bug-sent-body').value = bodyText;
+      document.getElementById('bug-sent').classList.remove('hidden');
+      setText0('bug-cancel', t.bugClose);
     }
     document.getElementById('bug-overlay').addEventListener('click', e => {
       if (e.target === e.currentTarget) closeBugReport();
