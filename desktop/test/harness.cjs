@@ -92,7 +92,7 @@ async function fresh(){
     { const o=await tryOpen(u,'nav'); R('mailto verweigert: '+u.slice(0,70), o.length===0, o); }
   // Bug-Report: Menü mit Kästchen (Vorauswahl = erkannte Typen) + freies Feld, Senden öffnet das Mailprogramm, Text bleibt kopierbar
   await js(`openBugReport()`);
-  R('Bug-Menü hat alle 10 Typen', await js(`document.querySelectorAll('#bug-menu input[type=checkbox]').length`)===10);
+  R('Bug-Menü hat alle 11 Typen (seit v1.3 mit Sammelimport)', await js(`document.querySelectorAll('#bug-menu input[type=checkbox]').length`)===11);
   const pre=await js(`bugPicked().join(',')`);
   // noKYC-Typen bewusst NICHT vorausgewählt (Klartext-Mail verriete sonst noKYC-Bestände, Audit run-1)
   R('Vorauswahl = erkannte KYC-Typen der Beispieldaten', pre.includes('btc21')&&pre.includes('bitbox')&&!pre.includes('fxcache')

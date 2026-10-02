@@ -31,9 +31,12 @@ description: |
   - Transfers are matched automatically (transaction ID, otherwise amount and time); unmatched outgoing transfers are reported, never
     silently booked as sales. Internal wallet check report with real wallet names, never part of the documents for the tax office
   - Exemption limit applied automatically (600 EUR up to 2023, 1,000 EUR from 2024)
-  - Supported sources: BitBox wallets, 21bitcoin, Bison, Swissquote, Strike, Pocket, Bisq, plus manual buys/sells as CSV
+  - Supported sources: BitBox wallets, 21bitcoin, Bison, Swissquote, Strike, Pocket, Bisq 1 (German or English interface), plus manual
+    buys/sells as CSV. Other exchanges via a CoinTracking or Blockpit export (every account in it becomes a wallet of its own; these
+    formats are derived from the documentation and not yet confirmed against real exports, the report says so)
   - Brokers are detected from the file contents; ZIP files are unpacked; files the app cannot recognise block the calculation
-    instead of silently missing from the report
+    instead of silently missing from the report. Every file is checked for its required columns before reading: a renamed column
+    stops the run with file, line and column instead of silently dropping data; a byte-order mark (e.g. after saving in Excel) is read correctly
   - Network fees paid in bitcoin are treated as a disposal of the fee amount at the daily closing price; gifts and donations
     (marked in the BitBox note) leave your holdings without counting as a sale
   - noKYC purchases (Bisq, manual buys not marked as KYC, noKYC wallets) are kept strictly apart: separate FiFo pool and a separate internal

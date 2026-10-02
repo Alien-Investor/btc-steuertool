@@ -43,9 +43,10 @@ Abbildung auf das Transaktionsmodell (nur BTC; Zeilen ohne BTC-Bezug werden übe
   Withdrawal BTC                  TRANSFER_OUT (Betrag OHNE Gebühr, Gebühr in BTC → fee_btc — Annahme!)
   Fee / Other Fee (BTC)           Gebührenabgang (Menge 0, fee_btc)
   Income/Mining/Staking/Airdrop/  mit EUR-Wert → BUY („Zufluss, Wert laut Export"), sonst Warnung;
-  Gift(in)/Reward/Lending …       die steuerliche Einordnung des Zuflusses (Einkünfte) prüft der Nutzer
+  Reward/Lending …                die steuerliche Einordnung des Zuflusses (Einkünfte) prüft der Nutzer
   Spend/Payment (BTC)             mit EUR-Wert → SELL, sonst Warnung (Bezahlung = Veräußerung zum Marktwert)
   Gift(out)/Donation (BTC)        GIFT_OUT
+  Gift(in)/Gift/Tip (BTC)         Warnung: Anschaffungsdaten des Schenkers gelten (§ 23 Abs. 1 S. 3 EStG)
   Lost/Stolen/Margin … (BTC)      Warnung, nicht verarbeitet (Bestand bleibt rechnerisch bestehen)
 
 noKYC: Konten, deren Name eine noKYC-Plattform nennt (Bisq, RoboSats, Hodl Hodl, Peach,
@@ -83,7 +84,7 @@ FORMATS = {
                    "Incoming Amount", "Fee Asset", "Fee Amount"), "Blockpit-Export"),
 }
 
-_CT_INCOME = {"income", "mining", "gift/tip", "reward/bonus", "reward / bonus", "airdrop", "staking",
+_CT_INCOME = {"income", "mining", "reward/bonus", "reward / bonus", "airdrop", "staking",
               "masternode", "lending income", "interest income", "margin profit", "derivatives / futures profit",
               "income (non taxable)", "other income", "dividends income", "bounties", "lending", "interest",
               "reward", "cashback"}
@@ -224,7 +225,7 @@ def _normalize(row: dict, fmt: str, filename: str) -> dict | None:
 
 
 def _kind(raw: str, in_asset: str, out_asset: str, fee_asset: str) -> str:
-    k = re.sub(r"[\s_\-()]+", "", raw.strip().lower())
+    k = re.sub(r"[\s_\-()/]+", "", raw.strip().lower())
     k_sp = raw.strip().lower()
     if k == "trade":
         return "trade"
@@ -236,8 +237,8 @@ def _kind(raw: str, in_asset: str, out_asset: str, fee_asset: str) -> str:
         return "transfer"
     if k_sp in _CT_FEE or k == "fee":
         return "fee"
-    if k == "gift":
-        return "income" if in_asset and not out_asset else "gift_out"
+    if k == "gift" or k == "gifttip":
+        return "gift_in" if in_asset and not out_asset else "gift_out"
     if k_sp in _CT_GIFT_OUT or k in ("donation", "spende", "schenkung"):
         return "gift_out"
     if k_sp in _CT_INCOME or k in ("income", "mining", "staking", "airdrop", "lending", "bounties", "interest",
@@ -397,6 +398,13 @@ def _to_transaction(rec: dict, filename: str) -> Transaction | None:
         return Transaction(type=TxType.TRANSFER_OUT, btc_amount=Decimal("0"), eur_amount=Decimal("0"),
                            eur_price_per_btc=Decimal("0"), fee_eur=Decimal("0"), fee_btc=oq + fee_btc,
                            tx_id=tx_id("fee"), note=f"Gebühr in BTC bei {account} ({rec['kind_raw']})", **base)
+    if kind == "gift_in" and ia == "BTC" and iq > 0:
+        # Unentgeltlicher Erwerb: Anschaffungsdatum und -kosten des Schenkers gelten
+        # (§ 23 Abs. 1 S. 3 EStG) — ein Kauf zum Exportwert wäre falsch (Faktencheck 03.10.2026)
+        wrn(f"Geschenk erhalten: {iq} BTC ({rec['kind_raw']}, {account}) am {tag} — nicht verarbeitet. Für die "
+            f"Haltefrist gelten Anschaffungsdatum und -kosten des Schenkers (§ 23 Abs. 1 Satz 3 EStG); bitte als "
+            f"manual_buys.csv mit dessen Datum und Betrag erfassen.")
+        return None
     if kind == "income" and ia == "BTC" and iq > 0:
         value = rec["eur_in"]
         if value is not None and value > 0:

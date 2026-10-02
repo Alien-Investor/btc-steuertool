@@ -403,8 +403,8 @@
           <li><strong>Swissquote:</strong> Web → Konto → Transaktionen → CSV-Export</li>
           <li><strong>Strike:</strong> App/Web → Aktivität → Report erstellen</li>
           <li><strong>Pocket:</strong> Web → Verlauf → CSV herunterladen</li>
-          <li><strong>Bisq:</strong> Bisq Classic, Oberfläche auf Deutsch oder Englisch: Portfolio → Verlauf → Als CSV exportieren (englisch: Portfolio → History → Export to CSV). Bisq speichert als <code>tradeHistory.csv</code>.</li>
-          <li><strong>Andere Börsen über CoinTracking oder Blockpit:</strong> CoinTracking → Enter Coins/Trade List → Export CSV (oder eine CSV im CoinTracking-Importformat, das viele Börsen anbieten); Blockpit → Transaktionen → CSV exportieren. Jedes Konto darin wird eine eigene Wallet. Diese Formate sind aus der Dokumentation abgeleitet und noch nicht an echten Exporten bestätigt: Der Report zeigt dazu eine Warnung, bitte Beträge, Gebühren und Zeitzone prüfen und Abweichungen melden. Eine Wallet nicht doppelt laden (Sammelimport <em>und</em> eigener Export).</li>
+          <li><strong>Bisq:</strong> Bisq 1 (die klassische Desktop-App, nicht Bisq 2/Bisq Easy), Oberfläche auf Deutsch oder Englisch: Portfolio → Verlauf → Als CSV exportieren (englisch: Portfolio → History → Export to CSV). Bisq speichert als <code>tradeHistory.csv</code>.</li>
+          <li><strong>Andere Börsen über CoinTracking oder Blockpit:</strong> CoinTracking → Seite „Trade List“ (oder „Transactions“, früher „Enter Coins“) → Knopf „CSV“ über der Tabelle (oder eine CSV im CoinTracking-Importformat, das viele Börsen anbieten); Blockpit → Transaktionen → CSV exportieren. Jedes Konto darin wird eine eigene Wallet. Diese Formate sind aus der Dokumentation abgeleitet und noch nicht an echten Exporten bestätigt: Der Report zeigt dazu eine Warnung, bitte Beträge, Gebühren und Zeitzone prüfen und Abweichungen melden. Eine Wallet nicht doppelt laden (Sammelimport <em>und</em> eigener Export).</li>
         </ul>
         <p>Käufe ohne CSV (Robosats, Bargeld, P2P) oder bei Brokern ohne eigenen Parser trägst du in eine <code>manual_buys.csv</code> ein (siehe Fragen unten).</p>
 
@@ -458,8 +458,8 @@
           <li><strong>Swissquote:</strong> Web → Account → Transactions → CSV export</li>
           <li><strong>Strike:</strong> App/Web → Activity → Generate report</li>
           <li><strong>Pocket:</strong> Web → History → Download CSV</li>
-          <li><strong>Bisq:</strong> Bisq Classic with the interface set to English or German: Portfolio → History → Export to CSV. Bisq saves the file as <code>tradeHistory.csv</code>.</li>
-          <li><strong>Other exchanges via CoinTracking or Blockpit:</strong> CoinTracking → Enter Coins/Trade List → Export CSV (or a CSV in the CoinTracking import format that many exchanges offer); Blockpit → Transactions → Export CSV. Every account in the file becomes its own wallet. These formats are derived from the documentation and not yet confirmed against real exports: the report shows a warning, so please check amounts, fees and time zone and report deviations. Do not load a wallet twice (aggregate export <em>and</em> its own export).</li>
+          <li><strong>Bisq:</strong> Bisq 1 (the classic desktop app, not Bisq 2/Bisq Easy) with the interface set to English or German: Portfolio → History → Export to CSV. Bisq saves the file as <code>tradeHistory.csv</code>.</li>
+          <li><strong>Other exchanges via CoinTracking or Blockpit:</strong> CoinTracking → "Trade List" page (or "Transactions", formerly "Enter Coins") → "CSV" button above the table (or a CSV in the CoinTracking import format that many exchanges offer); Blockpit → Transactions → Export CSV. Every account in the file becomes its own wallet. These formats are derived from the documentation and not yet confirmed against real exports: the report shows a warning, so please check amounts, fees and time zone and report deviations. Do not load a wallet twice (aggregate export <em>and</em> its own export).</li>
         </ul>
         <p>Purchases without a CSV (Robosats, cash, P2P) or from brokers without a dedicated parser go into a simple <code>manual_buys.csv</code> (see questions below).</p>
 
@@ -1057,9 +1057,8 @@
       const lower = name.toLowerCase();
       if (lower.endsWith('.json')) return 'fxcache';
       const head = bytes.slice(0, 600);
-      // BOM abstreifen: Bisq, BitBox & Co. schreiben keine, aber eine in Excel/LibreOffice
-      // neu gespeicherte CSV hat eine — und wäre sonst 'unknown' (sperrt die Berechnung).
-      const utf8 = new TextDecoder('utf-8').decode(head).replace(/^\uFEFF/, '');
+      // TextDecoder('utf-8') streift eine BOM (Excel „CSV UTF-8") selbst ab — der Parser (read_rows) ebenfalls
+      const utf8 = new TextDecoder('utf-8').decode(head);
       const latin = new TextDecoder('latin1').decode(head);
       const h = utf8.split(/\r?\n/)[0].trim();
       const hLatin = latin.split(/\r?\n/)[0].trim();

@@ -233,7 +233,7 @@ von Person zu Person oder gegen Bargeld — gibt es drei Wege:
 
 ### Option A: Bisq-CSV direkt importieren (empfohlen für Bisq-Nutzer)
 
-Bisq Classic bietet einen CSV-Export unter „Portfolio → Verlauf → Als CSV exportieren"
+Bisq 1 (die klassische Desktop-App, nicht Bisq 2/Bisq Easy) bietet einen CSV-Export unter „Portfolio → Verlauf → Als CSV exportieren"
 (englische Oberfläche: „Portfolio → History → Export to CSV"). Das Tool liest die deutschen und die
 englischen Spaltenköpfe; bei einer anderen Oberflächensprache die Sprache unter
 Einstellungen → Voreinstellungen umstellen und neu exportieren. Bisq speichert als `tradeHistory.csv`:

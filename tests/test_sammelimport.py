@@ -126,6 +126,8 @@ class CoinTrackingImport(unittest.TestCase):
         self.assertIn("Zufluss", joined)
         self.assertIn("Bezahlung mit", joined)
         self.assertIn("'Lost'", joined)
+        self.assertIn("Geschenk erhalten", joined)
+        self.assertIn("Schenkers", joined)
         self.assertTrue(all(w.year == 2024 for w in parsers.parser_warnings if w.year is not None))
 
     def test_unconfirmed_format_warning_is_public_and_redacts_filename(self):

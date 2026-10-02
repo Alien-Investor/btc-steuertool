@@ -144,7 +144,8 @@ _MONTHS_EN = {
 # NBSP (U+00A0) und NNBSP (U+202F): Java ab Version 20 (CLDR 42) setzt in en_US ein
 # schmales geschütztes Leerzeichen vor AM/PM — Bisq läuft auf Java 21.
 _WS = re.compile(r"[\s  ]+")
-_TIME_TAIL = re.compile(r"^(.*?)[\s,]+(\d{1,2}):(\d{2}):(\d{2})(?:\s*([ap])\.?m\.?)?$", re.IGNORECASE)
+# Uhrzeit-Trenner „:" oder „." (en_DK, en_FI schreiben 14.22.10 — Faktencheck 03.10.2026)
+_TIME_TAIL = re.compile(r"^(.*?)[\s,]+(\d{1,2})[:.](\d{2})[:.](\d{2})(?:\s*([ap])\.?m\.?)?$", re.IGNORECASE)
 _DATE_SPLIT = re.compile(r"[\s,/.\-]+")
 
 
@@ -159,6 +160,7 @@ def parse_datetime_en(raw: str) -> datetime:
       en_AU, en_SG:                              15 Mar 2024 2:22:10 pm
       en_IN:                                     15-Mar-2024 2:22:10 pm
       en_NZ:                                     15/03/2024 2:22:10 pm
+      en_DK, en_FI:                              15 Sept 2024 14.22.10  (Punkt als Uhrzeit-Trenner)
     Rein numerische englische Formen sind Tag-zuerst; Monat-zuerst gibt es in den
     mittleren Formaten nur mit Monatsnamen.
     """

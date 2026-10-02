@@ -93,6 +93,7 @@ class EnglishDateFormats(unittest.TestCase):
         "15 Mar 2024 2:22:10 pm": (2024, 3, 15, 14, 22, 10),        # en_AU, en_SG
         "15-Mar-2024 2:22:10 pm": (2024, 3, 15, 14, 22, 10),        # en_IN
         "15/03/2024 2:22:10 pm": (2024, 3, 15, 14, 22, 10),         # en_NZ (Tag zuerst)
+        "15 Sept 2024 14.22.10": (2024, 9, 15, 14, 22, 10),         # en_DK, en_FI: Punkt in der Uhrzeit
         "Mar 15, 2024 12:05:00 AM": (2024, 3, 15, 0, 5, 0),         # Mitternacht
         "Mar 15, 2024 12:05:00 PM": (2024, 3, 15, 12, 5, 0),        # Mittag
         "Mar 15, 2024 11:59:59 PM": (2024, 3, 15, 23, 59, 59),

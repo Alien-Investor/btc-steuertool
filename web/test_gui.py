@@ -95,9 +95,13 @@ with sync_playwright() as p:
             failures.append(f"Referenz fehlt: {name}")
             print(f"  ✗ {name}: keine CLI-Referenz")
             continue
-        a = ref.read_text(encoding="utf-8").replace("\r\n", "\n").rstrip("\n")
-        b = content.replace("\r\n", "\n").rstrip("\n")
-        ok = a == b
+        if name.endswith(".csv"):
+            # CSV byte-gleich (seit v1.3 liest der Bootstrap die Reports als Bytes, CRLF bleibt)
+            ok = ref.read_bytes() == content.encode("utf-8")
+        else:
+            a = ref.read_text(encoding="utf-8").replace("\r\n", "\n").rstrip("\n")
+            b = content.replace("\r\n", "\n").rstrip("\n")
+            ok = a == b
         print(f"  {'✓' if ok else '✗'} {name}")
         if not ok:
             failures.append(f"Inhalt weicht ab: {name}")
