@@ -27,8 +27,9 @@ Regeln (steuerrelevant, deshalb hier festgehalten):
 from __future__ import annotations
 import csv
 import json
+import re
 from datetime import date
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 
 TABLE_PATH = Path(__file__).parent / "data" / "ecb_eur_daily.csv"
@@ -37,23 +38,42 @@ SOURCE_LABEL = "Euro-Referenzkurse der Europäischen Zentralbank"
 CACHE_FILE = Path(__file__).parent.parent / "fx_cache.json"
 _cache: dict[str, Decimal] = {}
 _table: dict[str, dict[date, Decimal]] | None = None
-# Wurde in diesem Lauf ein Tabellenkurs verwendet? (für die Quellenangabe im Nachweis)
+# Wurde in diesem Lauf ein Tabellenkurs / ein manueller Kurs verwendet? (für die Quellenangabe im Nachweis)
 used_table = False
+used_override = False
+# Gleiche Regel wie die GUI (web/index.html): Schlüssel "JJJJ-MM-TT:WÄHRUNG", Wert endlich und 0 < v < 100000.
+_KEY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}:[A-Z]{3}$")
+_MAX_RATE = Decimal("100000")
 
 
 def init(data_dir: Path) -> None:
     """Override-Datei auf ein anderes Datenverzeichnis umlenken (z.B. --data-dir)."""
-    global CACHE_FILE, _cache, used_table
+    global CACHE_FILE, _cache, used_table, used_override
     CACHE_FILE = data_dir / "fx_cache.json"
     _cache = {}  # leeren, damit beim nächsten Zugriff neu geladen wird
     used_table = False
+    used_override = False
 
 
 def _load_cache() -> None:
+    """Manuelle Kurse laden — ungültige Einträge brechen ab, statt still Steuerzahlen zu verfälschen
+    (ein Kurs 0 machte aus einem USD-Verkauf 0 EUR Erlös; Audit run-1)."""
     global _cache
     if CACHE_FILE.exists():
         raw = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
-        _cache = {k: Decimal(str(v)) for k, v in raw.items()}
+        if not isinstance(raw, dict):
+            raise RuntimeError(f"{CACHE_FILE.name}: erwartet ein JSON-Objekt {{\"JJJJ-MM-TT:WÄHRUNG\": Kurs}}.")
+        cache: dict[str, Decimal] = {}
+        for k, v in raw.items():
+            try:
+                rate = Decimal(str(v))
+            except (InvalidOperation, ValueError):
+                rate = None
+            if not _KEY_RE.match(str(k)) or rate is None or not rate.is_finite() or not (0 < rate < _MAX_RATE):
+                raise RuntimeError(f"{CACHE_FILE.name}: ungültiger Eintrag \"{k}\": {v!r} — erwartet "
+                                   f"\"JJJJ-MM-TT:WÄHRUNG\" mit einem Kurs größer 0 (EUR je Einheit).")
+            cache[k] = rate
+        _cache = cache
 
 
 def _load_table() -> dict[str, dict[date, Decimal]]:
@@ -92,7 +112,7 @@ def eur_rate_for_date(d: date, from_currency: str) -> Decimal:
     Z.B. eur_rate_for_date(date(2023, 8, 15), "USD") → Decimal("0.91525")
     Bedeutet: 1 USD = 0.91525 EUR
     """
-    global used_table
+    global used_table, used_override
     from_currency = from_currency.upper()
     if from_currency == "EUR":
         return Decimal("1")
@@ -101,6 +121,7 @@ def eur_rate_for_date(d: date, from_currency: str) -> Decimal:
         _load_cache()
     cache_key = f"{d.isoformat()}:{from_currency}"
     if cache_key in _cache:
+        used_override = True
         return _cache[cache_key]
 
     hint = (f"Kurs bitte selbst nachschlagen und in fx_cache.json im Datenverzeichnis "

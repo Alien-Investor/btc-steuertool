@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from ..models import Transaction, TxType
+from ..models import Transaction, TxType, de_date
 from . import warn, warn_fmt, FileRef
 
 
@@ -44,12 +44,12 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
                     "{file}: BTC-Verkauf am {tag} wird vom 21bitcoin-Parser "
                     "noch nicht unterstützt — bitte als manual_sales.csv erfassen, "
                     "sonst ist der Report unvollständig.",
-                    file=FileRef(filename), tag=date.date(), year=date.year, internal=False,
+                    file=FileRef(filename), tag=de_date(date), year=de_date(date).year, internal=False,
                 )
             else:
                 warn_fmt(
                     "{file}: Trade-Zeile mit {a}→{b} nicht verarbeitet.",
-                    file=FileRef(filename), a=sell_asset, b=buy_asset, year=date.year, internal=False,
+                    file=FileRef(filename), a=sell_asset, b=buy_asset, year=de_date(date).year, internal=False,
                 )
             return None
 
@@ -82,8 +82,8 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
                 warn_fmt(
                     "{file}: Auszahlung am {tag} mit sell_asset='{asset}' nicht "
                     "verarbeitet — erwartet wird BTC.",
-                    file=FileRef(filename), tag=date.date(), asset=sell_asset,
-                    year=date.year, internal=False,
+                    file=FileRef(filename), tag=de_date(date), asset=sell_asset,
+                    year=de_date(date).year, internal=False,
                 )
             return None
 
@@ -98,7 +98,7 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
                 "{file}: Auszahlungsgebühr {fee} {asset} am {tag} nicht verarbeitet — "
                 "erwartet wird eine Gebühr in BTC.",
                 file=FileRef(filename), fee=fee_btc, asset=fee_asset or "?",
-                tag=date.date(), year=date.year, internal=False,
+                tag=de_date(date), year=de_date(date).year, internal=False,
             )
             fee_btc = Decimal("0")
 
@@ -124,14 +124,14 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
             warn_fmt(
                 "{file}: Einzahlung am {tag} mit buy_asset='{asset}' nicht "
                 "verarbeitet — erwartet wird EUR.",
-                file=FileRef(filename), tag=date.date(), asset=buy_asset,
-                year=date.year, internal=False,
+                file=FileRef(filename), tag=de_date(date), asset=buy_asset,
+                year=de_date(date).year, internal=False,
             )
         return None
 
     if tx_type_raw != "deposit":
         warn_fmt(
             "{file}: unbekannter Transaktionstyp '{typ}' am {tag} nicht verarbeitet.",
-            file=FileRef(filename), typ=tx_type_raw, tag=date.date(), year=date.year, internal=False,
+            file=FileRef(filename), typ=tx_type_raw, tag=de_date(date), year=de_date(date).year, internal=False,
         )
     return None

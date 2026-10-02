@@ -175,9 +175,12 @@ class FifoEngine:
                     # Typischer Grund bei Gebühr/Schenkung: die Wallet hält Bestand,
                     # dessen Kauf hier nicht erfasst ist — oder sie liegt im
                     # falschen Pool (eine Wallet unter bitbox/nokyc/, deren Coins
-                    # aus KYC-Käufen stammen, findet dort keine Lots).
-                    hint = ("Stammt der Bestand dieser Wallet aus einem hier nicht erfassten "
-                            "Kauf, oder ist die Wallet dem falschen Bestand (KYC/noKYC) zugeordnet?")
+                    # aus KYC-Käufen stammen, findet dort keine Lots). Den Pool-Hinweis
+                    # NUR bei noKYC-Vorgängen (Warnung ist dann ohnehin intern): bei
+                    # KYC-Wallets ginge „noKYC" sonst ans Finanzamt (Audit run-1, Fund 3).
+                    hint = "Stammt der Bestand dieser Wallet aus einem hier nicht erfassten Kauf?"
+                    if tx.no_kyc:
+                        hint += " Oder gehört die Wallet in den KYC-Bestand?"
                 self.warnings.append(make_warning(
                     f"WARNUNG: {self._KIND_LABEL[kind]} am {de_date(tx.date)} über {quantity:.8f} BTC "
                     f"kann nicht vollständig FiFo-Lots zugeordnet werden. "

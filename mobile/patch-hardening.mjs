@@ -46,6 +46,14 @@ if (!/android:allowBackup="false"/.test(m) || /android\.permission\.INTERNET/.te
   die('Manifest-Härtung unvollständig');
 if (/<uses-permission/.test(m)) die('Quell-Manifest deklariert eine Berechtigung');
 
+// ── 1b) config.xml (von cap sync erzeugt): kein Live-Update-Basispfad. Ohne das könnte Seiten-JS über das Kernplugin
+//        WebView (setServerBasePath + persistServerBasePath) einen anderen Ordner dauerhaft als App-Ursprung setzen (Audit run-1).
+const CONFIG = 'android/app/src/main/res/xml/config.xml';
+let cx = readFileSync(CONFIG, 'utf8');
+if (!/name="DisableDeploy"/.test(cx)) cx = cx.replace('</widget>', '  <preference name="DisableDeploy" value="true" />\n</widget>');
+writeFileSync(CONFIG, cx);
+if (!/<preference name="DisableDeploy" value="true" \/>/.test(cx)) die('DisableDeploy fehlt in config.xml');
+
 // ── 2–4) Java ──
 const DIR = 'android/app/src/main/java/org/alieninvestor/steuertool';
 mkdirSync(DIR, { recursive: true });
@@ -82,9 +90,15 @@ public class MainActivity extends BridgeActivity {
         s.setJavaScriptCanOpenWindowsAutomatically(false);
         s.setSupportMultipleWindows(false);
         s.setAllowFileAccess(false);          // Inhalte kommen nur vom App-eigenen Server (https://localhost), nie über file://
+        s.setAllowContentAccess(false);       // kein content:// in der WebView
         getBridge().setWebViewClient(new BridgeWebViewClient(getBridge()) {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                // Capacitors Dateibrücke (/_capacitor_file_/, /_capacitor_content_/) liest beliebige App-Dateien — die GUI braucht sie nie
+                String path = request.getUrl().getPath();
+                if (path != null && (path.startsWith("/_capacitor_file_") || path.startsWith("/_capacitor_content_"))) {
+                    return new WebResourceResponse("text/plain", "utf-8", 404, "Not Found", new HashMap<>(), new java.io.ByteArrayInputStream(new byte[0]));
+                }
                 WebResourceResponse r = super.shouldInterceptRequest(view, request);
                 if (r != null) {
                     Map<String, String> h = new HashMap<>();
@@ -120,18 +134,29 @@ import java.util.regex.Pattern;
 
 /** Einzige Brücke zur Seite: save({name, data}) öffnet den Android-Speichern-Dialog (SAF) und schreibt die Bytes an den
  *  gewählten Ort. Gleiche Regeln wie saveFile der Desktop-Hülle: Name ^[\\w.-]{1,120}\\.(txt|csv|zip)$, höchstens 50 MB.
- *  Keine Berechtigung nötig — Android gibt nur für das eine gewählte Dokument Schreibzugriff. Erzeugt von mobile/patch-hardening.mjs. */
+ *  Keine Berechtigung nötig — Android gibt nur für das eine gewählte Dokument Schreibzugriff. Erzeugt von mobile/patch-hardening.mjs.
+ *  Die Bytes liegen während des Dialogs NUR im Feld pending, nie in der PluginCall: Capacitor schreibt die Optionen der letzten
+ *  Activity-Call sonst beim Verdecken der App ins Instance-State-Bundle (2× als UTF-16) → TransactionTooLargeException ab ~190 KB
+ *  (Audit run-1, R-1). saveInstanceState() liefert deshalb null, und jede Call wird nach dem Ergebnis freigegeben. */
 @CapacitorPlugin(name = "SaveFile")
 public class SaveFilePlugin extends Plugin {
     private static final Pattern NAME = Pattern.compile("^[\\\\w.-]{1,120}\\\\.(txt|csv|zip)$");
     private static final int MAX = 50 * 1024 * 1024;
+    private byte[] pending = null;   // Bytes des offenen Speichern-Dialogs; höchstens einer gleichzeitig
 
     @PluginMethod
     public void save(PluginCall call) {
+        if (pending != null) { call.reject("Es ist bereits ein Speichern-Dialog offen"); return; }
         String name = call.getString("name", "");
         String data = call.getString("data");
         if (name == null || !NAME.matcher(name).matches()) { call.reject("Ungültiger Dateiname"); return; }
-        if (data == null || data.length() > (MAX / 3 + 1) * 4) { call.reject("Datei zu groß oder leer"); return; }
+        if (data == null || data.isEmpty() || data.length() > (MAX / 3 + 1) * 4) { call.reject("Datei zu groß oder leer"); return; }
+        byte[] bytes;
+        try { bytes = Base64.decode(data, Base64.DEFAULT); }
+        catch (IllegalArgumentException e) { call.reject("Daten unlesbar"); return; }
+        if (bytes.length == 0 || bytes.length > MAX) { call.reject("Datei zu groß oder leer"); return; }
+        call.getData().remove("data");   // nichts Großes in der Call lassen (Instance-State, savedCalls)
+        pending = bytes;
         String mime = name.endsWith(".zip") ? "application/zip" : name.endsWith(".csv") ? "text/csv" : "text/plain";
         Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT);
         i.addCategory(Intent.CATEGORY_OPENABLE);
@@ -140,26 +165,46 @@ public class SaveFilePlugin extends Plugin {
         startActivityForResult(call, i, "onPicked");
     }
 
+    // Nichts ins Bundle: nach einem Prozess-Neustart gäbe es die Bytes ohnehin nicht mehr
+    @Override
+    protected android.os.Bundle saveInstanceState() { return null; }
+
+    // Vom Dialog angelegte, LEERE Datei wieder entfernen. Nur bei nachweislich 0 Byte: hat der Nutzer eine bestehende Datei zum
+    // Ersetzen gewählt und das Schreiben scheiterte vor dem Kürzen, bleibt sie unangetastet.
+    private void dropDocument(Uri uri) {
+        try (Cursor c = getContext().getContentResolver().query(uri, new String[] { OpenableColumns.SIZE }, null, null, null)) {
+            if (c == null || !c.moveToFirst() || c.isNull(0) || c.getLong(0) != 0) return;
+        } catch (Exception e) { return; }
+        try { android.provider.DocumentsContract.deleteDocument(getContext().getContentResolver(), uri); } catch (Exception ignored) { }
+    }
+
     @ActivityCallback
     private void onPicked(PluginCall call, ActivityResult result) {
-        if (call == null) return;
-        JSObject ret = new JSObject();
+        byte[] bytes = pending;
+        pending = null;
         Uri uri = (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) ? result.getData().getData() : null;
-        if (uri == null) { ret.put("saved", false); call.resolve(ret); return; }   // abgebrochen
-        byte[] bytes;
-        try { bytes = Base64.decode(call.getString("data", ""), Base64.DEFAULT); }
-        catch (IllegalArgumentException e) { call.reject("Daten unlesbar"); return; }
-        try (OutputStream os = getContext().getContentResolver().openOutputStream(uri, "wt")) {
-            if (os == null) throw new java.io.IOException("kein Ziel");
-            os.write(bytes);
-        } catch (Exception e) { call.reject("Speichern fehlgeschlagen: " + e.getMessage()); return; }
-        String shown = call.getString("name");
-        try (Cursor c = getContext().getContentResolver().query(uri, new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null)) {
-            if (c != null && c.moveToFirst() && c.getString(0) != null) shown = c.getString(0);
-        } catch (Exception ignored) { }
-        ret.put("saved", true);
-        ret.put("name", shown);
-        call.resolve(ret);
+        if (call == null || bytes == null) {   // App wurde während des Dialogs neu gestartet — Bytes sind weg
+            if (uri != null) dropDocument(uri);
+            if (call != null) { call.reject("Speichern abgebrochen — bitte erneut speichern"); getBridge().releaseCall(call); }
+            return;
+        }
+        try {
+            JSObject ret = new JSObject();
+            if (uri == null) { ret.put("saved", false); call.resolve(ret); return; }   // abgebrochen
+            try (OutputStream os = getContext().getContentResolver().openOutputStream(uri, "wt")) {
+                if (os == null) throw new java.io.IOException("kein Ziel");
+                os.write(bytes);
+            } catch (Exception e) { dropDocument(uri); call.reject("Speichern fehlgeschlagen: " + e.getMessage()); return; }
+            String shown = call.getString("name");
+            try (Cursor c = getContext().getContentResolver().query(uri, new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null)) {
+                if (c != null && c.moveToFirst() && c.getString(0) != null) shown = c.getString(0);
+            } catch (Exception ignored) { }
+            ret.put("saved", true);
+            ret.put("name", shown);
+            call.resolve(ret);
+        } finally {
+            getBridge().releaseCall(call);
+        }
     }
 }
 `);
@@ -200,7 +245,7 @@ ${linksJava}
         String s = u.toString();
         if (s.length() > MAIL_MAX) return false;
         String ssp = u.getEncodedSchemeSpecificPart();
-        if (ssp == null) return false;
+        if (ssp == null || u.getEncodedFragment() != null) return false;   // wie desktop/main.js: kein #-Fragment
         int q = ssp.indexOf('?');
         String addr = Uri.decode(q < 0 ? ssp : ssp.substring(0, q)).toLowerCase(Locale.ROOT);
         if (!MAIL.equals(addr)) return false;
@@ -235,4 +280,8 @@ ${linksJava}
 const main = readFileSync(DIR + '/MainActivity.java', 'utf8');
 if (!main.includes('FLAG_SECURE') || !main.includes('registerPlugin(SaveFilePlugin.class)') || !main.includes('registerPlugin(LinkGuardPlugin.class)'))
   die('MainActivity unvollständig');
+if (!main.includes('setAllowContentAccess(false)') || !main.includes('"/_capacitor_file_"')) die('MainActivity-Härtung unvollständig');
+const sf = readFileSync(DIR + '/SaveFilePlugin.java', 'utf8');
+if (!sf.includes('call.getData().remove("data")') || !sf.includes('saveInstanceState() { return null; }') || !sf.includes('getBridge().releaseCall(call)'))
+  die('SaveFilePlugin hält die Daten wieder in der PluginCall (Instance-State-Absturz, Audit R-1)');
 console.log(`Gehärtet: Manifest (keine Berechtigung, kein Backup), FLAG_SECURE, CSP-Header, SaveFile, LinkGuard (${LINKS.length} Links + mailto ${MAIL[1]}).`);

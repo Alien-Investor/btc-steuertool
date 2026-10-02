@@ -40,6 +40,10 @@ echo "$MAN" | grep -qE 'android:dataExtractionRules\(0x[0-9a-f]+\)=@0x[0-9a-f]+'
 RULES_OK=0; for x in $(unzip -Z1 "$APK" 'res/*.xml'); do D="$("$BT/aapt" dump xmltree "$APK" "$x" 2>/dev/null || true)"
   if echo "$D" | grep -q "E: data-extraction-rules" && echo "$D" | grep -q "E: cloud-backup" && echo "$D" | grep -q "E: device-transfer" && [ "$(echo "$D" | grep -c 'domain.*="root"')" -ge 2 ]; then RULES_OK=1; break; fi; done
 [ "$RULES_OK" = 1 ] || { echo "FEHLER: data-extraction-rules unvollständig!"; exit 1; }
+# config.xml (Ressourcenname im Release verkürzt): DisableDeploy=true, sonst kann Seiten-JS den App-Ursprung dauerhaft umlenken (Audit run-1)
+DEPLOY_OK=0; for x in $(unzip -Z1 "$APK" 'res/*.xml'); do D="$("$BT/aapt" dump xmltree "$APK" "$x" 2>/dev/null || true)"
+  if echo "$D" | grep -q "E: :widget" && echo "$D" | grep -A2 'E: :preference' | grep -A1 'name="DisableDeploy"' | grep -q 'value=(type 0x12)0xffffffff'; then DEPLOY_OK=1; break; fi; done
+[ "$DEPLOY_OK" = 1 ] || { echo "FEHLER: DisableDeploy fehlt in der APK-config.xml!"; exit 1; }
 # Bytecode: beide Plugins, CSP-Header, Speichern-Dialog (FLAG_SECURE prüft patch-hardening.mjs am erzeugten Java)
 DEXTMP="$(mktemp -d)"; unzip -q -o "$APK" 'classes*.dex' -d "$DEXTMP"
 DEX=""; for d in "$DEXTMP"/classes*.dex; do DEX+="$("$BT/dexdump" -d "$d" 2>/dev/null | grep -aE 'org/alieninvestor/steuertool|const-string' || true)"; done

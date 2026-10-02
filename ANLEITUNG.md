@@ -380,6 +380,8 @@ Gewinn — aber die Bitcoin verlassen deinen Bestand, und der Report listet je L
 Anschaffungsdatum und den Einstand, weil beides für den Beschenkten weitergilt
 (§ 23 Abs. 1 Satz 3 EStG). Jede so eingestufte Zeile steht sichtbar unter
 „UNENTGELTLICHE ÜBERTRAGUNGEN", der Ladevorgang meldet die Anzahl — prüf sie kurz.
+Notizen mit „Gutschein" oder „Gift Card" und verneinte Formen wie „kein Geschenk" wertet
+das Tool nicht als Schenkung.
 Die Netzwerkgebühr der Schenkung wird wie jede andere Gebühr behandelt.
 
 **Swissquote hat manche Käufe in USD — ist das ein Problem?**

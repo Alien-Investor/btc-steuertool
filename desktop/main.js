@@ -41,12 +41,15 @@ app.commandLine.appendSwitch('force-webrtc-ip-handling-policy','disable_non_prox
 app.enableSandbox();
 
 // Ein mailto nur an die feste Adresse, nur mit subject/body (Bug-Report) — öffnet das Mailprogramm, gesendet wird dort vom Nutzer
+// Kaputte %-Kodierung (decodeURIComponent wirft) und ein #-Fragment gelten als ungültig — nie eine Ausnahme im Hauptprozess.
 function mailOk(u){
   if(u.length>MAIL_MAX) return false;
-  let p; try{ p=new URL(u); }catch(_){ return false; }
-  if(p.protocol!=='mailto:'||decodeURIComponent(p.pathname).toLowerCase()!==MAIL) return false;
-  for(const k of p.searchParams.keys()) if(k!=='subject'&&k!=='body') return false;
-  return true;
+  try{
+    const p=new URL(u);
+    if(p.protocol!=='mailto:'||p.hash||decodeURIComponent(p.pathname).toLowerCase()!==MAIL) return false;
+    for(const k of p.searchParams.keys()) if(k!=='subject'&&k!=='body') return false;
+    return true;
+  }catch(_){ return false; }
 }
 function linkOk(u){
   if(typeof u!=='string') return false;

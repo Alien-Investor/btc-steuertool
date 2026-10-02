@@ -219,7 +219,9 @@ Schenkung/Spende).
     - Swissquote Broker CSV-Export
     - Strike Broker CSV-Export
     - Pocket Broker CSV-Export
-    - Manuell (P2P) Broker CSV-Export
+    - Manuell erfasste Transaktionen (CSV)
+    - Fremdwährung in EUR umgerechnet: teils manuell erfasste Kurse
+      (fx_cache.json)
 
   Verarbeitete Transaktionen gesamt:
     Käufe:                  6

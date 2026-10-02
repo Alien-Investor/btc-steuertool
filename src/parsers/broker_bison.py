@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from ..models import Transaction, TxType
+from ..models import Transaction, TxType, de_date
 from . import warn
 
 
@@ -101,9 +101,9 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
         fee_raw = _decimal(row.get("Fee", "0"))
         if fee_raw > 0:
             warn(
-                f"{filename}: BTC-Auszahlung am {date.date()} mit Gebühr {fee_raw} — "
+                f"{filename}: BTC-Auszahlung am {de_date(date)} mit Gebühr {fee_raw} — "
                 f"Einheit im Export nicht erkennbar, Gebühr NICHT verbucht.",
-                internal=False, year=date.year,
+                internal=False, year=de_date(date).year,
             )
         return Transaction(
             date=date,
@@ -120,7 +120,7 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
     # EUR-Ein-/Auszahlungen und andere Assets (ETH etc.) sind bekannt irrelevant —
     # unbekannte BTC-Zeilen aber melden (z.B. 'Withdraw' BTC oder neue Typen)
     if asset == "BTC":
-        warn(f"{filename}: Transaktionstyp '{tx_type_raw}' (BTC) am {date.date()} nicht verarbeitet.", internal=False)
+        warn(f"{filename}: Transaktionstyp '{tx_type_raw}' (BTC) am {de_date(date)} nicht verarbeitet.", internal=False)
     return None
 
 

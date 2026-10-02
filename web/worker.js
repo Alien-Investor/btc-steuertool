@@ -61,12 +61,13 @@ self.onmessage = async (e) => {
       for (const f of dataFiles) writeFS(f.target, f.bytes);
 
       const result = JSON.parse(pyodide.runPython(bootstrap));
-      self.postMessage({ type: 'result', result });
+      self.postMessage({ type: 'result', id: msg.id, result });   // Lauf-ID zurück: die GUI nimmt nur die passende Antwort an
       return;
     }
   } catch (err) {
     self.postMessage({
       type: msg.cmd === 'init' ? 'init-error' : 'error',
+      id: msg.id,
       message: String((err && err.message) || err),
     });
   }

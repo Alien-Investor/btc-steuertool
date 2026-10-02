@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from ..models import Transaction, TxType, sat_to_btc
+from ..models import Transaction, TxType, sat_to_btc, de_date
 from . import warn, warn_fmt, FileRef
 
 # Ganze Wörter, Groß-/Kleinschreibung egal. Bewusst KEINE Teilwort-Treffer
@@ -34,11 +34,20 @@ _GIFT_WORDS = re.compile(
     r"\b(spende|spenden|gespendet|schenkung|geschenk|geschenkt|verschenkt|donation|donated|gift)\b",
     re.IGNORECASE,
 )
+# Bezahlte Vorgänge und Verneinungen, die trotzdem ein Schenkungswort enthalten
+# (Audit run-1, Fund 4): „Gift Card", „Geschenk-Gutschein", „kein Geschenk". Ein
+# Gutschein-Kauf mit BTC ist eine Veräußerung, kein unentgeltlicher Abgang — als
+# GIFT_OUT verbrauchte er Lots und der Nachweis bescheinigte „ohne Gegenleistung".
+_NOT_GIFT = re.compile(
+    r"gift[\s_-]*cards?|gutschein|voucher|"
+    r"\b(kein|keine|keinen|nicht|no|not)\b[\s-]+(\w+[\s-]+)?(geschenk|geschenkt|spende|schenkung|gift|donation)",
+    re.IGNORECASE,
+)
 
 
 def is_gift_note(note: str) -> bool:
-    """True, wenn die Wallet-Notiz eine Schenkung/Spende benennt."""
-    return bool(note) and _GIFT_WORDS.search(note) is not None
+    """True, wenn die Wallet-Notiz eine Schenkung/Spende benennt (und keinen Gutschein-Kauf oder eine Verneinung)."""
+    return bool(note) and _GIFT_WORDS.search(note) is not None and _NOT_GIFT.search(note) is None
 
 
 def parse(filepath: Path) -> list[Transaction]:
@@ -113,7 +122,7 @@ def _parse_row(row: dict, source: str, filename: str, no_kyc: bool = False) -> T
                 "{file}: Gebühr '{fee}' mit unbekannter Einheit '{unit}' am {tag} "
                 "nicht verarbeitet — Bestandsabgang fehlt.",
                 internal=no_kyc, file=FileRef(filename), fee=fee_raw, unit=fee_unit,
-                tag=date.date(), year=date.year,
+                tag=de_date(date), year=de_date(date).year,
             )
 
     if self_transfer:

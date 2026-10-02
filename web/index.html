@@ -440,7 +440,7 @@
         <h2>Häufige Fragen</h2>
         <p><strong>Käufe in CHF oder USD (Swissquote, Pocket)?</strong><br>Die App rechnet sie mit dem EZB-Referenzkurs des Kauftags in EUR um (Wochenende/Feiertag: letzter Kurs davor). Die Kurstabelle liegt in der App, es wird kein Kursdienst angefragt. Liegt ein Kauf nach dem Datenstand der Tabelle, bricht die App mit einer Erklärung ab, statt einen alten Kurs zu nehmen.</p>
         <p><strong>Überträge zwischen meinen Wallets und ihre Gebühren?</strong><br>Der übertragene Bestand bleibt steuerneutral und behält sein Kaufdatum. Die Netzwerk- oder Auszahlungsgebühr in Bitcoin bucht die App als kleine Veräußerung des Gebührenanteils: Die Gebühr ist ein Tausch gegen eine Dienstleistung (abgeleitet aus dem BMF-Schreiben vom 06.03.2025, Rn. 33, 54, 60). FiFo-Zuordnung, Bewertung zum Tagesschlusskurs (Rn. 91), eigener Abschnitt „GEBÜHREN IN BITCOIN“ im Report.</p>
-        <p><strong>Bitcoin verschenkt oder gespendet?</strong><br>Trag in der BitBoxApp vor dem Export ein Wort wie „Spende“, „Geschenk“ oder „Schenkung“ in die Notiz der Transaktion ein. Die App bucht die Zeile dann als unentgeltliche Übertragung: kein Verkauf, kein Gewinn, aber ein Abgang aus dem Bestand. Der Report nennt je Lot Kaufdatum und Einstand, weil dem Empfänger die Anschaffung zugerechnet wird (§ 23 Abs. 1 Satz 3 EStG). Eine dabei gezahlte Netzwerkgebühr bleibt eine kleine Veräußerung (siehe oben).</p>
+        <p><strong>Bitcoin verschenkt oder gespendet?</strong><br>Trag in der BitBoxApp vor dem Export ein Wort wie „Spende“, „Geschenk“ oder „Schenkung“ in die Notiz der Transaktion ein. Die App bucht die Zeile dann als unentgeltliche Übertragung: kein Verkauf, kein Gewinn, aber ein Abgang aus dem Bestand. Der Report nennt je Lot Kaufdatum und Einstand, weil dem Empfänger die Anschaffung zugerechnet wird (§ 23 Abs. 1 Satz 3 EStG). Eine dabei gezahlte Netzwerkgebühr bleibt eine kleine Veräußerung (siehe oben). Notizen mit „Gutschein“ oder „Gift Card“ und verneinte Formen wie „kein Geschenk“ wertet die App nicht als Schenkung.</p>
         <p><strong>Mein Broker fehlt?</strong><br>Käufe in <code>manual_buys.csv</code> eintragen (<code>date,btc_amount,eur_amount,note,kyc</code>; bei KYC-Brokern wie Coinbase die Spalte <code>kyc</code> auf <code>ja</code>). Und die CSV-Kopfzeile ohne echte Daten an <a href="mailto:kontakt@alien-investor.org">kontakt@alien-investor.org</a> schicken. Neue Parser kommen mit einem Update.</p>
         <p><strong>Erst mal ausprobieren?</strong><br>„Mit Beispieldaten testen“ lädt fiktive Daten für alle unterstützten Broker. Oder die Beispieldaten als ZIP speichern und selbst in die Zone ziehen.</p>
 
@@ -492,7 +492,7 @@
         <h2>Frequently asked</h2>
         <p><strong>Purchases in CHF or USD (Swissquote, Pocket)?</strong><br>The app converts them to EUR at the ECB reference rate of the purchase day (weekend/holiday: last rate before). The rate table ships with the app; no rate service is queried. If a purchase lies after the table's data date, the app stops with an explanation instead of using an old rate.</p>
         <p><strong>Transfers between my wallets and their fees?</strong><br>The transferred holding stays tax-neutral and keeps its purchase date. The network or withdrawal fee paid in bitcoin is booked as a small disposal of the fee share: the fee is an exchange for a service (derived from the German Federal Ministry of Finance letter of 06.03.2025, paras. 33, 54, 60). FiFo matching, valued at the daily closing price (para. 91), own section "GEBÜHREN IN BITCOIN" in the report.</p>
-        <p><strong>Gave bitcoin away or donated it?</strong><br>Before exporting, put a word like "gift", "donation", "Spende", "Geschenk" or "Schenkung" into the transaction note in the BitBoxApp. The app then books the line as a gratuitous transfer: no sale, no gain, but the coins leave your holdings. The report lists purchase date and cost per lot, because the acquisition is attributed to the recipient (§ 23 (1) sentence 3 EStG). A network fee paid along the way is still a small disposal (see above).</p>
+        <p><strong>Gave bitcoin away or donated it?</strong><br>Before exporting, put a word like "gift", "donation", "Spende", "Geschenk" or "Schenkung" into the transaction note in the BitBoxApp. The app then books the line as a gratuitous transfer: no sale, no gain, but the coins leave your holdings. The report lists purchase date and cost per lot, because the acquisition is attributed to the recipient (§ 23 (1) sentence 3 EStG). A network fee paid along the way is still a small disposal (see above). Notes containing "gift card" or "Gutschein" (voucher) and negations such as "not a gift" are not treated as gifts.</p>
         <p><strong>My broker is missing?</strong><br>Enter purchases in <code>manual_buys.csv</code> (<code>date,btc_amount,eur_amount,note,kyc</code>; for KYC brokers like Coinbase set <code>kyc</code> to <code>ja</code>). And send the CSV header line without real data to <a href="mailto:kontakt@alien-investor.org">kontakt@alien-investor.org</a>. New parsers arrive with an update.</p>
         <p><strong>Try it first?</strong><br>"Try with sample data" loads fictitious data for all supported brokers. Or save the sample data as a ZIP and drag it into the zone yourself.</p>
 
@@ -664,7 +664,7 @@
     // Reports selbst bleiben deutsch (amtliche Dokumente fürs Finanzamt) — nur die UI wechselt.
     const _qsLang = new URLSearchParams(window.location.search).get('lang');
     let currentLang = (_qsLang === 'de' || _qsLang === 'en') ? _qsLang
-      : (localStorage.getItem('alien-lang') || 'de');
+      : (['de', 'en'].includes(localStorage.getItem('alien-lang')) ? localStorage.getItem('alien-lang') : 'de');
 
     const i18n = {
       de: {
@@ -756,6 +756,7 @@
           'verkaeufe_':      'Verkäufe (CSV)',
           'nokyc_intern_':   '⚠ noKYC intern',
         },
+        errInputsChanged: 'Dateien oder Einstufung wurden während der Berechnung geändert — bitte erneut berechnen.',
         logNameClash: (n, u) => `Zwei verschiedene Dateien heißen „${n}" — beide behalten, die zweite läuft als „${u}". Bitte prüfen, ob das gewollt ist.`,
         logZipNested: n => `„${n}" ist ein verschachteltes ZIP und wurde NICHT entpackt — bitte separat entpacken und die Dateien einzeln laden.`,
         logZipShort: (n, got, want) => `„${n}": nur ${got} von ${want} Einträgen entpackt — der Rest nutzt ein nicht unterstütztes Kompressionsverfahren. Bitte manuell entpacken.`,
@@ -882,6 +883,7 @@
           'verkaeufe_':      'Sells (CSV)',
           'nokyc_intern_':   '⚠ noKYC internal',
         },
+        errInputsChanged: 'Files or classification changed during the calculation — please calculate again.',
         logNameClash: (n, u) => `Two different files are named "${n}" — keeping both, the second one runs as "${u}". Please check whether that is intended.`,
         logZipNested: n => `"${n}" is a nested ZIP and was NOT extracted — please unzip it separately and load the files individually.`,
         logZipShort: (n, got, want) => `"${n}": only ${got} of ${want} entries extracted — the rest use an unsupported compression method. Please unzip manually.`,
@@ -1065,6 +1067,10 @@
     // Welche Reports intern sind, entscheidet die Python-Seite (H5) — hier wird
     // die Liste nur durchgereicht, nicht neu hergeleitet.
     let lastInternal = [];
+    // Laufzustand (Audit run-1, Fund 1): während einer Berechnung bleibt „Berechnen" gesperrt, jede Änderung an
+    // Dateiliste oder Einstufung erhöht inputVersion und verwirft gezeigte Ergebnisse — ein Ergebnis, dessen
+    // Eingaben sich während des Laufs geändert haben, wird nie angezeigt oder gespeichert.
+    let running = false, runSeq = 0, inputVersion = 0;
     // Bis 10/2026 lagen abgerufene Wechselkurse (= Kaufdaten des Nutzers) im localStorage.
     // Kurse sind jetzt gebündelt — den Altbestand einmal wegräumen, nichts mehr speichern.
     try { localStorage.removeItem('btc-steuertool-fx'); } catch (e) {}
@@ -1179,10 +1185,13 @@ json.dumps({
       }
       return workerReady;
     }
-    // Eine Berechnung im Worker ausführen (immer nur eine — btn-run ist währenddessen disabled).
+    // Eine Berechnung im Worker ausführen (immer nur eine — btn-run ist währenddessen gesperrt, `running`).
+    // Jede Anfrage trägt eine Lauf-ID; angenommen wird nur die Antwort mit derselben ID — nie das Ergebnis eines anderen Laufs.
     function runInWorker(payload) {
+      const id = ++runSeq;
       return new Promise((resolve, reject) => {
         const onMsg = (e) => {
+          if (e.data.id !== id) return;
           if (e.data.type === 'result') { cleanup(); resolve(e.data.result); }
           else if (e.data.type === 'error') { cleanup(); reject(new Error(e.data.message)); }
         };
@@ -1190,8 +1199,20 @@ json.dumps({
         function cleanup() { worker.removeEventListener('message', onMsg); worker.removeEventListener('error', onErr); }
         worker.addEventListener('message', onMsg);
         worker.addEventListener('error', onErr);
-        worker.postMessage({ cmd: 'run', payload });
+        worker.postMessage({ cmd: 'run', id, payload });
       });
+    }
+    // Gezeigte Ergebnisse verwerfen (SA2-15 + Audit run-1 Fund 1): nach jeder Änderung an Dateiliste oder Einstufung
+    // gelten sie nicht mehr — sonst speichert „Alle Dateien speichern" Dokumente der ALTEN Einstufung.
+    function invalidateResults() {
+      inputVersion++;
+      lastReports = null;
+      lastYears = null;
+      lastInternal = [];
+      activeYear = null;
+      activeDoc = null;
+      document.getElementById('results-card').classList.add('hidden');
+      document.getElementById('report-view').textContent = '';
     }
     // Hintergrund-Preload nur auf Desktop (hover-fähig, feiner Pointer) — auf Smartphones
     // blockiert der ~50-MB-WASM-Compile spürbar den Main-Thread (User-Report: Back-Link
@@ -1237,6 +1258,7 @@ json.dumps({
       }
       const entry = { name, bytes, type: sniffType(name, bytes) };
       files.push(entry);
+      invalidateResults();
       renderFiles();
       // Sobald echte Dateien da sind, Pyodide vorwärmen (inkl. zoneinfo-Import) — deckt jeden
       // Pfad ab (eigene Dateien, Drag&Drop, Demo-Laden auf Mobile). warmup ist idempotent.
@@ -1271,14 +1293,14 @@ json.dumps({
           sel.appendChild(opt);
         }
         sel.className = BLOCKING_TYPES.includes(f.type) ? 'is-unknown' : (TYPES[f.type].nokyc ? 'is-nokyc' : '');
-        sel.onchange = () => { f.type = sel.value; renderFiles(); };
+        sel.onchange = () => { f.type = sel.value; invalidateResults(); renderFiles(); };
         tdType.appendChild(sel);
         tr.appendChild(tdType);
 
         const tdRm = document.createElement('td');
         const rm = document.createElement('button');
         rm.className = 'file-remove'; rm.textContent = '✕'; rm.title = 'Entfernen';
-        rm.onclick = () => { files.splice(idx, 1); renderFiles(); };
+        rm.onclick = () => { files.splice(idx, 1); invalidateResults(); renderFiles(); };
         tdRm.appendChild(rm);
         tr.appendChild(tdRm);
 
@@ -1290,7 +1312,7 @@ json.dumps({
       // stillschweigend unvollständige Reports (fehlende Käufe = falsche Steuer!)
       // Gleiches gilt für manual_ambig: Kauf oder Verkauf ist nicht entscheidbar.
       const hasUnknown = files.some(f => BLOCKING_TYPES.includes(f.type));
-      btnRun.disabled = usable.length === 0 || demoLoading || hasUnknown;
+      btnRun.disabled = running || usable.length === 0 || demoLoading || hasUnknown;
       document.getElementById('unknown-hint').classList.toggle('hidden', !hasUnknown);
       // Hinweis, solange mindestens eine BitBox-Wallet als KYC eingestuft ist
       const hasKycBitbox = files.some(f => f.type === 'bitbox');
@@ -1427,15 +1449,19 @@ json.dumps({
 
     document.getElementById('btn-reset').onclick = () => {
       files.length = 0;
+      invalidateResults();
       renderFiles();
-      document.getElementById('results-card').classList.add('hidden');
       logEl.innerHTML = '';
       document.getElementById('status-card').classList.add('hidden');
     };
 
     /* ───────────────────────── Pipeline ───────────────────────── */
     document.getElementById('btn-run').onclick = async () => {
+      if (running) return;
+      running = true;
       btnRun.disabled = true;
+      invalidateResults();
+      const myVersion = inputVersion;   // ändert sich, sobald Dateiliste/Einstufung während des Laufs angefasst wird
       const t0 = performance.now();
       // Log bei Laufbeginn leeren (SA2-15): sonst hängt Lauf 2 unter der Historie
       // von Lauf 1, und die rote FEHLER-Zeile ist zwar die zuletzt geschriebene,
@@ -1483,10 +1509,24 @@ json.dumps({
         // Nutzer-Dateien an die kanonischen Pfade (TYPES bleibt Main-Thread-Logik)
         const counters = {};
         const dataFiles = [];
+        // Kollisionen auf dem ZIEL prüfen, nicht am Anzeigenamen (Audit run-1, Fund 2): bitbox/bitbox_nokyc reichen nur den
+        // Basisnamen durch, „geraet-a/wallet.csv" und „geraet-b/wallet.csv" landeten sonst beide auf bitbox/wallet.csv —
+        // der Worker überschreibt, eine Wallet fehlte still im Report.
+        const usedTargets = new Set();
         for (const f of files) {
           if (f.type === 'ignore' || f.type === 'fxcache' || BLOCKING_TYPES.includes(f.type)) continue;
           counters[f.type] = (counters[f.type] || 0) + 1;
-          dataFiles.push({ target: '/work/data/' + TYPES[f.type].target(f.name, counters[f.type]), bytes: f.bytes });
+          let target = TYPES[f.type].target(f.name, counters[f.type]);
+          if (usedTargets.has(target)) {
+            const slash = target.lastIndexOf('/') + 1, dot = target.lastIndexOf('.');
+            const stem = dot > slash ? target.slice(0, dot) : target, ext = dot > slash ? target.slice(dot) : '';
+            let k = 2;
+            while (usedTargets.has(`${stem}_${k}${ext}`)) k++;
+            target = `${stem}_${k}${ext}`;
+            log(i18n[currentLang].logNameClash(f.name, target.slice(slash)), 'warn');
+          }
+          usedTargets.add(target);
+          dataFiles.push({ target: '/work/data/' + target, bytes: f.bytes });
         }
         if (!srcLoaded) log(i18n[currentLang].logSrc);
         log(i18n[currentLang].logPlaced(dataFiles.length));
@@ -1496,6 +1536,8 @@ json.dumps({
           srcFiles: SRC_FILES, bootstrap: BOOTSTRAP, fxCache, dataFiles,
         });
         srcLoaded = true;
+        // Eingaben während des Laufs geändert → dieses Ergebnis gilt nicht (nie anzeigen, nie speicherbar machen)
+        if (inputVersion !== myVersion) throw new Error(i18n[currentLang].errInputsChanged);
 
         result.log.trim().split('\n').forEach(l => log('  ' + l));
         result.warnings.forEach(w => log('⚠ ' + w, 'warn'));
@@ -1514,19 +1556,14 @@ json.dumps({
         // byte-identisch zum letzten Lauf sind, sieht ein Nutzer, der gerade
         // etwas korrigiert hat, keinerlei Unterschied — er lädt stillschweigend
         // ein veraltetes Steuerdokument herunter.
-        lastReports = null;
-        lastYears = null;
-        lastInternal = [];
-        activeYear = null;
-        activeDoc = null;
-        document.getElementById('results-card').classList.add('hidden');
-        document.getElementById('report-view').textContent = '';
+        invalidateResults();
         log(i18n[currentLang].errPrefix + (err.message || err), 'err');
         console.error(err);
         window.__GUI_RESULT = null;
         window.__GUI_ERROR = String(err.message || err);
         window.__GUI_DONE = true;
       } finally {
+        running = false;
         renderFiles(); // btnRun-Status wiederherstellen
       }
     };
@@ -1753,7 +1790,8 @@ json.dumps({
 
     function openBugReport() {
       // Vorauswahl: die erkannten Dateitypen — Dateinamen bewusst NICHT (können privat sein)
-      const types = [...new Set(files.filter(f => f.type !== 'ignore' && !BLOCKING_TYPES.includes(f.type)).map(f => f.type))];
+      // noKYC-Typen (BitBox noKYC, Bisq, manual_buys) NICHT vorauswählen: eine Klartext-Mail verriete sonst noKYC-Bestände
+      const types = [...new Set(files.filter(f => f.type !== 'ignore' && !BLOCKING_TYPES.includes(f.type) && !TYPES[f.type].nokyc).map(f => f.type))];
       renderBugMenu(types.filter(ty => BUG_TYPES.includes(ty)));
       toggleBugMenu(false);
       document.getElementById('bug-broker').value = '';
@@ -1767,6 +1805,17 @@ json.dumps({
       toggleBugMenu(false);
       document.getElementById('bug-overlay').classList.add('hidden');
     }
+    function encCut(text, max) {
+      const s = text.toWellFormed ? text.toWellFormed() : text;
+      if (encodeURIComponent(s).length <= max) return encodeURIComponent(s);
+      const cps = [...s];
+      let lo = 0, hi = cps.length;
+      while (lo < hi) {   // längster Codepoint-Präfix, der kodiert samt Kürzungsmarke passt
+        const mid = (lo + hi + 1) >> 1;
+        if (encodeURIComponent(cps.slice(0, mid).join('') + ' […]').length <= max) lo = mid; else hi = mid - 1;
+      }
+      return encodeURIComponent(cps.slice(0, lo).join('') + ' […]');
+    }
     function sendBugReport() {
       const t = i18n[currentLang];
       const parts = bugPicked().map(typeLabel);
@@ -1776,10 +1825,11 @@ json.dumps({
       const desc = document.getElementById('bug-desc').value.trim() || '—';
       // Bewusst keine Dateinamen im Report (können privat sein)
       const bodyText = t.bugBody(broker, desc);
-      // mailto bleibt unter der Grenze der Desktop-Hülle (8000 Zeichen); der volle Text steht unten zum Kopieren
-      const subject = encodeURIComponent('[BTC Steuertool] Bug: ' + broker.slice(0, 120));
-      let body = encodeURIComponent(bodyText);
-      if (body.length > 6000) body = encodeURIComponent(bodyText.slice(0, 1500) + '\n[…]');
+      // mailto bleibt unter der Grenze der Hüllen (MAIL_MAX 8000 Zeichen KODIERT); der volle Text steht unten zum Kopieren.
+      // Gekürzt wird nach kodierter Länge und an Codepoint-Grenzen — sonst sprengen Umlaute/CJK die Grenze (die Hülle
+      // verwirft still) oder ein halbes Surrogat-Paar lässt encodeURIComponent werfen.
+      const subject = encCut('[BTC Steuertool] Bug: ' + broker, 600);
+      const body = encCut(bodyText, 6000);
       window.location.href = 'mailto:kontakt@alien-investor.org?subject=' + subject + '&body=' + body;
       if (!DESK && navigator.clipboard) navigator.clipboard.writeText(bodyText).catch(() => {});
       // Kein Auto-Schließen: ohne eingerichtetes Mailprogramm passiert sonst scheinbar nichts

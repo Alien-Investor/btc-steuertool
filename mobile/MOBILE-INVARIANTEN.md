@@ -29,6 +29,15 @@ Vor jeder Änderung an `mobile/` oder an der Weiche `DROID` in `web/index.html` 
   Neuer Link in der GUI = Eintrag in `desktop/main.js` `LINKS` + Desktop-Test; die APK übernimmt ihn beim nächsten Build.
 - **SaveFile** (Plugin, einzige Brücke): `save({name, data(base64)})` → Android-Speichern-Dialog (SAF `ACTION_CREATE_DOCUMENT`), Name
   `^[\w.-]{1,120}\.(txt|csv|zip)$`, ≤ 50 MB, Schreiben mit `"wt"` (überschreibt sauber). Abbruch → `{saved:false}` → GUI meldet nichts.
+  **Die Bytes liegen während des Dialogs nur im Plugin-Feld `pending`, nie in der PluginCall** (`call.getData().remove("data")`),
+  `saveInstanceState()` liefert `null`, jede Call wird in `onPicked` freigegeben. Sonst schreibt Capacitor die Optionen der letzten
+  Activity-Call beim Verdecken der App zweimal als UTF-16 ins Instance-State-Bundle → `TransactionTooLargeException` ab ~190 KB,
+  0-Byte-Datei, App stürzt danach bei jedem Wechsel in den Hintergrund ab (Audit run-1, R-1; Beispieldaten sind dafür zu klein —
+  Gerätetest mit großem Datensatz > 200 KB). Nur ein Dialog gleichzeitig; eine leere Datei nach Fehler/Neustart wird gelöscht (nur bei 0 Byte).
+  `patch-hardening.mjs` bricht ab, wenn der erzeugte Code das nicht mehr enthält.
+- **Capacitor-Kernplugins:** `DisableDeploy` in `res/xml/config.xml` (sonst setzt Seiten-JS über `WebView.setServerBasePath` +
+  `persistServerBasePath` dauerhaft einen anderen Ursprung), `/_capacitor_file_/` und `/_capacitor_content_/` antworten 404,
+  `setAllowContentAccess(false)`.
 - Import bleibt `<input type=file multiple>` ohne `accept` (Capacitor-Dateiauswahl, Mehrfachauswahl + ZIP am Gerät bestätigt 02.10.2026).
 
 ## Weiche in `web/index.html`

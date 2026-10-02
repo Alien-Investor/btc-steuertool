@@ -90,7 +90,9 @@ async function fresh(){
   await js(`openBugReport()`);
   R('Bug-Menü hat alle 10 Typen', await js(`document.querySelectorAll('#bug-menu input[type=checkbox]').length`)===10);
   const pre=await js(`bugPicked().join(',')`);
-  R('Vorauswahl = erkannte Typen der Beispieldaten', pre.includes('btc21')&&pre.includes('bisq')&&!pre.includes('fxcache'), pre);
+  // noKYC-Typen bewusst NICHT vorausgewählt (Klartext-Mail verriete sonst noKYC-Bestände, Audit run-1)
+  R('Vorauswahl = erkannte KYC-Typen der Beispieldaten', pre.includes('btc21')&&pre.includes('bitbox')&&!pre.includes('fxcache')
+    &&!pre.includes('bitbox_nokyc')&&!pre.includes('bisq')&&!pre.includes('manual_buys'), pre);
   await js(`document.getElementById('bug-pick-btn').click()`);
   R('Menü klappt auf', await js(`!document.getElementById('bug-menu').classList.contains('hidden')`));
   await js(`document.querySelectorAll('#bug-menu input').forEach(i=>{ if(i.checked) i.click(); }); document.querySelector('#bug-menu input[value=swissquote]').click()`);

@@ -524,11 +524,12 @@ def generate_tax_free_proof(
         lines.append(f"    - BitBox Hardware Wallet CSV-Exporte ({count} {'Wallet' if count == 1 else 'Wallets'})")
     _BROKER_DISPLAY = {
         "21bitcoin": "21bitcoin", "bison": "Bison", "swissquote": "Swissquote",
-        "strike": "Strike", "pocket": "Pocket", "manual": "Manuell (P2P)",
+        "strike": "Strike", "pocket": "Pocket", "manual": "Manuell erfasste Transaktionen (CSV)",
     }
     for key, label in _BROKER_DISPLAY.items():
         if key in sources:
-            lines.append(f"    - {label} Broker CSV-Export")
+            # „manual" ist kein Broker: neutral benennen, nie „P2P" (nur KYC-Zeilen landen hier; Audit run-1, Fund 6)
+            lines.append(f"    - {label}" if key == "manual" else f"    - {label} Broker CSV-Export")
     if fx_rates.used_table:
         # Global für den Lauf, nicht pro Jahr: auch Anschaffungskosten aus Vorjahren
         # (FiFo-Lots) können in CHF/USD gekauft worden sein.
@@ -536,6 +537,11 @@ def generate_tax_free_proof(
             f"- Fremdwährung in EUR umgerechnet: {fx_rates.SOURCE_LABEL}, letzter "
             f"veröffentlichter Kurs am oder vor dem Kauftag (Datenstand "
             f"{fx_rates.table_range()[1].strftime('%d.%m.%Y')})",
+            width=W, initial_indent="    ", subsequent_indent="      "))
+    if fx_rates.used_override:
+        # Manuelle Kurse offenlegen — sonst nennt der Nachweis nur die EZB, obwohl Kurse vom Nutzer stammen
+        lines.extend(textwrap.wrap(
+            "- Fremdwährung in EUR umgerechnet: teils manuell erfasste Kurse (fx_cache.json)",
             width=W, initial_indent="    ", subsequent_indent="      "))
     blank()
     # Label bewusst neutral — das Dokument erwähnt nicht, was es nicht enthält

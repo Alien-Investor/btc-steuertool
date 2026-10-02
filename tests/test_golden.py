@@ -59,17 +59,19 @@ class GoldenReports(unittest.TestCase):
 
     def test_ecb_table_gives_same_numbers_as_fx_cache(self):
         """Ohne fx_cache.json rechnet die EZB-Tabelle — Zahlen identisch, nur die
-        Quellenangabe im Nachweis kommt hinzu."""
+        Quellenangabe im Nachweis wechselt (EZB statt „manuell erfasste Kurse")."""
+        source = re.compile(rb"    - Fremdw\xc3\xa4hrung in EUR umgerechnet:.*?\)\n", re.DOTALL)
         with tempfile.TemporaryDirectory() as tmp:
             reports = _run(_examples_copy(tmp, with_fx_cache=False))
             for p in reports.iterdir():
                 got = _normalize(p.read_bytes())
+                want = _normalize((GOLDEN / p.name).read_bytes())
                 if p.name.startswith("steuernachweis_"):
                     self.assertIn("Euro-Referenzkurse der Europäischen".encode(), got)
-                    got = re.sub(rb"    - Fremdw\xc3\xa4hrung in EUR umgerechnet:.*?\)\n", b"",
-                                 got, flags=re.DOTALL)
+                    self.assertNotIn(b"fx_cache.json", got)
+                    got, want = source.sub(b"", got), source.sub(b"", want)
                 with self.subTest(report=p.name):
-                    self.assertEqual(got, _normalize((GOLDEN / p.name).read_bytes()))
+                    self.assertEqual(got, want)
 
 
 class FxRates(unittest.TestCase):

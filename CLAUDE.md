@@ -29,7 +29,7 @@ mehrere Broker. Die BitBox-CSVs dokumentieren die Überträge zwischen Wallets u
   `src/data/btc_eur_daily.csv` (Bitstamp, offline; `tools/update_btc_prices.py`).
   Ohne Kurs: Abgang gebucht, Gewinn „nicht ermittelt" + Warnung — nie stillschweigend.
 - **Schenkung/Spende (`GIFT_OUT`):** keine Veräußerung, aber Bestandsabgang; Erkennung am
-  Wort in der BitBox-Notiz (`bitbox.is_gift_note`), Report weist Anschaffungsdaten aus
+  Wort in der BitBox-Notiz (`bitbox.is_gift_note`, ohne Gutschein/Gift Card/Verneinung — `_NOT_GIFT`), Report weist Anschaffungsdaten aus
   (§ 23 Abs. 1 S. 3 EStG). `sent_to_yourself` mit Gebühr → TRANSFER_OUT mit Menge 0, nur Fee.
 - **Sonstige Kryptowährungen (ETH etc.):** werden ignoriert — nur BTC relevant
 
@@ -74,7 +74,8 @@ Neuer Parser = `src/parsers/` + Erkennung in der GUI (Broker-Sniffing, `BLOCKING
 ## Tests
 
 `python -m unittest discover tests` — Golden-Snapshot (`tests/golden/`, examples mit
-`--all --nachweis --csv`, byte-genau bis auf „Erstellt am") + FX-Regeln + „kein Netzcode in src/".
+`--all --nachweis --csv`, byte-genau bis auf „Erstellt am") + FX-Regeln + „kein Netzcode in src/"
++ `tests/test_audit_run1.py` (offizielle Dokumente ohne „noKYC"/„P2P", Schenkungs-Erkennung, Warnjahr, fx_cache-Prüfung).
 Gewollte Report-Änderung: `python tests/test_golden.py --update`, Diff im Commit begründen.
 
 ---
@@ -99,7 +100,7 @@ Regeln:
 - Bug-Report ohne Dateinamen und ohne URL. Support nur Technik/Format, nie Steuerfragen.
 - Tests: `python3 -m http.server 8741 --directory web/dist` + `python3 web/test_gui.py`
   (Referenz: CLI `--all --nachweis --csv --data-dir` auf eine examples-Kopie unter
-  `/tmp/poc-ref/examples`, Reports müssen byte-gleich sein) + `python3 web/test_lang.py`.
+  `/tmp/poc-ref/examples`, Reports müssen byte-gleich sein) + `python3 web/test_lang.py` + `python3 web/test_audit.py`.
   Playwright-Chromium: `python3 -m playwright install chromium`.
 
 ---
