@@ -19,8 +19,8 @@ Format (UTF-8, Komma-getrennt, Spalte kyc optional):
   Leer oder fehlend → noKYC (Standard, nur im internen Report).
 
 Hinweis: Der Report weist manuell eingegebene Käufe als solche aus.
-Das Finanzamt hat keinen Anspruch auf den vollständigen Wallet-Fingerprint —
-korrekte Angabe der Anschaffungskosten ist ausreichend.
+Ein Report mit korrekten Anschaffungskosten reicht in der Regel; im Einzelfall kann das
+Finanzamt aber Adressen, Transaktions-Hashes und Bestände anfordern (BMF 06.03.2025 Rn. 101, 104).
 """
 from __future__ import annotations
 import csv

@@ -8,7 +8,8 @@ Die Berechnung folgt der deutschen FiFo-Methode (§ 23 EStG): BTC, die länger a
 ein Jahr gehalten wurden, sind beim Verkauf steuerfrei.
 
 **Ohne Terminal?** Die Web-Version unter https://api.alien-investor.org/steuertool/
-macht dasselbe im Browser — kostenlos, ohne Upload, ohne Account. Diese Anleitung
+macht dasselbe im Browser — kostenlos, ohne Upload, ohne Account. Als App gibt es das Tool für
+Android und als Flatpak für den Linux-Desktop: https://alien-investor.org/btc-steuertool.html#app. Diese Anleitung
 beschreibt das Kommandozeilen-Tool; die Bedienung der Web-Version steht unter
 https://alien-investor.org/steuertool-guide.html.
 
@@ -16,7 +17,7 @@ https://alien-investor.org/steuertool-guide.html.
 
 ## Erste Einrichtung (einmalig)
 
-Öffne ein Terminal im Projektordner und führe aus:
+Voraussetzung: Python 3.10 oder neuer. Öffne ein Terminal im Projektordner und führe aus:
 
 **Mac/Linux:**
 ```bash
@@ -39,7 +40,7 @@ eingetragen damit deine persönlichen Finanzdaten nie versehentlich auf GitHub
 landen. Du musst sie bei Bedarf selbst anlegen:
 
 - `bitbox/` und `Broker/` → einmalig mit den mkdir-Befehlen oben anlegen
-- `manual_buys.csv` → im Projektordner anlegen wenn du noKYC-Käufe hast (Bisq, Robosats, P2P)
+- `manual_buys.csv` → im Projektordner anlegen wenn du noKYC-Käufe hast (Robosats, P2P, Bargeld — Bisq-CSV direkt nach `Broker/`)
 - `manual_sales.csv` → im Projektordner anlegen wenn du private P2P-Verkäufe hast
 
 Das richtest du nur einmal ein. Danach brauchst du nur noch die Befehle unten.
@@ -218,8 +219,10 @@ von Person zu Person oder gegen Bargeld — gibt es drei Wege:
 
 ### Option A: Bisq-CSV direkt importieren (empfohlen für Bisq-Nutzer)
 
-Bisq bietet einen CSV-Export unter "Portfolio → Trades → Exportieren".
-Diese Datei einfach als `bisq.csv` in den `Broker/`-Ordner legen.
+Bisq Classic bietet einen CSV-Export unter "Portfolio → Verlauf → Als CSV exportieren".
+Die Oberfläche muss dabei auf Deutsch stehen (Einstellungen → Voreinstellungen → Sprache), denn der Parser liest
+die deutschen Spaltenköpfe. Bisq speichert als `tradeHistory.csv`: die Datei als `bisq.csv`
+(jeder Name, der mit `bisq` beginnt) in den `Broker/`-Ordner legen.
 Das Tool liest sie automatisch ein und erkennt alle abgeschlossenen Käufe.
 
 ### Option B: Manuelle Eingabe via `manual_buys.csv`

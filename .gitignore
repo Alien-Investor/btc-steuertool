@@ -43,3 +43,6 @@ keystore.properties
 # Zap-Store-Signer (SIGN_WITH=bunker://…) — NIEMALS committen
 .env
 .env.*
+
+# Guide-Screenshots (web/shot-guide.py), Ziel ist die Website
+web/guide-shots/

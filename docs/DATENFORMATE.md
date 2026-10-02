@@ -68,7 +68,7 @@ Aufgelaufene Zinsen;Nettobetrag;Saldo;Währung
 
 ### Broker: Bisq (`Broker/bisq*.csv`)
 
-CSV, Komma-getrennt, deutschsprachig (Bisq-Export "Portfolio → Trades → Exportieren"):
+CSV, Komma-getrennt, deutschsprachig (Bisq-Classic-Export "Portfolio → Verlauf → Als CSV exportieren", nur deutsche Oberfläche; Bisq speichert als `tradeHistory.csv`):
 
 ```
 Handels-ID,Datum/Zeit,Markt,Preis,Abweichung,Betrag in BTC,Betrag,Währung,

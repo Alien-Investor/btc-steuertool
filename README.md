@@ -31,6 +31,8 @@ steuerrelevante Jahresberichte für das deutsche Finanzamt.
 
 ## Schnellstart
 
+Voraussetzung: Python 3.10 oder neuer.
+
 ```bash
 # Einmalig einrichten
 python3 -m venv .venv
