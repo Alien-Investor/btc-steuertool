@@ -13,7 +13,9 @@ mehrere Broker. Die BitBox-CSVs dokumentieren die Überträge zwischen Wallets u
 
 ## Steuerrechtliche Grundlagen (Deutschland, Privatanleger)
 
-- **Methode:** FiFo (First In, First Out) — älteste Lots zuerst verbrauchen
+- **Methode:** FiFo (First In, First Out), **walletbezogen** (BMF 06.03.2025 Rn. 61 f.): jede Wallet
+  bzw. jedes Börsenkonto ist ein eigener Bestand; bei Überträgen zwischen eigenen Wallets wandern
+  Anschaffungsdatum und -kosten mit (Abschnitt „Walletbezogenes FiFo“)
 - **Haltefrist:** Gewinne aus BTC-Veräußerungen sind **steuerfrei**, wenn zwischen Anschaffung
   und Veräußerung mehr als ein Jahr liegt (§ 23 Abs. 1 S. 1 Nr. 2 EStG, §§ 187 Abs. 1, 188 Abs. 2 BGB)
 - **Freigrenze private Veräußerungsgeschäfte:**
@@ -48,9 +50,9 @@ Neuer Parser = `src/parsers/` + Erkennung in der GUI (Broker-Sniffing, `BLOCKING
 - `manual_buys.csv` hat optionale Spalte `kyc` (seit 2026-06-06): `ja`/`1`/`true` →
   KYC-Kauf (Broker ohne eigenen Parser, z.B. Coinbase) → KYC-Pool + Finanzamt-Report.
   Leer/fehlend → noKYC (Standard, abwärtskompatibel).
-- **Zwei strikt getrennte FiFo-Pools** (seit 2026-06-05): KYC-Verkäufe konsumieren
-  nur KYC-Lots, noKYC-Verkäufe (manual_sales mit `no_kyc=ja`) nur noKYC-Lots.
-  Dadurch kann ein noKYC-Lot nie in der FiFo-Zuordnung eines Finanzamt-Dokuments erscheinen.
+- **KYC und noKYC strikt getrennt:** Töpfe je (Klasse, Wallet); KYC-Vorgänge sehen nie noKYC-Lots,
+  Überträge zwischen den Klassen werden nie verbunden. Kommt ein noKYC-Kauf/-Abgang in einer
+  KYC-Wallet an → harter Abbruch (stünde sonst mit Datum/Betrag im Nachweis).
 - `TaxReport` filtert `no_kyc=True` aus offiziellen Käufen, Verkäufen und Lots heraus
 - Separate Datei `nokyc_intern_YYYY.txt` zeigt noKYC-Käufe, -Verkäufe (mit FiFo-Zuordnung
   und Haltefrist), Wallet-Aktivität (`bitbox/nokyc/`) und verbleibende Bestände
@@ -75,7 +77,9 @@ Neuer Parser = `src/parsers/` + Erkennung in der GUI (Broker-Sniffing, `BLOCKING
 
 `python -m unittest discover tests` — Golden-Snapshot (`tests/golden/`, examples mit
 `--all --nachweis --csv`, byte-genau bis auf „Erstellt am") + FX-Regeln + „kein Netzcode in src/"
-+ `tests/test_audit_run1.py` (offizielle Dokumente ohne „noKYC"/„P2P", Schenkungs-Erkennung, Warnjahr, fx_cache-Prüfung).
++ `tests/test_audit_run1.py` (offizielle Dokumente ohne „noKYC"/„P2P", Schenkungs-Erkennung, Warnjahr, fx_cache-Prüfung)
++ `tests/test_wallet_fifo.py` (Zuordnung, Engine, Reports-Datenschutz, Audit-Regressionen, **Mengenbilanz** auf
+examples + 300 Zufallsabläufen: gekauft = Bestand + verbraucht je Klasse).
 Gewollte Report-Änderung: `python tests/test_golden.py --update`, Diff im Commit begründen.
 
 ---
@@ -153,10 +157,12 @@ btc-steuertool-public/
 ├── examples/                  # Fiktive Testdaten (Golden-Test, Beispieldaten der GUI)
 ├── src/
 │   ├── models.py              # Transaction Dataclass + Enums
-│   ├── parsers/               # bitbox, broker_21bitcoin/_bison/_swissquote/_strike/_pocket, bisq, manual_buys/_sales
+│   ├── parsers/               # bitbox, broker_21bitcoin/_bison/_swissquote/_strike/_pocket, bisq, manual_buys/_sales, transfer_zuordnung
 │   ├── fx_rates.py            # EZB-Wechselkurse aus src/data/ (offline)
 │   ├── btc_prices.py          # BTC-Tagesschlusskurse aus src/data/ (Gebühren in BTC)
-│   ├── fifo_engine.py         # FiFo Lot-Verwaltung + Gewinnberechnung
+│   ├── transfer_matching.py   # Zuordnung Abgang ↔ Eingang (walletbezogenes FiFo)
+│   ├── fifo_engine.py         # FiFo je Wallet, Umbuchungen, Gewinnberechnung, Jahresend-Snapshots
+│   ├── wallet_report.py       # Umbuchungen, Bestand je Wallet, neutrale Labels, wallet_abgleich_intern
 │   ├── tax_report.py          # Report-Generierung (Text + CSV)
 │   ├── formal_report.py       # Formaler Steuernachweis (--nachweis)
 │   └── main.py                # CLI-Einstieg
@@ -197,39 +203,48 @@ class Transaction:
     source: str               # z.B. "21bitcoin", "bison", "bitbox:wallet1"
     tx_id: str                # On-Chain TX-ID oder Broker-interne ID
     note: str
+    no_kyc: bool              # noKYC-Bestand (nur interne Dateien)
+    wallet: str               # FiFo-Topf; leer → source. ANY_WALLET "*" = manual_sales ohne Wallet
+    direct: bool              # Anbieter ohne Bestand (Pocket, Bisq, manual): liefert an / verkauft aus eigener Wallet
 ```
 
 ---
 
 ## FiFo-Engine (`fifo_engine.py`)
 
-### Lot-Struktur
-```python
-@dataclass
-class Lot:
-    purchase_date: datetime
-    btc_amount: Decimal       # verbleibende BTC in diesem Lot
-    cost_per_btc: Decimal     # (eur_amount + fee_eur) / btc_amount
-    source: str
-```
+`run_engine(transactions)` in `main.py` ist der einzige Start (CLI und GUI-Bootstrap). Sie hängt einen
+Vergleichslauf `mode="global"` an (alte Rechnung, nur für `wallet_abgleich_intern_JJJJ.txt`).
 
-### Regeln
-1. Jeder `BUY` erzeugt ein neues Lot: `cost_per_btc = (eur_amount + fee_eur) / btc_amount`
-2. **Zwei getrennte Pools**: KYC-Lots und noKYC-Lots (je eine Deque, älteste zuerst).
-   `tx.no_kyc` entscheidet, in welchen Pool ein Kauf geht und aus welchem ein Verkauf konsumiert.
-3. Bei `SELL`: Lots des passenden Pools von vorne aufbrauchen bis BTC-Menge erreicht
-4. Für jedes verbrauchte Lot berechnen:
-   - `holding_days = (sell_date - lot.purchase_date).days` (nur Anzeige)
-   - **Steuerfreiheit per Kalenderdatum** (§§ 187/188 BGB): steuerfrei wenn
-     `sale.date() > purchase.date() + 1 Jahr` (Jahrestag; 29.02. → 28.02.).
-     Korrekt auch in Schaltjahren — nicht einfach `> 365 Tage`.
-   - `gain = (net_sell_price_per_btc - lot.cost_per_btc) * used_btc_amount`
-   - `net_sell_price_per_btc = (eur_amount - fee_eur) / total_btc_sold`
-5. `TRANSFER_OUT` / `TRANSFER_IN`: keine Lot-Änderung für den übertragenen Bestand (Kostenbasis bleibt)
-6. `fee_btc > 0` (jeder Typ): Gebühren-Abgang über `_consume(kind=FEE)` zum Tagesschlusskurs
-   (`btc_prices.price_for_date(de_date)`), Ergebnis in `engine.fee_results` — Gewinne zählen
-   in Jahressumme + Freigrenze; ohne Kurs `is_priced=False`, Gewinn 0 + Warnung
-7. `GIFT_OUT`: `_consume(kind=GIFT)`, Gewinn je Match 0, Ergebnis in `engine.gift_results`
+1. Jeder `BUY` erzeugt ein Lot in seiner Wallet: `cost_per_btc = (eur_amount + fee_eur) / btc_amount`.
+2. Veräußerung (`SELL`, Gebühr, `GIFT_OUT`) verbraucht die ältesten Lots **der eigenen Wallet**.
+3. Steuerfreiheit per Kalenderdatum Europe/Berlin (§§ 187/188 BGB, Jahrestag; 29.02. → 28.02.),
+   nicht `> 365 Tage`. `gain = (net_sell_price_per_btc − cost_per_btc) × Menge`.
+4. `fee_btc > 0`: Veräußerung des Gebührenanteils zum Tagesschlusskurs (`engine.fee_results`, zählt in
+   Freigrenze), aus der sendenden Wallet; beim Kauf (Bisq) aus dem eigenen Lot. Ohne Kurs Warnung.
+5. `GIFT_OUT`: Bestandsabgang, Gewinn 0 (`engine.gift_results`).
+
+## Walletbezogenes FiFo (seit 10/2026) — Regeln
+
+- **Zuordnung** (`transfer_matching`): Stufe 0 `transfer_zuordnung.csv`, 1 gleiche TX-ID, 1b Kauf mit
+  Spalte `wallet`, 2 Betrag (mit/ohne Gebühr) im Fenster ±48 h beidseitig (Lieferung bis 30 Tage).
+  Mehrdeutig über verschiedene Wallets → nicht verbinden, Warnung. Verbindungen: TRANSFER, LIEFERUNG
+  (Direktkauf → Eingang, es wandert **das Lot dieses Kaufs**, zeitlich nächster Kauf), VERKAUF
+  (Abgang → Direktverkauf, verhindert Doppelverbrauch).
+- **Umbuchung zweiphasig:** Lots verlassen die Quelle beim Abgang, kommen beim Eingang an, werden nach
+  **Anschaffungsdatum** einsortiert. Unterwegs zählen sie zum 31.12. zur Ziel-Wallet.
+- **Ohne Gegenstück:** Abgang → Wallet „extern“ (Warnung, keine Veräußerung). Eingang → holt FiFo aus
+  „extern“, Rest ohne Anschaffungsdaten (keine erfundenen Lots). Verkauf ohne Wallet und ohne Abgang →
+  nur aus Beständen ohne bekannten Verwahrort (extern, nicht gelieferte Direktkäufe).
+- **Datumslose manual-Zeilen** (12:00 UTC): verbundener Verkauf frühestens beim Abgang, Kauf zur früheren
+  Lieferung — nur innerhalb des Kalendertags.
+- **Datenschutz:** offizielle Dokumente nennen BitBox-Wallets nur „BitBox-Wallet (n)“ (nur KYC gezählt),
+  Echtnamen nur in `wallet_abgleich_intern`. Fehlermeldungen nennen nur Wallets derselben Klasse.
+- **`mode="global"` muss die alte Rechnung exakt reproduzieren** — Änderungen an der walletbezogenen
+  Logik nie in den globalen Zweig tragen (Audit-Fund: Bisq-Gebühr-Fix wirkte sonst auch dort).
+- **Git:** der OpSec-Hook sperrt Commits mit „wallet“ im Dateinamen (Fehlalarm bei
+  `test_wallet_fifo.py`, `nokyc_wallet.csv`, `wallet_abgleich_intern_*`). `git add` und `git commit`
+  immer getrennt ausführen (kombiniert sieht der Hook ein leeres Staging); der Autor committet solche
+  Stände selbst.
 
 ---
 
