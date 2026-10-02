@@ -1194,7 +1194,7 @@ json.dumps({
 
     /* ───────────────────────── Log ───────────────────────── */
     const logEl = document.getElementById('log');
-    const LOG_MAX_LINES = 500;
+    const LOG_MAX_LINES = 5000;   // 500 schnitt beim Sparplan-Datensatz die Zusammenfassung am Ende ab (Gerätetest v1.3)
     function log(msg, cls) {
       document.getElementById('status-card').classList.remove('hidden');
       // Deckel (Parser-Audit B6): jede Zeile ist ein eigenes <div> mit Reflow — bei

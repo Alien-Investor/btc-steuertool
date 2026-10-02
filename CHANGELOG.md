@@ -26,7 +26,7 @@ Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die dens
   negativen Übertragsmengen und leerer Währungsspalte (Swissquote/Pocket buchten einen Fremdwährungsbetrag sonst als EUR).
   Swissquote-Dateien, die als UTF-8 gespeichert wurden, werden gelesen. Eine Datei mit Zeilen, aber ohne eine einzige Transaktion
   wird gemeldet. `manual_sales.csv` und Co. werden unabhängig von Groß-/Kleinschreibung gefunden, fremde CSVs im Hauptordner gemeldet.
-  Warnungen sind auf 1.000 je Lauf gedeckelt (vorher war ihre Zahl unbegrenzt), das Log der App auf 500 Zeilen,
+  Warnungen sind auf 1.000 je Lauf gedeckelt (vorher war ihre Zahl unbegrenzt), das Log der App auf 5.000 Zeilen,
   ZIP-Inhalte auf 64 MB je Datei / 256 MB gesamt.
 
 ## v1.2 — 2026-10-02
