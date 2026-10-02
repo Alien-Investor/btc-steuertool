@@ -1,0 +1,14 @@
+Wem gibst du deine Steuerdaten? Cloud-Steuertools wollen jede Transaktion auf ihrem Server. Das BTC Steuertool rechnet auf deinem Gerät: kein Upload, kein Konto, keine Telemetrie. Die Android-App hat nicht einmal eine Internet-Berechtigung.
+
+Neu seit heute: das Steuertool als App für Android und als Flatpak für den Linux-Desktop, neben der Web-Version im Browser und dem CLI. Alles kostenlos, keine Bezahlschranke mehr. Ein Rechenkern für alle Fassungen: FiFo nach § 23 EStG mit Jahresfrist und Freigrenze, Gebühren in Bitcoin als Veräußerung des Gebührenanteils, Schenkungen als Bestandsabgang, noKYC strikt getrennt und nie in den Unterlagen fürs Finanzamt. Wechselkurse und BTC-Tagesschlusskurse sind eingebaut, die App lädt nichts nach.
+
+Der App-Trailer in einer Minute, wortlos, mit Screenshots der App und Beispieldaten:
+
+https://youtu.be/L93lQjO4B1A
+https://alien-investor.org/btc-steuertool.html#app
+
+Die App gibt es im Zap Store, per Obtainium oder als APK von der eigenen Download-Adresse: https://zapstore.dev/apps/org.alieninvestor.steuertool
+
+Keine Steuerberatung, eine Rechenhilfe. Deine Steuerdaten bleiben bei dir.
+
+#Bitcoin #Steuern #GrapheneOS #FreedomTech #Zapstore

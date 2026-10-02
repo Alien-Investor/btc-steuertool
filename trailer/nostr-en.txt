@@ -1,0 +1,14 @@
+Who gets your tax data? Cloud tax tools want every transaction on their server. BTC Steuertool calculates on your device: no upload, no account, no telemetry. The Android app does not even have an internet permission.
+
+New today: the tax tool as an app for Android and as a Flatpak for the Linux desktop, next to the web version in the browser and the CLI. All free, no paywall any more. One calculation core for every edition: FiFo under § 23 EStG (German private sales) with the one-year holding period and the exemption limit, fees paid in bitcoin as a disposal of the fee amount, gifts as a reduction of holdings, noKYC strictly apart and never in the documents for the tax office. Exchange rates and BTC daily closing prices are built in, the app downloads nothing. The reports are in German, they are meant for the German tax office.
+
+The app trailer in one minute, no voice, with screenshots of the app and sample data:
+
+https://youtu.be/JPQWFs9SWpo
+https://alien-investor.org/en/btc-steuertool.html#app
+
+Get the app on Zap Store, via Obtainium or as an APK from our own download address: https://zapstore.dev/apps/org.alieninvestor.steuertool
+
+No tax advice, a calculation aid. Your tax data stays with you.
+
+#Bitcoin #Taxes #GrapheneOS #FreedomTech #Zapstore
