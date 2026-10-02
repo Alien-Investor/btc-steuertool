@@ -7,8 +7,14 @@ steuerrelevante Jahresberichte für das deutsche Finanzamt.
 
 ## Features
 
-- FiFo-Engine mit Haltefrist von einem Jahr (§ 23 Abs. 1 Nr. 2 EStG i.V.m. §§ 187 Abs. 1,
-  188 Abs. 2 BGB) — steuerfrei / steuerpflichtig je Lot
+- FiFo-Engine, **walletbezogen** (BMF-Schreiben vom 06.03.2025, Rn. 61 f.): jede Wallet und jedes
+  Börsenkonto ist ein eigener Bestand; bei Überträgen zwischen eigenen Wallets wandern
+  Anschaffungsdatum und -kosten mit. Haltefrist von einem Jahr (§ 23 Abs. 1 Nr. 2 EStG i.V.m.
+  §§ 187 Abs. 1, 188 Abs. 2 BGB) — steuerfrei / steuerpflichtig je Lot
+- **Überträge automatisch zugeordnet** (Transaktions-ID, sonst Betrag und Zeit in ±48 h), Sonderfälle
+  über `transfer_zuordnung.csv`; Abgänge ohne Gegenstück werden gemeldet, nie still als Verkauf gebucht.
+  Interner Wallet-Abgleich `wallet_abgleich_intern_*.txt` (echte Wallet-Namen, Vergleich zur
+  gemeinsamen Rechnung) — nie für das Finanzamt
 - Freigrenze automatisch berücksichtigt (600 EUR bis 2023 / 1.000 EUR ab 2024;
   steuerfrei bleibt nur ein Gesamtgewinn **unter** der Grenze, § 23 Abs. 3 EStG)
 - **Kein stiller Datenverlust:** Zeilen, die ein Parser nicht verarbeiten kann
@@ -160,14 +166,21 @@ eingetragen und werden nie versehentlich committed.
 
 ## Steuerrechtliche Grundlagen
 
-- Methode: FiFo (First In, First Out)
+- Methode: FiFo (First In, First Out), walletbezogen (BMF-Schreiben vom 06.03.2025, Rn. 61 f.):
+  jede Wallet ist ein eigener Bestand, jedes Börsenkonto behandelt das Tool als eigene Wallet.
+  Die offiziellen Dokumente nennen BitBox-Wallets nur neutral („BitBox-Wallet“, bei mehreren
+  „BitBox-Wallet 1“, „BitBox-Wallet 2“ …)
 - Haltefrist: Gewinne sind steuerfrei, wenn zwischen Anschaffung und Veräußerung mehr als
   ein Jahr liegt (§ 23 Abs. 1 Satz 1 Nr. 2 EStG i.V.m. §§ 187 Abs. 1, 188 Abs. 2 BGB)
 - Freigrenze: 600 EUR (bis 2023) / 1.000 EUR (ab 2024) — steuerfrei nur, wenn der
   Gesamtgewinn im Kalenderjahr **weniger** als die Grenze beträgt (§ 23 Abs. 3 EStG);
   ab exakt der Grenze ist der volle Betrag steuerpflichtig. Die Freigrenze gilt für
   alle privaten Veräußerungsgeschäfte eines Jahres zusammen, nicht nur für Bitcoin
-- Überträge zwischen eigenen Wallets/Konten: der übertragene Bestand ist steuerlich neutral
+- Überträge zwischen eigenen Wallets/Konten: der übertragene Bestand ist steuerlich neutral; die
+  abgebende Wallet gibt ihre zuerst angeschafften Einheiten ab, Anschaffungsdatum und -kosten
+  gehen unverändert in die empfangende Wallet über (Auslegung — das BMF-Schreiben regelt die
+  Zuordnung beim Übertrag nicht ausdrücklich, vgl. Rn. 62, 90, 103). Ein Abgang ohne erkennbaren Eingang
+  gilt als Übertrag in eine nicht eingelesene eigene Wallet und wird gemeldet
 - In Bitcoin entrichtete Gebühren (Netzwerk-/Auszahlungsgebühren, auch beim Übertrag
   zwischen eigenen Wallets): Veräußerung des Gebührenanteils zum Tagesschlusskurs
   (BMF-Schreiben vom 06.03.2025, Rn. 33, 54, 60) — Gewinn zählt in die Freigrenze,

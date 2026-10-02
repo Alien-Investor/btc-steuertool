@@ -25,7 +25,11 @@ description: |
   AndroidX-generated signature permission of the app itself, which grants nothing.
 
   Features:
-  - FiFo method with the one-year holding period counted by calendar date (§§ 187, 188 BGB), tax-free and taxable per lot
+  - FiFo method per wallet (German Federal Ministry of Finance letter of 06.03.2025, para. 62); the app treats every exchange account as
+    a wallet of its own. On transfers between your own wallets, purchase date and cost travel along (the letter does not spell this out;
+    the evidence document discloses the reading). One-year holding period counted by calendar date (§§ 187, 188 BGB), tax-free and taxable per lot
+  - Transfers are matched automatically (transaction ID, otherwise amount and time); unmatched outgoing transfers are reported, never
+    silently booked as sales. Internal wallet check report with real wallet names, never part of the documents for the tax office
   - Exemption limit applied automatically (600 EUR up to 2023, 1,000 EUR from 2024)
   - Supported sources: BitBox wallets, 21bitcoin, Bison, Swissquote, Strike, Pocket, Bisq, plus manual buys/sells as CSV
   - Brokers are detected from the file contents; ZIP files are unpacked; files the app cannot recognise block the calculation

@@ -122,11 +122,6 @@
       0%, 100% { box-shadow:0 0 4px rgba(0,255,204,.25); }
       50%      { box-shadow:0 0 14px rgba(0,255,204,.55); }
     }
-    .v2-badge {
-      background:rgba(0,255,204,.1); border:1px solid var(--neon-mid);
-      border-radius:2px; color:var(--neon); font-size:.7rem; letter-spacing:2px;
-      padding:3px 8px; font-family:'Orbitron',sans-serif;
-    }
 
     /* ── HEADER ── */
     header { text-align:center; margin-bottom:28px; position:relative; }
@@ -134,7 +129,7 @@
     .logo { font-family:'Orbitron',sans-serif; font-size:clamp(1.4rem,4vw,2rem); font-weight:900; letter-spacing:4px; text-transform:uppercase; color:var(--neon); text-shadow:0 0 20px rgba(0,255,204,.7),0 0 40px rgba(0,255,204,.3); margin-bottom:6px; }
     .subtitle { font-size:.8rem; letter-spacing:5px; color:var(--text-dim); text-transform:uppercase; }
     /* App-Fassung (html.app): Kopf wie Alien Pass / Tresor / Notes (Kit app-design) — Sprache links, „?“ rechts, Logo mittig.
-       Die Website-Leiste (Zentrale, Breadcrumb, BETA) gehört nur zur Web-Version. */
+       Die Website-Leiste (Zentrale, Breadcrumb) gehört nur zur Web-Version. */
     html:not(.app) .app-only { display:none !important; }
     html.app .top-nav { display:none; }
     html.app header .logo { padding:0 52px; min-height:36px; display:flex; align-items:center; justify-content:center; font-size:clamp(1.3rem,4vw,1.9rem); margin-bottom:0; }
@@ -430,6 +425,7 @@
           <li><strong>Steuernachweis:</strong> formaler, druckfertiger Nachweis für Steuererklärung oder Steuerberater. Fürs Finanzamt.</li>
           <li><strong>Käufe / Verkäufe (CSV):</strong> Tabellen für Excel oder LibreOffice. Optional.</li>
           <li><strong>⚠ noKYC intern:</strong> deine private Übersicht der noKYC-Bestände. Niemals weitergeben.</li>
+          <li><strong>⚠ Wallet-Abgleich intern:</strong> deine Wallets mit echten Namen, die Zuordnung aller Überträge, offene Punkte und der Vergleich zur früheren gemeinsamen Rechnung. Niemals weitergeben.</li>
         </ul>
         <p>Auch Gewinne aus noKYC-Verkäufen sind steuerpflichtig und gehören in die Steuererklärung. Die Trennung dient deiner Privatsphäre und einer sauberen Buchführung, nicht dem Verschweigen.</p>
 
@@ -439,13 +435,14 @@
 
         <h2>Häufige Fragen</h2>
         <p><strong>Käufe in CHF oder USD (Swissquote, Pocket)?</strong><br>Die App rechnet sie mit dem EZB-Referenzkurs des Kauftags in EUR um (Wochenende/Feiertag: letzter Kurs davor). Die Kurstabelle liegt in der App, es wird kein Kursdienst angefragt. Liegt ein Kauf nach dem Datenstand der Tabelle, bricht die App mit einer Erklärung ab, statt einen alten Kurs zu nehmen.</p>
-        <p><strong>Überträge zwischen meinen Wallets und ihre Gebühren?</strong><br>Der übertragene Bestand bleibt steuerneutral und behält sein Kaufdatum. Die Netzwerk- oder Auszahlungsgebühr in Bitcoin bucht die App als kleine Veräußerung des Gebührenanteils: Die Gebühr ist ein Tausch gegen eine Dienstleistung (abgeleitet aus dem BMF-Schreiben vom 06.03.2025, Rn. 33, 54, 60). FiFo-Zuordnung, Bewertung zum Tagesschlusskurs (Rn. 91), eigener Abschnitt „GEBÜHREN IN BITCOIN“ im Report.</p>
+        <p><strong>Mehrere Wallets und Konten?</strong><br>Die App rechnet FiFo je Wallet (BMF-Schreiben vom 06.03.2025, Rn. 62) und behandelt dabei auch jedes Börsenkonto als eigene Wallet: Jede BitBox-Wallet und jedes Konto ist ein eigener Bestand. Bei einem Übertrag zwischen deinen Wallets gibt die abgebende Wallet ihre ältesten Einheiten ab; Kaufdatum und Einstand wandern mit in die empfangende Wallet. Überträge erkennt die App an der Transaktions-ID, sonst an Betrag und Zeitpunkt (48 Stunden). Ein Abgang ohne passenden Eingang gilt als Übertrag in eine nicht eingelesene eigene Wallet und wird im Log gemeldet, nie still als Verkauf gebucht. Lade deshalb die Exporte aller Wallets. Sonderfälle wie eine Sammelauszahlung löst die optionale Datei <code>transfer_zuordnung.csv</code> (Format im Repository, <code>docs/DATENFORMATE.md</code>). In den Finanzamt-Dokumenten heißt deine Wallet nur „BitBox-Wallet“, bei mehreren „BitBox-Wallet 1“, „BitBox-Wallet 2“ und so weiter; die echten Namen stehen allein in der internen Datei „Wallet-Abgleich“.</p>
+        <p><strong>Überträge zwischen meinen Wallets und ihre Gebühren?</strong><br>Der übertragene Bestand bleibt steuerneutral und behält sein Kaufdatum (siehe „Mehrere Wallets“). Die Netzwerk- oder Auszahlungsgebühr in Bitcoin bucht die App als kleine Veräußerung des Gebührenanteils: Die Gebühr ist ein Tausch gegen eine Dienstleistung (abgeleitet aus dem BMF-Schreiben vom 06.03.2025, Rn. 33, 54, 60). FiFo-Zuordnung, Bewertung zum Tagesschlusskurs (Rn. 91), eigener Abschnitt „GEBÜHREN IN BITCOIN“ im Report.</p>
         <p><strong>Bitcoin verschenkt oder gespendet?</strong><br>Trag in der BitBoxApp vor dem Export ein Wort wie „Spende“, „Geschenk“ oder „Schenkung“ in die Notiz der Transaktion ein. Die App bucht die Zeile dann als unentgeltliche Übertragung: kein Verkauf, kein Gewinn, aber ein Abgang aus dem Bestand. Der Report nennt je Lot Kaufdatum und Einstand, weil dem Empfänger die Anschaffung zugerechnet wird (§ 23 Abs. 1 Satz 3 EStG). Eine dabei gezahlte Netzwerkgebühr bleibt eine kleine Veräußerung (siehe oben). Notizen mit „Gutschein“ oder „Gift Card“ und verneinte Formen wie „kein Geschenk“ wertet die App nicht als Schenkung.</p>
-        <p><strong>Mein Broker fehlt?</strong><br>Käufe in <code>manual_buys.csv</code> eintragen (<code>date,btc_amount,eur_amount,note,kyc</code>; bei KYC-Brokern wie Coinbase die Spalte <code>kyc</code> auf <code>ja</code>). Und die CSV-Kopfzeile ohne echte Daten an <a href="mailto:kontakt@alien-investor.org">kontakt@alien-investor.org</a> schicken. Neue Parser kommen mit einem Update.</p>
+        <p><strong>Mein Broker fehlt?</strong><br>Käufe in <code>manual_buys.csv</code> eintragen (<code>date,btc_amount,eur_amount,note,kyc,wallet</code>; bei KYC-Brokern wie Coinbase die Spalte <code>kyc</code> auf <code>ja</code>; <code>wallet</code> optional: die eigene Wallet, an die geliefert wurde). Und die CSV-Kopfzeile ohne echte Daten an <a href="mailto:kontakt@alien-investor.org">kontakt@alien-investor.org</a> schicken. Neue Parser kommen mit einem Update.</p>
         <p><strong>Erst mal ausprobieren?</strong><br>„Mit Beispieldaten testen“ lädt fiktive Daten für alle unterstützten Broker. Oder die Beispieldaten als ZIP speichern und selbst in die Zone ziehen.</p>
 
         <h2>Wichtig</h2>
-        <p><strong>Keine Steuerberatung.</strong> Das Tool ist eine reine Berechnungshilfe für private Veräußerungsgeschäfte (§ 23 EStG) nach der FiFo-Methode (BMF-Schreiben vom 06.03.2025, Rn. 61). Für deine Steuererklärung bist du selbst verantwortlich. Bei komplexen Fällen (Mining, Staking, Lending, gewerblicher Handel) einen Steuerberater fragen.</p>
+        <p><strong>Keine Steuerberatung.</strong> Das Tool ist eine reine Berechnungshilfe für private Veräußerungsgeschäfte (§ 23 EStG) nach der FiFo-Methode, walletbezogen (BMF-Schreiben vom 06.03.2025, Rn. 61 f.). Für deine Steuererklärung bist du selbst verantwortlich. Bei komplexen Fällen (Mining, Staking, Lending, gewerblicher Handel) einen Steuerberater fragen.</p>
         <p>Ausführliche Anleitung mit Bildern: <a href="https://alien-investor.org/steuertool-guide.html" target="_blank" rel="noopener">alien-investor.org/steuertool-guide.html</a></p>
       </div>
       <div id="help-en" class="hidden">
@@ -482,6 +479,7 @@
           <li><strong>Steuernachweis:</strong> formal, print-ready statement for your tax return or tax advisor. For the tax office.</li>
           <li><strong>Purchases / sales (CSV):</strong> tables for Excel or LibreOffice. Optional.</li>
           <li><strong>⚠ noKYC intern:</strong> your private overview of noKYC holdings. Never hand it over.</li>
+          <li><strong>⚠ Wallet check internal:</strong> your wallets with their real names, the matching of all transfers, open items and the comparison with the former pooled calculation. Never hand it over.</li>
         </ul>
         <p>Gains from noKYC sales are taxable too and must be declared. The separation serves your privacy and clean bookkeeping, not concealment.</p>
 
@@ -491,13 +489,14 @@
 
         <h2>Frequently asked</h2>
         <p><strong>Purchases in CHF or USD (Swissquote, Pocket)?</strong><br>The app converts them to EUR at the ECB reference rate of the purchase day (weekend/holiday: last rate before). The rate table ships with the app; no rate service is queried. If a purchase lies after the table's data date, the app stops with an explanation instead of using an old rate.</p>
-        <p><strong>Transfers between my wallets and their fees?</strong><br>The transferred holding stays tax-neutral and keeps its purchase date. The network or withdrawal fee paid in bitcoin is booked as a small disposal of the fee share: the fee is an exchange for a service (derived from the German Federal Ministry of Finance letter of 06.03.2025, paras. 33, 54, 60). FiFo matching, valued at the daily closing price (para. 91), own section "GEBÜHREN IN BITCOIN" in the report.</p>
+        <p><strong>Several wallets and accounts?</strong><br>The app applies FiFo per wallet (German Federal Ministry of Finance letter of 06.03.2025, para. 62) and treats every exchange account as a wallet of its own: every BitBox wallet and every account is a separate holding. On a transfer between your wallets, the sending wallet gives up its oldest units; purchase date and cost travel with them into the receiving wallet. The app matches transfers by transaction ID, otherwise by amount and time (48 hours). An outgoing transfer without a matching incoming one counts as a transfer to one of your wallets that was not loaded and is reported in the log, never silently booked as a sale. So load the exports of all your wallets. Special cases such as a pooled withdrawal are solved with the optional file <code>transfer_zuordnung.csv</code> (format in the repository, <code>docs/DATENFORMATE.md</code>). In the documents for the tax office your wallet is only called "BitBox-Wallet", with several wallets "BitBox-Wallet 1", "BitBox-Wallet 2" and so on; the real names appear solely in the internal file "Wallet check".</p>
+        <p><strong>Transfers between my wallets and their fees?</strong><br>The transferred holding stays tax-neutral and keeps its purchase date (see "Several wallets"). The network or withdrawal fee paid in bitcoin is booked as a small disposal of the fee share: the fee is an exchange for a service (derived from the German Federal Ministry of Finance letter of 06.03.2025, paras. 33, 54, 60). FiFo matching, valued at the daily closing price (para. 91), own section "GEBÜHREN IN BITCOIN" in the report.</p>
         <p><strong>Gave bitcoin away or donated it?</strong><br>Before exporting, put a word like "gift", "donation", "Spende", "Geschenk" or "Schenkung" into the transaction note in the BitBoxApp. The app then books the line as a gratuitous transfer: no sale, no gain, but the coins leave your holdings. The report lists purchase date and cost per lot, because the acquisition is attributed to the recipient (§ 23 (1) sentence 3 EStG). A network fee paid along the way is still a small disposal (see above). Notes containing "gift card" or "Gutschein" (voucher) and negations such as "not a gift" are not treated as gifts.</p>
-        <p><strong>My broker is missing?</strong><br>Enter purchases in <code>manual_buys.csv</code> (<code>date,btc_amount,eur_amount,note,kyc</code>; for KYC brokers like Coinbase set <code>kyc</code> to <code>ja</code>). And send the CSV header line without real data to <a href="mailto:kontakt@alien-investor.org">kontakt@alien-investor.org</a>. New parsers arrive with an update.</p>
+        <p><strong>My broker is missing?</strong><br>Enter purchases in <code>manual_buys.csv</code> (<code>date,btc_amount,eur_amount,note,kyc,wallet</code>; for KYC brokers like Coinbase set <code>kyc</code> to <code>ja</code>; <code>wallet</code> is optional: your own wallet the coins were delivered to). And send the CSV header line without real data to <a href="mailto:kontakt@alien-investor.org">kontakt@alien-investor.org</a>. New parsers arrive with an update.</p>
         <p><strong>Try it first?</strong><br>"Try with sample data" loads fictitious data for all supported brokers. Or save the sample data as a ZIP and drag it into the zone yourself.</p>
 
         <h2>Important</h2>
-        <p><strong>No tax advice.</strong> The tool is a pure calculation aid for private disposals (§ 23 EStG) using the FiFo method (German Federal Ministry of Finance letter of 06.03.2025, para. 61). You remain responsible for your tax return. For complex cases (mining, staking, lending, commercial trading) ask a tax advisor.</p>
+        <p><strong>No tax advice.</strong> The tool is a pure calculation aid for private disposals (§ 23 EStG) using the FiFo method per wallet (German Federal Ministry of Finance letter of 06.03.2025, paras. 61 f.). You remain responsible for your tax return. For complex cases (mining, staking, lending, commercial trading) ask a tax advisor.</p>
         <p>Detailed guide with pictures: <a href="https://alien-investor.org/en/steuertool-guide.html" target="_blank" rel="noopener">alien-investor.org/en/steuertool-guide.html</a></p>
       </div>
     </div>
@@ -511,7 +510,6 @@
       <span class="top-nav-title" id="nav-title">TOOLS / BTC STEUERTOOL</span>
       <div class="top-nav-right">
         <button class="settings-btn guide-btn help-q" id="help-btn" onclick="openHelp()" title="Anleitung" aria-label="Anleitung">?</button>
-        <span class="v2-badge">BETA</span>
         <button class="settings-btn" id="lang-toggle" onclick="toggleLang()">EN</button>
         <button class="settings-btn" id="theme-toggle" onclick="toggleTheme()">SOFT</button>
       </div>

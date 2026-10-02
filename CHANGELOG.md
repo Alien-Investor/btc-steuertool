@@ -3,6 +3,25 @@
 Das CLI und die Web-Version haben keine eigenen Versionen; sie laufen immer auf dem Stand von `main`.
 Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die denselben Rechenkern enthalten.
 
+## v1.2 — 2026-10-02
+- **FiFo jetzt walletbezogen** (BMF-Schreiben vom 06.03.2025, Rn. 61 f.): Jede Wallet ist ein eigener Bestand, jedes Börsenkonto behandelt das
+  Tool als eigene Wallet. Bei
+  Überträgen zwischen eigenen Wallets gibt die abgebende Wallet ihre ältesten Einheiten ab; Anschaffungsdatum und -kosten wandern mit in die
+  empfangende Wallet. Bisher rechnete das Tool einen gemeinsamen Bestand über alle Quellen. Ergebnisse können sich dadurch ändern (andere
+  Zuordnung von Verkauf zu Kauf, andere Haltefrist); die Reports erklären die Methode selbst.
+- Überträge werden automatisch zugeordnet (Transaktions-ID, sonst Betrag und Zeit innerhalb von 48 Stunden). Sonderfälle wie Sammelauszahlungen
+  über die optionale Datei `transfer_zuordnung.csv`. Abgänge ohne erkennbaren Eingang gelten als Übertrag in eine nicht eingelesene eigene
+  Wallet und werden gemeldet, nie still als Verkauf gebucht.
+- Neue optionale Spalte `wallet` in `manual_buys.csv` und `manual_sales.csv`.
+- Steuerreport und Steuernachweis: Abschnitt „Umbuchungen zwischen eigenen Wallets“; der Steuerreport zeigt zusätzlich den Bestand je Wallet
+  zum Jahresende. BitBox-Wallets erscheinen dort nur als „BitBox-Wallet“ (bei mehreren „BitBox-Wallet 1“, „BitBox-Wallet 2“ …), nie mit Dateinamen.
+- Neue interne Datei `wallet_abgleich_intern_JAHR.txt` (im ZIP unter INTERN-NICHT-WEITERGEBEN): echte Wallet-Namen, alle Zuordnungen, offene
+  Punkte und der Vergleich zur bisherigen gemeinsamen Rechnung.
+- Strike: die in Bitcoin gezahlte Netzwerkgebühr (`Fee BTC`) wird jetzt als Veräußerung des Gebührenanteils erfasst; bisher ging sie in der
+  Auszahlungsmenge unter.
+- Oberfläche: Abzeichen „BETA“ entfernt. Hilfetext zum Bisq-Export präzisiert (deutsche Bisq-Oberfläche).
+- Internes Audit der neuen Rechenlogik (Rechenlogik und Datenschutz) vor dem Release, alle Funde behoben; neuer Mengenbilanz-Test.
+
 ## v1.1 — 2026-10-02
 - Spenden-Blitz unten in der App („Energie aufladen · Spenden“) wie in den anderen Alien-Apps. Er öffnet die Spendenseite auf
   alien-investor.org im Browser des Systems; die App selbst bleibt ohne Netz.

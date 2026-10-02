@@ -4,8 +4,8 @@
 
 Es liest deine CSV-Dateien von BitBox, 21bitcoin, Bison, Swissquote, Strike, Pocket und Bisq
 und berechnet daraus automatisch, welche Bitcoin-Verkäufe steuerpflichtig oder steuerfrei waren.
-Die Berechnung folgt der deutschen FiFo-Methode (§ 23 EStG): BTC, die länger als
-ein Jahr gehalten wurden, sind beim Verkauf steuerfrei.
+Die Berechnung folgt der deutschen FiFo-Methode je Wallet (§ 23 EStG, BMF-Schreiben vom
+06.03.2025, Rn. 61 f.): BTC, die länger als ein Jahr gehalten wurden, sind beim Verkauf steuerfrei.
 
 **Ohne Terminal?** Die Web-Version unter https://api.alien-investor.org/steuertool/
 macht dasselbe im Browser — kostenlos, ohne Upload, ohne Account. Als App gibt es das Tool für
@@ -133,6 +133,7 @@ reports/
 ├── steuerreport_2025.txt     ← Übersichtlicher Report (für Finanzamt verwendbar)
 ├── steuernachweis_2025.txt   ← Formaler Nachweis (druckfertig, für Finanzamt)
 ├── nokyc_intern_2025.txt     ← noKYC-Käufe — NUR INTERN, nicht für Finanzamt!
+├── wallet_abgleich_intern_2025.txt ← Wallet-Namen, Zuordnung der Überträge — NUR INTERN!
 ├── kaeufe_2025.csv           ← Käufe als Tabelle (für Excel)
 └── verkaeufe_2025.csv        ← Verkäufe mit FiFo-Details (für Excel)
 ```
@@ -140,6 +141,12 @@ reports/
 **Wichtig:** `nokyc_intern_YYYY.txt` wird nur erzeugt wenn du Bisq-/noKYC-Daten hast.
 Diese Datei **niemals** dem Finanzamt oder Steuerberater übergeben — sie enthält
 P2P-Käufe die bewusst aus dem offiziellen Report herausgehalten werden.
+
+`wallet_abgleich_intern_YYYY.txt` ist ebenfalls nur für dich: Sie nennt deine Wallets mit
+echten Namen (Dateinamen der BitBox-Exporte), listet alle Übertrags-Zuordnungen und offenen
+Punkte und vergleicht die walletbezogene Rechnung mit der früheren gemeinsamen Rechnung über
+alle Wallets. In den offiziellen Dokumenten heißt deine Wallet nur „BitBox-Wallet“, bei
+mehreren „BitBox-Wallet 1“, „BitBox-Wallet 2“ und so weiter.
 
 ---
 
@@ -172,6 +179,7 @@ Genauso wichtig wie die richtigen Unterlagen: zu wissen, was nicht in die Belegk
 | Datei | Warum nicht |
 |-------|-------------|
 | `reports/nokyc_intern_JAHR.txt` | Interne noKYC-Übersicht — niemals einreichen |
+| `reports/wallet_abgleich_intern_JAHR.txt` | Echte Wallet-Namen und Vergleichsrechnung — niemals einreichen |
 | BitBox-CSVs (`bitbox/`) | Selbst erstellte Dateien ohne Beweiswert — das Finanzamt hat keinen Anspruch auf deine Wallet-Historie. Die Belegkette besteht aus den Broker-CSVs. |
 | `Broker/bisq*.csv` und `manual_buys.csv` | noKYC-Quellen — nur für die interne Buchführung |
 | `fx_cache.json` und Quellcode | Technische Dateien, für das Finanzamt irrelevant |
@@ -204,6 +212,8 @@ Bei Strike, Pocket und Bisq: einfach eine neue Datei ablegen, das Tool liest all
 Für manuelle Einträge direkt im Projektordner (nicht in einem Unterordner):
 - `manual_buys.csv` → Käufe manuell: noKYC (Robosats, P2P, Bargeld) oder mit Spalte `kyc=ja` auch KYC-Broker ohne eigenen Parser — eine Zeile pro Kauf
 - `manual_sales.csv` → private P2P-Verkäufe — eine Zeile pro Verkauf
+- `transfer_zuordnung.csv` → optional: Überträge von Hand verbinden, wenn die automatische
+  Zuordnung nicht greift (Format in `docs/DATENFORMATE.md`, siehe auch „Häufige Fragen“)
 
 Diese Dateien existieren nicht im Repository (gitignored) — einfach neu anlegen und befüllen.
 Das Format ist in den Abschnitten "noKYC-Käufe" und "Private Verkäufe" weiter unten beschrieben.
@@ -230,10 +240,10 @@ Das Tool liest sie automatisch ein und erkennt alle abgeschlossenen Käufe.
 Für Robosats, HodlHodl, P2P oder Bargeldkäufe — also alles ohne CSV-Export:
 
 ```csv
-date,btc_amount,eur_amount,note,kyc
-2024-03-10,0.01000000,550.00,Robosats Trade,
-2024-07-22,0.00500000,280.00,P2P Kauf,
-2024-12-01,0.00200000,190.00,Coinbase Kauf,ja
+date,btc_amount,eur_amount,note,kyc,wallet
+2024-03-10,0.01000000,550.00,Robosats Trade,,
+2024-07-22,0.00500000,280.00,P2P Kauf,,
+2024-12-01,0.00200000,190.00,Coinbase Kauf,ja,wallet1
 ```
 
 - `date`: Datum im Format YYYY-MM-DD
@@ -243,6 +253,8 @@ date,btc_amount,eur_amount,note,kyc
 - `kyc` (optional): `ja` → Kauf bei einem **KYC-Broker, für den es (noch) keinen
   eigenen Parser gibt** (z.B. Coinbase, Kraken). Der Kauf landet dann im offiziellen
   Finanzamt-Report wie jeder Broker-Kauf. Leer oder fehlend → noKYC (Standard).
+- `wallet` (optional): die eigene Wallet, an die geliefert wurde (Dateiname des
+  BitBox-Exports ohne `.csv`). Leer → das Tool ordnet den Kauf dem passenden Eingang zu.
 
 ### Option C: Dedizierte noKYC-BitBox-Wallet
 
@@ -305,12 +317,12 @@ Wenn du BTC direkt an eine Person verkaufst — also außerhalb eines Brokers, z
 eine Überweisung — gibt es keine CSV von einer Plattform. Dafür gibt es die Datei
 `manual_sales.csv` im Projektordner.
 
-Format (eine Zeile pro Verkauf, Spalte `no_kyc` optional):
+Format (eine Zeile pro Verkauf, Spalten `no_kyc` und `wallet` optional):
 
 ```csv
-date,btc_amount,eur_amount,note,no_kyc
-2024-06-15,0.00500000,325.00,P2P Verkauf,
-2024-08-01,0.00300000,180.00,Verkauf aus noKYC-Bestand,ja
+date,btc_amount,eur_amount,note,no_kyc,wallet
+2024-06-15,0.00500000,325.00,P2P Verkauf,,wallet1
+2024-08-01,0.00300000,180.00,Verkauf aus noKYC-Bestand,ja,
 ```
 
 - `date`: Datum im Format YYYY-MM-DD
@@ -318,6 +330,9 @@ date,btc_amount,eur_amount,note,no_kyc
 - `eur_amount`: erhaltener EUR-Betrag (netto, ohne zusätzliche Gebühren)
 - `note`: Freitext zur eigenen Dokumentation
 - `no_kyc`: `ja` → Verkauf stammt aus dem noKYC-Bestand (siehe unten). Leer = normaler Verkauf.
+- `wallet` (optional): Wallet, aus der verkauft wurde. Leer → das Tool nimmt den passenden
+  Abgang einer Wallet; gibt es keinen, warnt es und bedient den Verkauf nur aus Beständen
+  ohne bekannten Verwahrort.
 
 Das Tool liest diese Datei automatisch ein und behandelt jeden Eintrag als Verkauf.
 Normale Einträge tauchen im offiziellen Report unter der Quelle `manual` auf.
@@ -360,9 +375,15 @@ Ja. Das Tool kann nur auswerten was in den CSV-Dateien steht. Exportiere am
 Jahresende (oder vor der Steuererklärung) frische CSVs von allen Plattformen.
 
 **Was ist mit den Überträgen zwischen meinen Wallets?**
-Die erkennt das Tool automatisch. Der übertragene Bestand ist kein steuerpflichtiger
-Vorgang (BitBox ↔ Bison, BitBox ↔ 21bitcoin usw.) und bleibt mit seinem alten
-Kaufdatum im Bestand. **Die Gebühr aber nicht:** Netzwerk- und Auszahlungsgebühren,
+Die erkennt das Tool automatisch: zuerst an der Transaktions-ID, sonst am Betrag (mit oder
+ohne Gebühr) innerhalb von 48 Stunden. Der übertragene Bestand ist kein steuerpflichtiger
+Vorgang (BitBox ↔ Bison, BitBox ↔ 21bitcoin usw.). Da FiFo walletbezogen gerechnet wird
+(BMF-Schreiben vom 06.03.2025, Rn. 62), gibt die abgebende Wallet ihre ältesten Einheiten ab;
+Kaufdatum und Einstand wandern mit in die empfangende Wallet. Ein Abgang ohne passenden
+Eingang gilt als Übertrag in eine nicht eingelesene eigene Wallet und wird gemeldet — nie
+still als Verkauf gebucht. Deshalb immer die Exporte aller Wallets einlesen. Sonderfälle
+(Sammelauszahlung, Eingang erst nach Tagen) löst `transfer_zuordnung.csv`, Format in
+`docs/DATENFORMATE.md`. **Die Gebühr aber nicht:** Netzwerk- und Auszahlungsgebühren,
 die du in Bitcoin bezahlst, gibst du im Tausch für eine Dienstleistung her — das ist
 nach der Systematik des BMF-Schreibens vom 06.03.2025 (Rn. 33, 54, 60) eine kleine
 Veräußerung des Gebührenanteils. Das Tool bewertet sie zum Tagesschlusskurs

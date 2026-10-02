@@ -30,8 +30,6 @@ with sync_playwright() as p:
         ctx = b.new_context(viewport={"width": 1100, "height": 1000})
         pg = ctx.new_page(); pg.goto(f"http://localhost:8741/index.html?lang={lang}")
         pg.wait_for_selector("#dropzone")
-        # BETA-Abzeichen fällt mit dem nächsten Release weg (Autor 02.10.2026) → im Bild schon ausblenden
-        pg.evaluate("[...document.querySelectorAll('*')].filter(e=>e.children.length===0 && e.textContent.trim()==='BETA').forEach(e=>e.style.display='none')")
         pg.wait_for_timeout(600)
         pg.screenshot(path=str(OUT / f"steuertool-guide-start{'' if lang == 'de' else '-en'}.png"), clip={"x": 0, "y": 0, "width": 1100, "height": 700})
         print("  ✓ start", lang)
