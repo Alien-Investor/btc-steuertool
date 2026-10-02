@@ -1,6 +1,6 @@
 # YouTube DE – App-Trailer „BTC Steuertool: Bitcoin-Steuerreport offline für GrapheneOS und Linux“
 
-**Status:** gebaut 02.10.2026, noch nicht hochgeladen. Datei `out/trailer-de-16x9.mp4` (57,2 s), Thumbnail-Vorschlag V2 (`thumbs/thumb-v2-de.jpg`),
+**Status:** LIVE seit 2026-10-02, https://youtu.be/L93lQjO4B1A (Titel = Vorschlag 1). Website-Embed gesetzt (apps.html, nur dieses Video). EN-Gegenstück: https://youtu.be/JPQWFs9SWpo.
 Musik: Bett des Steuertool-Tutorials (`btc-steuertool-web/audio/background_01.wav`, 120-s-Schnitt).
 Nach dem Upload: ID hier eintragen, `python3 embed_website.py <ID_DE> <ID_EN>`, Website pushen, Obsidian `projekte/yt-videos.md`,
 `projekte/btc-steuertool-offline-app.md`, `wissen/app-trailer.md`, angepinnten Kommentar in `~/Sync/sachwert-tresor/yt-angepinnte-kommentare.md`.

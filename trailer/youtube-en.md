@@ -1,6 +1,6 @@
 # YouTube EN – App trailer "BTC Steuertool: Bitcoin tax report offline for GrapheneOS and Linux"
 
-**Status:** built 2026-10-02, not uploaded yet. File `out/trailer-en-16x9.mp4` (57.2 s), thumbnail proposal V2 (`thumbs/thumb-v2-en.jpg`),
+**Status:** LIVE since 2026-10-02, https://youtu.be/JPQWFs9SWpo (title = option 1). Website embed set (en/apps.html, this video only). DE counterpart: https://youtu.be/L93lQjO4B1A.
 music: bed of the tax tool tutorial (`btc-steuertool-web/audio/background_01.wav`, 120 s cut).
 After upload: enter the ID here, run `python3 embed_website.py <ID_DE> <ID_EN>`, push the website, update Obsidian `projekte/yt-videos.md`,
 `projekte/btc-steuertool-offline-app.md`, `wissen/app-trailer.md`, pinned comment in `~/Sync/sachwert-tresor/yt-angepinnte-kommentare.md`.
