@@ -80,6 +80,27 @@ Kontrolle will, nimmt das CLI aus diesem Repo (oder baut die Web-Version selbst,
 Lokal bauen und testen: `cd web && ./vendor-setup.sh && ./build.sh`, dann
 `python3 -m http.server 8741 --directory dist` und `http://localhost:8741/` öffnen.
 
+## Linux-Desktop-App (Flatpak, frei)
+
+Dieselbe Oberfläche und dieselbe Engine als App, die nach der Installation **nichts mehr nachlädt**:
+Pyodide, Rechenkern und Kurstabellen sind eingebaut. Das Flatpak hat **kein Netz** (`--share=network`
+fehlt) und **keinen Dateisystem-Zugriff** — CSVs kommen über den Datei-Dialog oder per Drag&Drop
+herein, Reports gehen über den Speichern-Dialog hinaus. Anleitung in der App über den „?“-Knopf.
+
+Download: Bundle `btc-steuertool-<Version>-linux-x86_64.flatpak` mit `SHA256SUMS` und GPG-Signatur
+`SHA256SUMS.asc` aus den GitHub-Releases bzw. unter https://api.alien-investor.org/downloads/steuertool/.
+
+```bash
+gpg --verify SHA256SUMS.asc SHA256SUMS      # Schlüssel 100F 9E25 BFAE A807 DBC3  57D7 50C0 D785 83BF CB81
+sha256sum -c SHA256SUMS
+flatpak install --user btc-steuertool-*-linux-x86_64.flatpak   # Laufzeit kommt von Flathub
+flatpak run org.alieninvestor.steuertool
+```
+
+Update: alte Version deinstallieren (`flatpak uninstall --user org.alieninvestor.steuertool`), neue
+installieren — die App speichert keine Daten. Selbst bauen: `desktop/build-desktop.sh`
+(Details und Sicherheitsregeln in `desktop/DESKTOP-INVARIANTEN.md`).
+
 ## Datenschutz
 
 Eigene CSV-Dateien enthalten sensible Finanzdaten. Die Ordner `bitbox/`, `Broker/`

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=BTC Steuertool
+Comment=Bitcoin-Steuerreport nach § 23 EStG, offline und ohne Netz
+Comment[en]=Bitcoin tax report for Germany (§ 23 EStG), offline without network
+Exec=btc-steuertool
+Icon=org.alieninvestor.steuertool
+Terminal=false
+Categories=Office;Finance;
+Keywords=bitcoin;steuer;tax;fifo;finanzamt;report;
+StartupWMClass=btc-steuertool

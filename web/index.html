@@ -36,6 +36,15 @@
       --red-dim: rgba(224,51,85,0.15);
     }
     [data-theme="soft"] body::after { opacity: 0.35; }
+    /* Scrollbalken im Neon-Look statt Chromium-Grau (Desktop-Hülle, Brave/Chrome). Daumen mit transparentem Rand,
+       damit er in Karten wie auf dem Seitenhintergrund schwebt. Firefox kennt die Pseudo-Elemente nicht → scrollbar-color. */
+    ::-webkit-scrollbar { width:10px; height:10px; }
+    ::-webkit-scrollbar-track { background:rgba(0,255,204,.04); }
+    ::-webkit-scrollbar-thumb { background:var(--neon-mid); border:2px solid transparent; background-clip:padding-box; border-radius:6px; }
+    ::-webkit-scrollbar-thumb:hover { background:var(--neon); background-clip:padding-box; }
+    ::-webkit-scrollbar-corner { background:transparent; }
+    ::-webkit-scrollbar-button { display:none; }
+    @supports not selector(::-webkit-scrollbar) { html { scrollbar-color:var(--neon-mid) transparent; scrollbar-width:thin; } }
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
       background: var(--bg);
@@ -85,6 +94,28 @@
       text-decoration:none; animation:guide-pulse 2.6s ease-in-out infinite;
     }
     .guide-btn:hover { color:var(--neon); border-color:var(--neon); animation:none; box-shadow:0 0 18px rgba(0,255,204,.55); }
+    .help-q { width:32px; height:32px; padding:0; border-radius:50%; display:flex; align-items:center; justify-content:center;
+      font-family:'Orbitron',sans-serif; font-weight:700; font-size:1rem; letter-spacing:0; }
+    /* Handbuch-Overlay (Kit app-design): eine Quelle für Web, Desktop (Flatpak) und APK — offline, kein Link nötig */
+    .help-overlay { position:fixed; inset:0; background:rgba(0,8,6,.975); z-index:100; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+    [data-theme="soft"] .help-overlay { background:rgba(13,26,43,.985); }
+    .help-inner { max-width:760px; margin:0 auto; padding:0 18px 60px; }
+    .help-head { display:flex; align-items:center; justify-content:space-between; gap:10px; position:sticky; top:0; background:inherit;
+      padding:16px 0 12px; border-bottom:1px solid var(--neon-dim); margin-bottom:6px; z-index:2; }
+    .help-overlay .help-head { background:rgba(0,8,6,.99); }
+    [data-theme="soft"] .help-overlay .help-head { background:rgba(13,26,43,.99); }
+    .help-head .help-title { font-family:'Orbitron',sans-serif; font-weight:900; font-size:1.05rem; letter-spacing:3px; color:var(--neon); text-transform:uppercase; }
+    .help-inner h2 { font-family:'Orbitron',sans-serif; color:var(--neon); font-size:.92rem; letter-spacing:2px; margin:24px 0 8px; text-transform:uppercase; }
+    .help-inner p { font-size:.86rem; line-height:1.65; color:var(--text-mid); margin:6px 0; overflow-wrap:break-word; }
+    .help-inner ul, .help-inner ol { margin:6px 0 6px 20px; }
+    .help-inner li { font-size:.86rem; line-height:1.6; color:var(--text-mid); margin:4px 0; overflow-wrap:break-word; }
+    .help-inner strong { color:var(--neon); font-weight:normal; }
+    .help-inner code { background:rgba(0,255,204,.1); padding:1px 5px; border-radius:3px; font-size:.82rem; }
+    .help-inner .warn { border:1px solid rgba(255,136,68,.45); background:rgba(255,136,68,.07); padding:10px 14px; border-radius:4px; margin:10px 0; }
+    .help-inner .warn p { color:var(--orange); }
+    .help-inner a { color:var(--neon); }
+    #help-close { font-size:.95rem; padding:5px 11px; letter-spacing:0; }
+    #help-close:focus-visible, .help-q:focus-visible { outline:none; border-color:var(--neon); box-shadow:0 0 12px rgba(0,255,204,.45); }
     @keyframes guide-pulse {
       0%, 100% { box-shadow:0 0 4px rgba(0,255,204,.25); }
       50%      { box-shadow:0 0 14px rgba(0,255,204,.55); }
@@ -316,6 +347,117 @@
     </div>
   </div>
 
+  <!-- Handbuch („?“) — offline in der App, eine Quelle für Web, Desktop und APK -->
+  <div id="help-overlay" class="help-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="help-title">
+    <div class="help-inner">
+      <div class="help-head"><div class="help-title" id="help-title">Anleitung</div><button class="settings-btn" id="help-close" onclick="closeHelp()" aria-label="Schließen">✕</button></div>
+      <div id="help-de">
+        <p>Vom CSV-Export zum Finanzamt-Report: Die komplette Berechnung läuft lokal auf deinem Gerät. Kein Upload, kein Account, kein Tracking.</p>
+
+        <h2>1 · Was du brauchst</h2>
+        <p>Nur deine CSV-Exporte. Einmal pro Jahr herunterladen reicht:</p>
+        <ul>
+          <li><strong>BitBox:</strong> BitBoxApp → Konto-Informationen → Transaktionshistorie exportieren (pro Wallet eine CSV)</li>
+          <li><strong>21bitcoin:</strong> App → Aktivität → Report exportieren</li>
+          <li><strong>Bison:</strong> App → Konto → Reports → Transaktionshistorie (CSV kommt per E-Mail)</li>
+          <li><strong>Swissquote:</strong> Web → Konto → Transaktionen → CSV-Export</li>
+          <li><strong>Strike:</strong> App/Web → Aktivität → Report erstellen</li>
+          <li><strong>Pocket:</strong> Web → Verlauf → CSV herunterladen</li>
+          <li><strong>Bisq:</strong> Portfolio → Verlauf → Exportieren</li>
+        </ul>
+        <p>Käufe ohne CSV (Robosats, Bargeld, P2P) oder bei Brokern ohne eigenen Parser trägst du in eine <code>manual_buys.csv</code> ein (siehe Fragen unten).</p>
+
+        <h2>2 · Dateien laden</h2>
+        <p>Ziehe alle CSV-Dateien gleichzeitig in die gestrichelte Zone, oder klicke darauf und wähle sie aus. Ein ZIP mit CSVs geht auch. Reihenfolge und Dateinamen sind egal: Die App erkennt jeden Broker am Inhalt der Datei.</p>
+
+        <h2>3 · Erkennung prüfen</h2>
+        <p>Die Tabelle zeigt jede Datei mit dem erkannten Typ. Orange markierte Einträge sind noKYC-Quellen, sie bleiben strikt vom Finanzamt-Report getrennt.</p>
+        <div class="warn"><p><strong style="color:var(--orange)">Der eine Handgriff:</strong> Eine BitBox-CSV verrät nicht, ob die Wallet KYC- oder noKYC-Coins enthält. Führst du eine eigene noKYC-Wallet, stelle sie im Auswahlfeld auf „BitBox-Wallet (noKYC)“. Sonst erscheint sie im Finanzamt-Report.</p></div>
+        <p>Wird eine Datei nicht erkannt, bleibt die Berechnung gesperrt, bis du den Typ selbst wählst oder die Datei auf „Ignorieren“ stellst. So entsteht nie unbemerkt ein unvollständiger Report.</p>
+
+        <h2>4 · Report berechnen</h2>
+        <p>Ein Klick auf „Report berechnen“. Beim Start lädt die App ihren Rechenkern (Python); das dauert einen Moment, danach geht es schnell. Das System-Log zeigt jede Datei und jede Transaktion.</p>
+
+        <h2>5 · Die Ergebnisse</h2>
+        <p>Pro Steuerjahr gibt es mehrere Dokumente, umschaltbar über die Tabs:</p>
+        <ul>
+          <li><strong>Steuerreport:</strong> Käufe, Veräußerungen mit FiFo-Zuordnung, Haltefristen, Zusammenfassung mit Freigrenzen-Check. Fürs Finanzamt.</li>
+          <li><strong>Steuernachweis:</strong> formaler, druckfertiger Nachweis für Steuererklärung oder Steuerberater. Fürs Finanzamt.</li>
+          <li><strong>Käufe / Verkäufe (CSV):</strong> Tabellen für Excel oder LibreOffice. Optional.</li>
+          <li><strong>⚠ noKYC intern:</strong> deine private Übersicht der noKYC-Bestände. Niemals weitergeben.</li>
+        </ul>
+        <p>Auch Gewinne aus noKYC-Verkäufen sind steuerpflichtig und gehören in die Steuererklärung. Die Trennung dient deiner Privatsphäre und einer sauberen Buchführung, nicht dem Verschweigen.</p>
+
+        <h2>6 · Speichern</h2>
+        <p>Mit den Knöpfen unter der Report-Ansicht speicherst du das angezeigte Dokument einzeln oder alle Dokumente als ZIP. Interne Dateien liegen im ZIP im Ordner <code>INTERN-NICHT-WEITERGEBEN</code>.</p>
+        <p>Fürs Finanzamt zählen der <strong>Steuernachweis</strong> (<code>steuernachweis_JAHR.txt</code>) und die Original-CSVs deiner Broker als Beleg. Der Nachweis zeigt unter „Quelle“, welcher Broker welches Lot geliefert hat.</p>
+
+        <h2>Häufige Fragen</h2>
+        <p><strong>Käufe in CHF oder USD (Swissquote, Pocket)?</strong><br>Die App rechnet sie mit dem EZB-Referenzkurs des Kauftags in EUR um (Wochenende/Feiertag: letzter Kurs davor). Die Kurstabelle liegt in der App, es wird kein Kursdienst angefragt. Liegt ein Kauf nach dem Datenstand der Tabelle, bricht die App mit einer Erklärung ab, statt einen alten Kurs zu nehmen.</p>
+        <p><strong>Überträge zwischen meinen Wallets und ihre Gebühren?</strong><br>Der übertragene Bestand bleibt steuerneutral und behält sein Kaufdatum. Die Netzwerk- oder Auszahlungsgebühr in Bitcoin bucht die App als kleine Veräußerung des Gebührenanteils: Die Gebühr ist ein Tausch gegen eine Dienstleistung (abgeleitet aus dem BMF-Schreiben vom 06.03.2025, Rn. 33, 54, 60). FiFo-Zuordnung, Bewertung zum Tagesschlusskurs (Rn. 91), eigener Abschnitt „GEBÜHREN IN BITCOIN“ im Report.</p>
+        <p><strong>Bitcoin verschenkt oder gespendet?</strong><br>Trag in der BitBoxApp vor dem Export ein Wort wie „Spende“, „Geschenk“ oder „Schenkung“ in die Notiz der Transaktion ein. Die App bucht die Zeile dann als unentgeltliche Übertragung: kein Verkauf, kein Gewinn, aber ein Abgang aus dem Bestand. Der Report nennt je Lot Kaufdatum und Einstand, weil dem Empfänger die Anschaffung zugerechnet wird (§ 23 Abs. 1 Satz 3 EStG). Eine dabei gezahlte Netzwerkgebühr bleibt eine kleine Veräußerung (siehe oben).</p>
+        <p><strong>Mein Broker fehlt?</strong><br>Käufe in <code>manual_buys.csv</code> eintragen (<code>date,btc_amount,eur_amount,note,kyc</code>; bei KYC-Brokern wie Coinbase die Spalte <code>kyc</code> auf <code>ja</code>). Und die CSV-Kopfzeile ohne echte Daten an <a href="mailto:kontakt@alien-investor.org">kontakt@alien-investor.org</a> schicken. Neue Parser kommen mit einem Update.</p>
+        <p><strong>Erst mal ausprobieren?</strong><br>„Mit Beispieldaten testen“ lädt fiktive Daten für alle unterstützten Broker. Oder die Beispieldaten als ZIP speichern und selbst in die Zone ziehen.</p>
+
+        <h2>Wichtig</h2>
+        <p><strong>Keine Steuerberatung.</strong> Das Tool ist eine reine Berechnungshilfe für private Veräußerungsgeschäfte (§ 23 EStG) nach der FiFo-Methode (BMF-Schreiben vom 06.03.2025, Rn. 61). Für deine Steuererklärung bist du selbst verantwortlich. Bei komplexen Fällen (Mining, Staking, Lending, gewerblicher Handel) einen Steuerberater fragen.</p>
+        <p>Ausführliche Anleitung mit Bildern: <a href="https://alien-investor.org/steuertool-guide.html" target="_blank" rel="noopener">alien-investor.org/steuertool-guide.html</a></p>
+      </div>
+      <div id="help-en" class="hidden">
+        <p>From CSV export to tax office report: the entire calculation runs locally on your device. No upload, no account, no tracking.</p>
+
+        <h2>1 · What you need</h2>
+        <p>Just your CSV exports. Downloading once a year is enough:</p>
+        <ul>
+          <li><strong>BitBox:</strong> BitBoxApp → Account info → Export transaction history (one CSV per wallet)</li>
+          <li><strong>21bitcoin:</strong> App → Activity → Export report</li>
+          <li><strong>Bison:</strong> App → Account → Reports → Transaction history (CSV arrives via email)</li>
+          <li><strong>Swissquote:</strong> Web → Account → Transactions → CSV export</li>
+          <li><strong>Strike:</strong> App/Web → Activity → Generate report</li>
+          <li><strong>Pocket:</strong> Web → History → Download CSV</li>
+          <li><strong>Bisq:</strong> Portfolio → History → Export</li>
+        </ul>
+        <p>Purchases without a CSV (Robosats, cash, P2P) or from brokers without a dedicated parser go into a simple <code>manual_buys.csv</code> (see questions below).</p>
+
+        <h2>2 · Load your files</h2>
+        <p>Drag all CSV files into the dashed zone at once, or click it and select them. A ZIP containing CSVs works too. Order and file names do not matter: the app detects every broker from the file contents.</p>
+
+        <h2>3 · Check detection</h2>
+        <p>The table shows each file with its detected type. Entries marked orange are noKYC sources; they stay strictly separated from the tax office report.</p>
+        <div class="warn"><p><strong style="color:var(--orange)">The one manual step:</strong> A BitBox CSV cannot reveal whether the wallet holds KYC or noKYC coins. If you run a dedicated noKYC wallet, switch it to "BitBox wallet (noKYC)" in the dropdown. Otherwise it will appear in the official report.</p></div>
+        <p>If a file is not recognized, the calculation stays locked until you pick a type yourself or set the file to "Ignore". So an incomplete report can never happen silently.</p>
+
+        <h2>4 · Compute the report</h2>
+        <p>One click on "Calculate report". On start the app loads its calculation core (Python); this takes a moment, after that it is fast. The system log shows every file and every transaction.</p>
+
+        <h2>5 · The results</h2>
+        <p>Each tax year has several documents, switchable via the tabs. <strong>The reports are in German</strong>, since they are made for the German tax office:</p>
+        <ul>
+          <li><strong>Steuerreport:</strong> purchases, disposals with FiFo matching, holding periods, summary with exemption-limit check. For the tax office.</li>
+          <li><strong>Steuernachweis:</strong> formal, print-ready statement for your tax return or tax advisor. For the tax office.</li>
+          <li><strong>Purchases / sales (CSV):</strong> tables for Excel or LibreOffice. Optional.</li>
+          <li><strong>⚠ noKYC intern:</strong> your private overview of noKYC holdings. Never hand it over.</li>
+        </ul>
+        <p>Gains from noKYC sales are taxable too and must be declared. The separation serves your privacy and clean bookkeeping, not concealment.</p>
+
+        <h2>6 · Save</h2>
+        <p>The buttons below the report view save the displayed document on its own or all documents as a ZIP. Internal files sit in the ZIP folder <code>INTERN-NICHT-WEITERGEBEN</code> ("internal, do not pass on").</p>
+        <p>For the tax office, what counts is the <strong>Steuernachweis</strong> (<code>steuernachweis_YEAR.txt</code>) plus your brokers' original CSVs as evidence. Under "Quelle" the statement shows which broker supplied which lot.</p>
+
+        <h2>Frequently asked</h2>
+        <p><strong>Purchases in CHF or USD (Swissquote, Pocket)?</strong><br>The app converts them to EUR at the ECB reference rate of the purchase day (weekend/holiday: last rate before). The rate table ships with the app; no rate service is queried. If a purchase lies after the table's data date, the app stops with an explanation instead of using an old rate.</p>
+        <p><strong>Transfers between my wallets and their fees?</strong><br>The transferred holding stays tax-neutral and keeps its purchase date. The network or withdrawal fee paid in bitcoin is booked as a small disposal of the fee share: the fee is an exchange for a service (derived from the German Federal Ministry of Finance letter of 06.03.2025, paras. 33, 54, 60). FiFo matching, valued at the daily closing price (para. 91), own section "GEBÜHREN IN BITCOIN" in the report.</p>
+        <p><strong>Gave bitcoin away or donated it?</strong><br>Before exporting, put a word like "gift", "donation", "Spende", "Geschenk" or "Schenkung" into the transaction note in the BitBoxApp. The app then books the line as a gratuitous transfer: no sale, no gain, but the coins leave your holdings. The report lists purchase date and cost per lot, because the acquisition is attributed to the recipient (§ 23 (1) sentence 3 EStG). A network fee paid along the way is still a small disposal (see above).</p>
+        <p><strong>My broker is missing?</strong><br>Enter purchases in <code>manual_buys.csv</code> (<code>date,btc_amount,eur_amount,note,kyc</code>; for KYC brokers like Coinbase set <code>kyc</code> to <code>ja</code>). And send the CSV header line without real data to <a href="mailto:kontakt@alien-investor.org">kontakt@alien-investor.org</a>. New parsers arrive with an update.</p>
+        <p><strong>Try it first?</strong><br>"Try with sample data" loads fictitious data for all supported brokers. Or save the sample data as a ZIP and drag it into the zone yourself.</p>
+
+        <h2>Important</h2>
+        <p><strong>No tax advice.</strong> The tool is a pure calculation aid for private disposals (§ 23 EStG) using the FiFo method (German Federal Ministry of Finance letter of 06.03.2025, para. 61). You remain responsible for your tax return. For complex cases (mining, staking, lending, commercial trading) ask a tax advisor.</p>
+        <p>Detailed guide with pictures: <a href="https://alien-investor.org/en/steuertool-guide.html" target="_blank" rel="noopener">alien-investor.org/en/steuertool-guide.html</a></p>
+      </div>
+    </div>
+  </div>
+
   <div class="container">
 
     <nav class="top-nav">
@@ -323,7 +465,7 @@
       <span class="top-nav-sep">|</span>
       <span class="top-nav-title" id="nav-title">TOOLS / BTC STEUERTOOL</span>
       <div class="top-nav-right">
-        <a class="settings-btn guide-btn" id="guide-btn" href="https://alien-investor.org/steuertool-guide.html" target="_blank" rel="noopener"><svg style="width:1.15em;height:1em;vertical-align:-0.15em;filter:drop-shadow(0 0 3px #00ffcc88);" viewBox="0 0 36 32" xmlns="http://www.w3.org/2000/svg" aria-label="Anleitung" role="img"><defs><linearGradient id="book-bg-app" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0d2a28"/><stop offset="100%" stop-color="#060e12"/></linearGradient></defs><path d="M18 7 C14.5 3.8, 9 3, 4 4.5 L4 26 C9 24.5, 14.5 25.2, 18 28 C21.5 25.2, 27 24.5, 32 26 L32 4.5 C27 3, 21.5 3.8, 18 7 Z" fill="url(#book-bg-app)" stroke="#00ffcc" stroke-width="1.4" stroke-linejoin="round"/><line x1="18" y1="7" x2="18" y2="28" stroke="#00ffcc" stroke-width="1" opacity="0.8"/><line x1="7.5" y1="10" x2="14.5" y2="9.2" stroke="#00ffcc" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/><line x1="7.5" y1="14" x2="14.5" y2="13.2" stroke="#00ffcc" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/><line x1="7.5" y1="18" x2="14.5" y2="17.2" stroke="#00ffcc" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/><line x1="21.5" y1="9.2" x2="28.5" y2="10" stroke="#00ffcc" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/><line x1="21.5" y1="13.2" x2="28.5" y2="14" stroke="#00ffcc" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/><line x1="21.5" y1="17.2" x2="28.5" y2="18" stroke="#00ffcc" stroke-width="0.9" stroke-linecap="round" opacity="0.6"/></svg> <span id="guide-btn-text">ANLEITUNG</span></a>
+        <button class="settings-btn guide-btn help-q" id="help-btn" onclick="openHelp()" title="Anleitung" aria-label="Anleitung">?</button>
         <span class="v2-badge">BETA</span>
         <button class="settings-btn" id="lang-toggle" onclick="toggleLang()">EN</button>
         <button class="settings-btn" id="theme-toggle" onclick="toggleTheme()">SOFT</button>
@@ -434,6 +576,8 @@
        Selbst gehostet, kein CDN (Privacy). -->
   <script>
     'use strict';
+    // Desktop-Hülle (desktop/preload.js), sonst null. Alles Desktop-Spezifische hängt an DESK — ohne Hülle bleibt die Web-Version unverändert.
+    const DESK = window.AlienDesktop || null;
 
     /* ───────────────────────── Theme ───────────────────────── */
     function toggleTheme() {
@@ -459,17 +603,23 @@
     const i18n = {
       de: {
         docTitle: 'BTC Steuertool — Bitcoin Steuerreport im Browser',
+        docTitleDesk: 'BTC Steuertool — Bitcoin Steuerreport',
         backLink: '← Zentrale',
         backHref: 'https://alien-investor.org',
         navTitle: 'TOOLS / BTC STEUERTOOL',
-        guideBtn: 'ANLEITUNG',
-        guideHref: 'https://alien-investor.org/steuertool-guide.html',
+        helpTitle: 'Anleitung', helpClose: 'Schließen',
         subtitle: 'Bitcoin Steuerreport · Deutschland · FiFo · §23 EStG',
         privacy: [
           '100% lokal — deine CSVs verlassen nie deinen Browser',
           'Kein Account, kein Upload, kein Tracking',
           'Open Source — Code auf <a href="https://github.com/Alien-Investor/btc-steuertool" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">GitHub</a> prüfbar',
           'Web-Version: der Code kommt bei jedem Aufruf vom Server — volle Kontrolle hat nur das CLI aus dem Repo',
+        ],
+        privacyDesk: [
+          '100% lokal — deine CSVs verlassen nie deinen Rechner',
+          'Kein Account, kein Upload, kein Tracking',
+          'Open Source — Code auf <a href="https://github.com/Alien-Investor/btc-steuertool" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">GitHub</a> prüfbar',
+          'Desktop-App ohne Netzzugriff — Rechenkern und Kurstabellen sind fest eingebaut',
         ],
         card01: '// 01 — CSV-Dateien laden',
         dropzoneFull: '<span class="dz-icon">⬡</span>' +
@@ -492,6 +642,8 @@
         internBadge: '!! INTERN — NICHT FÜR FINANZAMT ODER STEUERBERATER !!',
         btnDownload: '⬇ Diese Datei herunterladen',
         btnDownloadAll: '⬇ Alle Dateien (ZIP)',
+        btnSave: '⬇ Diese Datei speichern…',
+        btnSaveAll: '⬇ Alle Dateien speichern (ZIP)…',
         hintLabel: '// Hinweis',
         disclaimer: '<strong>Keine Steuerberatung.</strong> Dieses Tool ist eine reine Berechnungshilfe nach der ' +
           'FiFo-Methode (§ 23 EStG, private Veräußerungsgeschäfte). Alle Ergebnisse ohne Gewähr — ' +
@@ -559,22 +711,28 @@
         bugCancel: 'Abbrechen',
         bugLink: '🐛 Bug melden',
         bugBody: (broker, desc) =>
-          'Version: BTC Steuertool Web\n' +
+          'Version: BTC Steuertool ' + (DESK ? 'Desktop' : 'Web') + '\n' +
           'Broker / Dateityp: ' + broker + '\n\nBeschreibung:\n' + desc,
       },
       en: {
         docTitle: 'BTC Steuertool — Bitcoin Tax Report in Your Browser',
+        docTitleDesk: 'BTC Steuertool — Bitcoin Tax Report',
         backLink: '← HQ',
         backHref: 'https://alien-investor.org/en/',
         navTitle: 'TOOLS / BTC TAX TOOL',
-        guideBtn: 'GUIDE',
-        guideHref: 'https://alien-investor.org/en/steuertool-guide.html',
+        helpTitle: 'Guide', helpClose: 'Close',
         subtitle: 'Bitcoin Tax Report · Germany · FiFo · §23 EStG',
         privacy: [
           '100% local — your CSVs never leave your browser',
           'No account, no upload, no tracking',
           'Open source — verify the code on <a href="https://github.com/Alien-Investor/btc-steuertool" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">GitHub</a>',
           'Web version: the code is fetched from the server on every visit — for full control use the CLI from the repo',
+        ],
+        privacyDesk: [
+          '100% local — your CSVs never leave your computer',
+          'No account, no upload, no tracking',
+          'Open source — verify the code on <a href="https://github.com/Alien-Investor/btc-steuertool" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">GitHub</a>',
+          'Desktop app without network access — calculation core and exchange-rate tables are built in',
         ],
         card01: '// 01 — Load CSV files',
         dropzoneFull: '<span class="dz-icon">⬡</span>' +
@@ -597,6 +755,8 @@
         internBadge: '!! INTERNAL — NOT FOR THE TAX OFFICE OR YOUR TAX ADVISOR !!',
         btnDownload: '⬇ Download this file',
         btnDownloadAll: '⬇ All files (ZIP)',
+        btnSave: '⬇ Save this file…',
+        btnSaveAll: '⬇ Save all files (ZIP)…',
         hintLabel: '// Note',
         disclaimer: '<strong>No tax advice.</strong> This tool is a pure calculation aid using the ' +
           'FiFo method (§ 23 EStG, private sales transactions under German tax law). All results without guarantee — ' +
@@ -665,7 +825,7 @@
         bugCancel: 'Cancel',
         bugLink: '🐛 Report a bug',
         bugBody: (broker, desc) =>
-          'Version: BTC Steuertool Web\n' +
+          'Version: BTC Steuertool ' + (DESK ? 'Desktop' : 'Web') + '\n' +
           'Broker / file type: ' + broker + '\n\nDescription:\n' + desc,
       },
     };
@@ -679,17 +839,21 @@
       const setHtml = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
 
       document.documentElement.lang = lang;
-      document.title = t.docTitle;
+      document.title = DESK ? t.docTitleDesk : t.docTitle;
 
       const bl = document.getElementById('back-link');
       bl.textContent = t.backLink;
       bl.href = t.backHref;
+      if (DESK) { bl.style.display = 'none'; document.querySelector('.top-nav-sep').style.display = 'none'; }   // „Zentrale“ ist Website-Navigation
       setText('nav-title', t.navTitle);
-      const gb = document.getElementById('guide-btn');
-      gb.href = t.guideHref;
-      setText('guide-btn-text', t.guideBtn);
+      const hb = document.getElementById('help-btn');
+      hb.title = t.helpTitle; hb.setAttribute('aria-label', t.helpTitle);
+      setText('help-title', t.helpTitle);
+      document.getElementById('help-close').setAttribute('aria-label', t.helpClose);
+      document.getElementById('help-de').classList.toggle('hidden', lang !== 'de');
+      document.getElementById('help-en').classList.toggle('hidden', lang !== 'en');
       setText('subtitle', t.subtitle);
-      setHtml('privacy-strip', t.privacy.map(p => `<span>${p}</span>`).join(''));
+      setHtml('privacy-strip', (DESK ? t.privacyDesk : t.privacy).map(p => `<span>${p}</span>`).join(''));
       setText('card01-label', t.card01);
       document.getElementById('dropzone').innerHTML = t.dropzoneFull;
       setHtml('nokyc-hint', t.nokycHint);
@@ -700,8 +864,8 @@
       setText('card02-label', t.card02);
       setText('card03-label', t.card03);
       setText('doc-intern-badge', t.internBadge);
-      setText('btn-download', t.btnDownload);
-      setText('btn-download-all', t.btnDownloadAll);
+      setText('btn-download', DESK ? t.btnSave : t.btnDownload);   // Desktop: Speichern-Dialog statt Browser-Download
+      setText('btn-download-all', DESK ? t.btnSaveAll : t.btnDownloadAll);
       setText('hint-label', t.hintLabel);
       setHtml('disclaimer-text', t.disclaimer);
       setText('footer-disclaimer', t.footerDisclaimer);
@@ -1326,6 +1490,13 @@ json.dumps({
     }
 
     function downloadBlob(name, blob) {
+      if (DESK) {   // Desktop: Speichern-Dialog über die Hülle (Browser-Downloads sind dort gesperrt)
+        blob.arrayBuffer()
+          .then(buf => DESK.saveFile(name, new Uint8Array(buf)))
+          .then(saved => { if (saved) log('✓ ' + saved, 'ok'); })
+          .catch(err => log('✗ ' + name + ': ' + ((err && err.message) || err), 'err'));
+        return;
+      }
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = name;
@@ -1400,6 +1571,17 @@ json.dumps({
       return new Blob([...parts, ...central, new Uint8Array(eocd.buffer)], { type: 'application/zip' });
     }
 
+    // Desktop: Download-Links der eigenen App (Beispieldaten-ZIP) gehen ebenfalls über den Speichern-Dialog.
+    // Delegiert, weil applyLang die Dropzone bei jedem Sprachwechsel neu schreibt.
+    if (DESK) document.addEventListener('click', e => {
+      const a = e.target.closest && e.target.closest('a[download]');
+      if (!a || !a.href.startsWith(location.protocol + '//' + location.host + '/')) return;
+      e.preventDefault(); e.stopPropagation();
+      fetch(a.href).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+        .then(b => downloadBlob(a.href.split('/').pop(), b))
+        .catch(err => log('✗ ' + ((err && err.message) || err), 'err'));
+    }, true);
+
     document.getElementById('btn-download').onclick = () => {
       if (activeDoc && lastReports) downloadFile(activeDoc, lastReports[activeDoc]);
     };
@@ -1421,6 +1603,20 @@ json.dumps({
       }
       downloadBlob('btc-steuertool-reports.zip', buildZip(entries));
     };
+
+    /* ───────────────────────── Handbuch („?“) ───────────────────────── */
+    function openHelp() {
+      const o = document.getElementById('help-overlay');
+      o.classList.remove('hidden'); o.scrollTop = 0;
+      document.getElementById('help-close').focus();
+    }
+    function closeHelp() {
+      const o = document.getElementById('help-overlay');
+      if (o.classList.contains('hidden')) return;
+      o.classList.add('hidden');
+      document.getElementById('help-btn').focus();
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHelp(); });
 
     /* ───────────────────────── Bug-Report (Muster alien-analyzer-v2) ───────────────────────── */
     function openBugReport() {

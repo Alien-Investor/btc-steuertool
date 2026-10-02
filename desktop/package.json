@@ -1,0 +1,10 @@
+{
+  "name": "btc-steuertool-desktop",
+  "private": true,
+  "license": "MIT",
+  "description": "BTC Steuertool als Linux-Desktop-App (Electron im Flatpak). Kein Netz, keine Telemetrie.",
+  "devDependencies": {
+    "@electron/asar": "4.3.0",
+    "@electron/fuses": "2.1.3"
+  }
+}

@@ -1,0 +1,35 @@
+app-id: org.alieninvestor.steuertool
+runtime: org.freedesktop.Platform
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '25.08'
+command: btc-steuertool
+separate-locales: false
+# Bewusst KEIN --share=network und KEIN --filesystem: CSVs rein und Reports raus nur über das Portal (Dialog), Netz gibt es im Käfig nicht.
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+modules:
+  - name: btc-steuertool
+    buildsystem: simple
+    build-options:   # Electron-Binaries unverändert lassen (gepinnter Hash + Fuses), kein Debug-Ableger
+      no-debuginfo: true
+      strip: false
+    sources:
+      - type: dir
+        path: ../build/electron
+        dest: electron
+      - type: file
+        path: btc-steuertool.sh
+      - type: file
+        path: org.alieninvestor.steuertool.desktop
+      - type: file
+        path: ../icon.svg
+    build-commands:
+      - mkdir -p /app/main && cp -a electron/. /app/main/
+      - install -Dm755 btc-steuertool.sh /app/bin/btc-steuertool
+      - install -Dm644 org.alieninvestor.steuertool.desktop /app/share/applications/org.alieninvestor.steuertool.desktop
+      - install -Dm644 icon.svg /app/share/icons/hicolor/scalable/apps/org.alieninvestor.steuertool.svg

@@ -206,6 +206,16 @@ Regeln:
 
 ---
 
+## Desktop-App (`desktop/`, Flatpak `org.alieninvestor.steuertool`) — seit 02.10.2026
+
+Electron-Hülle nach Alien-Pass-Muster, lädt `web/dist` unverändert über `app://steuertool`. Kein Netz, kein Dateisystem,
+Brücke nur `saveFile`, Weiche `DESK` in `web/index.html`. **Vor jeder Änderung `desktop/DESKTOP-INVARIANTEN.md` lesen.**
+- Bauen: `desktop/build-desktop.sh` (Electron-Hash, Fuses, Rechte-Endkontrolle vor + nach Installation, Bundle + `SHA256SUMS`).
+- Testen: `node desktop/verify-desktop.mjs` (echte Hülle, Reports byte-gleich zur CLI) — braucht einmal den Build (Electron-Cache).
+- Version: `VERSION` (`VERSION_NAME`, `DESKTOP_REV` nur für reinen Electron-Neubau). Kurstabellen-Update im Januar = neues Release.
+- Handbuch („?“) liegt offline in `web/index.html` (`help-de`/`help-en`) — eine Quelle für Web, Desktop und APK. Inhaltliche
+  Änderungen dort brauchen einen Faktencheck (öffentlich).
+
 ## Technologie-Stack
 
 - **Python 3.10+**
