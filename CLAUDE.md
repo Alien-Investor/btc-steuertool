@@ -124,6 +124,13 @@ Brücke nur `SaveFile` (Android-Speichern-Dialog), Weiche `DROID` in `web/index.
 - Gemeinsamer App-Kopf (Flatpak + APK, `html.app`): Sprache links, „?“ rechts wie die anderen Alien-Apps, Darstellung im Fuß.
 - `VERSION_CODE` in `VERSION` je Release hochzählen.
 
+## Release (Flatpak + APK gemeinsam, seit v1.0 am 02.10.2026)
+
+Skill `app-release` (Abschnitt „Besonderheiten BTC Steuertool“). Kurz: Tests + Gerätetest mit großem Datensatz → `CHANGELOG.md` →
+Commit/Push → `desktop/build-desktop.sh`, `mobile/build-apk.sh` → Nutzer signiert `SHA256SUMS` → Tag pushen → `./make-release.sh`
+(GitHub-Release + `api.alien-investor.org/downloads/steuertool/`, Download-Seite mit genau einem APK-Link) → Nutzer: `publish-zapstore.sh`
+→ Website (`btc-steuertool.html` DE/EN, `apps.html`) mit Faktencheck. Store-Screenshots: `mobile/shot-store.py`.
+
 ## Technologie-Stack
 
 - **Python 3.10+**
