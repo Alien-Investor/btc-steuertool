@@ -196,6 +196,31 @@ class RowHandling(unittest.TestCase):
         self.assertIn("ANSCHAFFUNG von BTC", _warnings()[0])
         self.assertIn("manual_buys.csv", _warnings()[0])
 
+    def test_real_world_shape_of_english_export(self):
+        # Form eines veröffentlichten englischen Exports (rotki-Testdaten, eigene Werte hier):
+        # Deviation „N/A", Mengen ohne 8 Nachkommastellen, leere Beträge bei Canceled,
+        # Handelsgebühr in BSQ statt BTC, Altcoin-Märkte, Status Mediated.
+        text = HEADER_EN + "\n" + "\n".join([
+            "xxA,10 Mar 2021 10:40:20,BTC/EUR,49000.0000,N/A,0.01,490,EUR,0.00005,,0.29,0.00250,0.00250,Sell BTC,Mediated",
+            "xxB,11 Dec 2020 17:13:40,BTC/EUR,15883.3283,-0.10%,0.05,794,EUR,0.0001,,2.01,0.00165,0.00165,Sell BTC,Completed",
+            "552,1 Jan 2020 17:01:24,BSQ/BTC,0.00008487,N/A,0.0099,116.65,BSQ,0.0001,0.00005940,,0.0010,0.0050,Buy BSQ,Mediated",
+            "GxxL,23 Dec 2019 06:33:02,BTC/EUR,6785.6724,2.00%,0.01,68,EUR,0.0001,0.00109140,,0.0010914,0.0009095,Buy BTC,Completed",
+            "04555,11 Jun 2019 23:31:21,BTC/EUR,10020.0000,N/A,,,EUR,0.00003120,0.0001,,0.0050,0.0050,Sell BTC,Canceled",
+            "LxxAob,11 Jun 2019 20:21:44,DASH/BTC,0.01541873,3.00%,0.30,19.45685539,DASH,0.000228,0.0009,,0.03,0.03,Sell DASH,Completed",
+            "VxxABMN,21 Dec 2018 18:29:18,BTC/EUR,3376.9400,0.00%,0.1850,625,EUR,0.000096,0.000370,,0.01,0.0030,Buy BTC,Completed",
+        ]) + "\n"
+        txs = _parse_text(text)
+        self.assertEqual([t.tx_id for t in txs], ["GxxL", "VxxABMN"])
+        self.assertEqual(txs[0].date, datetime(2019, 12, 23, 6, 33, 2, tzinfo=TZ_DE))
+        self.assertEqual(txs[0].fee_btc, Decimal("0.00119140"))
+        self.assertEqual(txs[1].btc_amount, Decimal("0.1850"))
+        msgs = _warnings()
+        self.assertEqual(len([m for m in msgs if "Bisq-Verkauf" in m]), 1)            # nur der abgeschlossene Verkauf
+        self.assertEqual(len([m for m in msgs if "ANSCHAFFUNG von BTC" in m]), 1)    # Sell DASH
+        self.assertTrue(any("'Mediated'" in m for m in msgs))
+        self.assertTrue(any("'Canceled'" in m for m in msgs))
+        self.assertFalse(any("BSQ" in m and "ANSCHAFFUNG" in m for m in msgs))      # Buy BSQ war Mediated → nur gezählt
+
     def test_german_behaviour_unchanged(self):
         row = "100001,15.03.2024 14:22:10,BTC/EUR,61500.0000,2.50%,0.01000000,615,EUR,0.00005000,0.000070,,0.0010,0.0010,BTC kaufen,Abgeschlossen"
         txs = _parse_text(HEADER_DE + "\n" + row + "\n")

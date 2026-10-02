@@ -72,7 +72,8 @@ CSV, Komma-getrennt, UTF-8 (Bisq-Classic-Export „Portfolio → Verlauf → Als
 Export to CSV"; Bisq speichert als `tradeHistory.csv`). Spaltenköpfe und die Werte in `Angebotstyp`/`Status` kommen aus
 Bisqs Sprachdatei — der Parser kennt **Deutsch und Englisch** (`bisq.LANGUAGES`, Quelle: Bisq `ClosedTradesView.ColumnNames`
 + `displayStrings.properties` / `displayStrings_de.properties`, Stand 10/2026). Andere Oberflächensprachen → interne Warnung,
-keine Transaktion. Der englische Export ist aus dem Quellcode abgeleitet, noch nicht an einer echten Datei bestätigt.
+keine Transaktion. Der englische Export ist aus dem Quellcode abgeleitet; Kopfzeile und Datumsform (`10 Mar 2021 10:40:20`) decken sich mit einer
+veröffentlichten Beispieldatei eines echten Exports (rotki-Testdaten) — ein eigener Export des Autors fehlt noch.
 
 ```
 Handels-ID,Datum/Zeit,Markt,Preis,Abweichung,Betrag in BTC,Betrag,Währung,

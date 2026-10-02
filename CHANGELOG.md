@@ -5,8 +5,8 @@ Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die dens
 
 ## Unveröffentlicht (main)
 - Bisq: auch der **englische Export** wird gelesen (Spaltenköpfe „Trade ID, Date/Time, …“, Werte „Buy BTC“/„Completed“); die
-  Zeitstempel aller englischen Länder-Einstellungen von Bisq werden erkannt. Abgeleitet aus dem Bisq-Quellcode, noch nicht an
-  einem echten englischen Export bestätigt — bitte Ergebnis prüfen und Abweichungen melden.
+  Zeitstempel aller englischen Länder-Einstellungen von Bisq werden erkannt. Abgeleitet aus dem Bisq-Quellcode und gegen eine
+  veröffentlichte Beispieldatei eines echten Exports geprüft, noch nicht gegen einen eigenen — bitte Ergebnis prüfen und Abweichungen melden.
 - Bisq: Trades auf Altcoin-Märkten (XMR/BTC, BSQ/BTC …) werden als Veräußerung bzw. Anschaffung von BTC gemeldet statt nur stumm
   gezählt; eine Datei, die nur Verkäufe enthält, bekommt keine zweite Sammelwarnung mehr; eine BOM in der Kopfzeile (Excel) stört nicht mehr.
 - Oberfläche: CSV-Dateien mit BOM werden erkannt statt als „unbekannt“ gesperrt.
