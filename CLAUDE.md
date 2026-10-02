@@ -130,6 +130,9 @@ Skill `app-release` (Abschnitt „Besonderheiten BTC Steuertool“). Kurz: Tests
 Commit/Push → `desktop/build-desktop.sh`, `mobile/build-apk.sh` → Nutzer signiert `SHA256SUMS` → Tag pushen → `./make-release.sh`
 (GitHub-Release + `api.alien-investor.org/downloads/steuertool/`, Download-Seite mit genau einem APK-Link) → Nutzer: `publish-zapstore.sh`
 → Website (`btc-steuertool.html` DE/EN, `apps.html`) mit Faktencheck. Store-Screenshots: `mobile/shot-store.py`.
+**Web-Version immer mit ausrollen** (Web, Flatpak und APK zeigen denselben Stand): `web/build.sh`, dann
+`rsync -a --chmod=D755,F644 web/dist/ root@api.alien-investor.org:/var/www/alien-investor/html/steuertool/` (vorher `-an --itemize-changes`),
+danach `cmp` der Live-Dateien gegen `web/dist`. Auch nach reinen Engine- oder GUI-Fixes ohne App-Release.
 
 ## Technologie-Stack
 
