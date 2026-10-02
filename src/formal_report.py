@@ -462,6 +462,14 @@ def generate_tax_free_proof(
                 "eingelesenen Daten kein Eingang gefunden wurde. Sie werden als Übertrag in "
                 "eine eigene, hier nicht ausgewertete Wallet behandelt (keine Veräußerung)."
             )
+        if any(r.src == "extern" for r in moves_in_year):
+            blank()
+            para(
+                "Zeilen mit der Herkunft \"nicht eingelesen\": Eingänge, zu denen in den "
+                "eingelesenen Daten kein Abgang gefunden wurde. Sie stammen aus einer eigenen, "
+                "hier nicht ausgewerteten Wallet; ihnen sind die zuerst angeschafften Einheiten "
+                "zugeordnet, die zuvor in nicht eingelesene eigene Wallets abgegangen waren."
+            )
         blank()
         sep("-")
 

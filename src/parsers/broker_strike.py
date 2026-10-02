@@ -83,6 +83,17 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
         # Amount BTC ist negativ → abs nehmen
         btc_raw = row.get("Amount BTC", "").strip()
         btc_amount = abs(_decimal(btc_raw))
+        # Netzwerkgebühr in BTC: in Amount BTC ENTHALTEN (echter Export, Abgleich
+        # mit dem BitBox-Eingang derselben TX-ID: Amount = Eingang + Fee BTC).
+        # Getrennt buchen wie bei der BitBox: btc_amount = übertragener Betrag,
+        # fee_btc = Veräußerung des Gebührenanteils (H8). Bis 10/2026 fiel die
+        # Gebühr stillschweigend weg.
+        fee_btc = abs(_decimal(row.get("Fee BTC", "")))
+        if fee_btc > btc_amount:
+            warn(f"{filename}: Auszahlung am {date.date()} mit Gebühr {fee_btc} BTC über dem "
+                 f"Betrag {btc_amount} BTC — Gebühr nicht verarbeitet.", internal=False)
+            fee_btc = Decimal("0")
+        btc_amount -= fee_btc
 
         return Transaction(
             date=date,
@@ -91,6 +102,7 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
             eur_amount=Decimal("0"),
             eur_price_per_btc=Decimal("0"),
             fee_eur=Decimal("0"),
+            fee_btc=fee_btc,
             source="strike",
             tx_id=tx_hash or tx_id,
             note=description or "Strike Auszahlung",

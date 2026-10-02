@@ -24,7 +24,8 @@ _PSEUDO = {
     ANY_WALLET: "ohne Wallet-Angabe",
     "manual": "manuell erfasst",
 }
-_METHOD = {"tx-id": "TX-ID", "betrag": "Betrag/Zeit", "manuell": "manuell", "": "kein Eingang"}
+_METHOD = {"tx-id": "TX-ID", "betrag": "Betrag/Zeit", "manuell": "manuell", "": "kein Eingang",
+           "extern": "kein Abgang"}
 _KIND = {LinkKind.TRANSFER: "Übertrag", LinkKind.LIEFERUNG: "Lieferung", None: "Abgang"}
 
 
@@ -77,6 +78,9 @@ def move_rows(engine, year: int | None = None) -> list[MoveRow]:
         rows.append(MoveRow(tx.date, tx.wallet, EXTERN_WALLET,
                             sum((l.btc_amount for l in lots), ZERO) if lots else tx.btc_amount,
                             lots, "", None, tx.no_kyc))
+    for tx, lots, _missing in getattr(engine, "pulled", []):
+        rows.append(MoveRow(tx.date, EXTERN_WALLET, tx.wallet, tx.btc_amount,
+                            lots, "extern", None, tx.no_kyc))
     if year:
         rows = [r for r in rows if de_date(r.date).year == year]
     return sorted(rows, key=lambda r: (r.date, r.src, r.dst))

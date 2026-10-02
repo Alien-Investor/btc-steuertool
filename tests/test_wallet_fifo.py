@@ -277,6 +277,40 @@ class WalletEngineTest(unittest.TestCase):
             self.assertFalse(any(m.lot_source == "bisq" for m in r.matches))
         self.assertTrue(all(l.no_kyc for l in e.remaining_lots() if l.source == "bisq"))
 
+    def test_orphan_receipt_takes_lots_from_extern(self):
+        # Probelauf echte Daten (2021): Broker → nicht exportierte Wallet → zurück → Verkauf
+        txs = [tx_at(at(2020, 11, 1), BUY, "0.1", "bison", eur="1500"),
+               tx_at(at(2020, 12, 15), OUT, "0.1", "bison"),             # → extern
+               tx_at(at(2021, 3, 1), IN, "0.1", "bison"),                # ← ohne Abgang
+               tx_at(at(2021, 3, 2), SELL, "0.1", "bison", eur="4000")]
+        e = run(txs)
+        sale = e.sell_results[0]
+        self.assertTrue(sale.is_fully_covered)
+        self.assertEqual(de_year(sale.matches[0].lot_purchase_date), 2020)
+        self.assertFalse(sale.matches[0].is_tax_free)
+        self.assertEqual(len(e.pulled), 1)
+
+    def test_orphan_receipt_without_extern_stays_without_lots(self):
+        # Nichts in extern (z.B. empfangene Spende): keine erfundenen Lots
+        txs = [tx_at(at(2023, 1, 10), BUY, "0.01", "brokerA", eur="300"),
+               tx_at(at(2024, 3, 1), IN, "0.002", "bitbox:main"),
+               tx_at(at(2024, 3, 5), OUT, "0.002", "bitbox:main"),
+               tx_at(at(2024, 3, 5, 13), IN, "0.002", "bison"),
+               tx_at(at(2024, 3, 6), SELL, "0.002", "bison", eur="120")]
+        e = run(txs)
+        self.assertEqual(e.sell_results[0].unmatched_btc, D("0.002"))
+        self.assertEqual(held(e, "brokerA"), D("0.01"))
+        self.assertEqual(e.pulled[0][2], D("0.002"))
+
+    def test_orphan_receipt_does_not_take_later_extern(self):
+        # extern füllt sich erst NACH dem Eingang — nichts vorziehen
+        txs = [tx_at(at(2023, 1, 10), BUY, "0.01", "brokerA", eur="300"),
+               tx_at(at(2023, 2, 1), IN, "0.004", "bitbox:main"),
+               tx_at(at(2023, 6, 1), OUT, "0.004", "brokerA")]
+        e = run(txs)
+        self.assertEqual(held(e, "bitbox:main"), D("0"))
+        self.assertEqual(held(e, "extern"), D("0.004"))
+
     def test_year_end_keeps_lots_in_transit(self):
         # Abgang 31.12. abends, Eingang 01.01. — der Bestand zum 31.12. verliert nichts
         txs = [tx_at(at(2023, 6, 1), BUY, "0.01", "brokerA", eur="300"),
@@ -294,6 +328,26 @@ class WalletEngineTest(unittest.TestCase):
         e = run(txs, mode="global")
         self.assertEqual(sum(l.btc_amount for l in e.lots_at_year_end(2023)), D("0.006"))
         self.assertEqual(sum(l.btc_amount for l in e.lots_at_year_end(2024)), D("0.004"))
+
+
+class StrikeFeeTest(unittest.TestCase):
+    """Probelauf echte Daten: Strike-Auszahlung enthält die Netzwerkgebühr (Fee BTC)."""
+
+    def test_send_fee_split_off(self):
+        import tempfile
+        from src.parsers import broker_strike, reset_warnings
+        reset_warnings()
+        csv_text = (
+            "Transaction ID,Time (UTC),Status,Transaction Type,Amount EUR,Fee EUR,Amount BTC,"
+            "Fee BTC,Description,Exchange Rate,Transaction Hash\n"
+            "S1,Dec 07 2024 10:00:00,Completed,Send,,,-0.00107946,0.00004912,,,abc\n"
+            "S2,Dec 10 2024 10:00:00,Completed,Send,,,-0.00543184,,,,def\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "strike.csv"
+            f.write_text(csv_text, encoding="utf-8")
+            txs = broker_strike.parse(f)
+        self.assertEqual([(t.btc_amount, t.fee_btc) for t in txs],
+                         [(D("0.00103034"), D("0.00004912")), (D("0.00543184"), D("0"))])
 
 
 class WalletReportPrivacyTest(unittest.TestCase):

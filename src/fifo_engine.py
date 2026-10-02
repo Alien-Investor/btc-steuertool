@@ -91,6 +91,8 @@ class FifoEngine:
         self.moves: list[tuple] = []
         # Abgänge ohne Eingang: (Transaktion, Lots, die nach „extern" gingen)
         self.parked: list[tuple] = []
+        # Eingänge ohne Abgang: (Transaktion, Lots, die aus „extern" kamen)
+        self.pulled: list[tuple] = []
         # Bestand zum 31.12. je Jahr — im selben Lauf festgehalten. Ein zweiter
         # Lauf über die Daten bis zum Stichtag zerrisse Überträge über Silvester
         # (Abgang 31.12., Eingang 01.01.) und sähe ein anderes Matching.
@@ -158,6 +160,7 @@ class FifoEngine:
                     events.append((when, self._MOVE_ORDER, len(events), "move", link))
         events.sort(key=lambda e: (e[0], e[1], e[2]))
         moved = self._moved_per_giver()
+        orphans = {id(t) for t in self.matching.unmatched_in} if self.matching else set()
 
         for when, _, _, what, obj in events:
             self._roll_year(de_date(when).year)
@@ -173,7 +176,9 @@ class FifoEngine:
                 self._process_gift(tx)
             elif tx.type == TxType.TRANSFER_OUT and self.mode == "wallet":
                 self._park_unmatched(tx, moved.get(id(tx), ZERO))
-            # TRANSFER_IN: Lots kommen über die Umbuchung (move), nie aus dem Nichts.
+            elif tx.type == TxType.TRANSFER_IN and id(tx) in orphans:
+                self._pull_orphan(tx)
+            # Zugeordneter TRANSFER_IN: Lots kommen über die Umbuchung (move).
 
             # Die in BTC entrichtete Gebühr verlässt den Bestand IMMER — auch beim
             # Übertrag zwischen eigenen Wallets. Nach dem Kauf-Lot gebucht, damit
@@ -266,6 +271,17 @@ class FifoEngine:
         if residual > 0:
             taken, _ = self._transfer(tx.no_kyc, tx.wallet, EXTERN_WALLET, residual)
             self.parked.append((tx, [replace(l) for l in taken]))
+
+    def _pull_orphan(self, tx: Transaction) -> None:
+        """Eingang ohne zugeordneten Abgang: er kommt aus einer nicht eingelesenen
+        eigenen Wallet. Was zuvor in nicht eingelesene Wallets abging, liegt in
+        „extern" — von dort kommen FiFo die zuerst angeschafften Einheiten.
+        Reicht „extern" nicht, bleibt der Rest ohne Anschaffungsdaten (keine
+        erfundenen Lots); ein späterer Abgang daraus meldet die Lücke.
+        Beispiel aus echten Daten: Broker → nicht exportierte Wallet → zurück
+        zum Broker → Verkauf. Ohne diese Regel stünde der Verkauf ohne Kauf da."""
+        taken, missing = self._transfer(tx.no_kyc, EXTERN_WALLET, tx.wallet, tx.btc_amount)
+        self.pulled.append((tx, [replace(l) for l in taken], missing))
 
     # ── Abgänge ──
 
@@ -410,13 +426,14 @@ class FifoEngine:
             return
         # Walletbezogen: die Wallet nennen und offene Eingänge dieser Wallet
         # als wahrscheinliche Ursache zeigen (Bestand ohne Anschaffungsdaten).
-        extra = " Gerechnet wird walletbezogen ({quelle})."
+        extra = " Gerechnet wird walletbezogen (Bestand {quelle})."
         values = dict(quelle=wallet_label(wallet))
-        orphans = [t for t in (self.matching.unmatched_in if self.matching else [])
-                   if t.wallet == wallet and t.no_kyc == tx.no_kyc and t.date <= tx.date]
+        orphans = [t for t, _, missing in self.pulled
+                   if missing > 0 and t.wallet == wallet and t.no_kyc == tx.no_kyc and t.date <= tx.date]
         if orphans:
-            extra += (" Diese Wallet hat {n} Eingang/Eingänge ohne zugeordneten Abgang "
-                      "(zuletzt {letzt}) — deren Herkunft und Anschaffungsdaten sind unbekannt.")
+            extra += (" Diese Wallet hat {n} Eingang/Eingänge ohne zugeordneten Abgang, die auch "
+                      "aus nicht eingelesenen Wallets nicht gedeckt waren (zuletzt {letzt}) — "
+                      "Herkunft und Anschaffungsdaten unbekannt.")
             values.update(n=len(orphans), letzt=de_date(orphans[-1].date))
         self.warnings.append(make_warning_fmt(
             text.replace("{", "{{").replace("}", "}}") + extra,

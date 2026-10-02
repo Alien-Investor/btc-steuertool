@@ -50,7 +50,7 @@ def wallet_label(wallet: str):
     neutraler Platzhalter. Broker-Konten dürfen beim Namen genannt werden."""
     from .parsers import FileRef
     if wallet.startswith("bitbox:"):
-        return FileRef(f"BitBox-Wallet „{wallet[len('bitbox:'):]}“", placeholder="eine Hardware-Wallet")
+        return FileRef(f"BitBox-Wallet „{wallet[len('bitbox:'):]}“", placeholder="einer BitBox-Wallet")
     return wallet
 
 
