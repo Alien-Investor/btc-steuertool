@@ -1,0 +1,65 @@
+# Zapstore publishing config — BTC Steuertool (Android)
+# Veröffentlichen: DU startest `! bash publish-zapstore.sh` (Signing über Amber/NIP-46-Bunker, kein nsec im Klartext).
+# Trockenlauf ohne Amber (unsignierte Events):
+#   SIGN_WITH=npub1cnlymdm5jz8eayycwynhze4s2zh9n0y04atce8ahxl5qfkptplls0s40hp zsp publish zapstore.yaml --offline
+
+repository: https://github.com/Alien-Investor/btc-steuertool
+# APK von der eigenen Download-Seite (GitHub ist Spiegel). Die Seite schreibt make-release.sh mit genau einem Link auf die aktuelle APK.
+release_source:
+  version:
+    url: https://api.alien-investor.org/downloads/steuertool/
+    selector: "a"
+    match: "btc-steuertool-([0-9]+(?:\\.[0-9]+)+)\\.apk"
+  asset_url: https://api.alien-investor.org/downloads/steuertool/btc-steuertool-{version}.apk
+# Nur die APK (im GitHub-Release liegt auch das Flatpak)
+match: '.*\.apk$'
+pubkey: npub1cnlymdm5jz8eayycwynhze4s2zh9n0y04atce8ahxl5qfkptplls0s40hp
+
+name: BTC Steuertool
+summary: Bitcoin tax reports for Germany (FiFo, § 23 EStG) — fully offline, no internet permission, no account.
+
+description: |
+  BTC Steuertool turns CSV exports from your BitBox wallets and brokers into annual tax reports for the German
+  tax office (private sales under § 23 EStG). Everything is calculated on the device: no upload, no account,
+  no tracking. The app has no INTERNET permission; the only permission in its manifest is the
+  AndroidX-generated signature permission of the app itself, which grants nothing.
+
+  Features:
+  - FiFo method with the one-year holding period counted by calendar date (§§ 187, 188 BGB), tax-free and taxable per lot
+  - Exemption limit applied automatically (600 EUR up to 2023, 1,000 EUR from 2024)
+  - Supported sources: BitBox wallets, 21bitcoin, Bison, Swissquote, Strike, Pocket, Bisq, plus manual buys/sells as CSV
+  - Brokers are detected from the file contents; ZIP files are unpacked; files the app cannot recognise block the calculation
+    instead of silently missing from the report
+  - Network fees paid in bitcoin are treated as a disposal of the fee amount at the daily closing price; gifts and donations
+    (marked in the BitBox note) leave your holdings without counting as a sale
+  - noKYC purchases (Bisq, manual buys not marked as KYC, noKYC wallets) are kept strictly apart: separate FiFo pool and a separate internal
+    report, never part of the documents for the tax office
+  - Output: tax report, formal tax evidence document, buys/sells as CSV — saved through the Android save dialog
+  - ECB exchange rates (USD/CHF) and BTC daily closing prices are bundled; nothing is downloaded
+  - Same calculation core as the open-source command-line tool and the web version (Python via Pyodide), reports byte-identical
+  - Screenshots blocked (FLAG_SECURE), no backup of app data, offline in-app guide in German and English
+  - Reports are in German (they are meant for the German tax office); the interface is German / English
+
+  No tax advice: the app is a calculation aid, responsibility for the tax return stays with you. Open source (MIT).
+
+  Signing certificate SHA-256 (verify with AppVerifier), identical for every version:
+  26:C5:E0:94:A8:B7:65:0C:A6:65:01:4D:0C:3A:8B:A6:82:B1:7C:05:F5:3C:6C:DE:F0:55:D0:7C:E9:84:BF:0B
+  apksigner (no separators): 26c5e094a8b7650ca665014d0c3a8ba682b17c05f53c6cdef055d07ce984bf0b
+
+tags:
+  - bitcoin
+  - tax
+  - finance
+  - privacy
+
+license: MIT
+website: https://alien-investor.org/en/btc-steuertool.html
+
+icon: ./desktop/icon.png
+
+images:
+  - ./mobile/screenshots/1-start.png
+  - ./mobile/screenshots/2-report.png
+  - ./mobile/screenshots/3-help.png
+
+release_notes: ./CHANGELOG.md

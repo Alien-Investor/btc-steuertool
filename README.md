@@ -80,6 +80,51 @@ Kontrolle will, nimmt das CLI aus diesem Repo (oder baut die Web-Version selbst,
 Lokal bauen und testen: `cd web && ./vendor-setup.sh && ./build.sh`, dann
 `python3 -m http.server 8741 --directory dist` und `http://localhost:8741/` öffnen.
 
+## Android-App (frei)
+
+Dieselbe Oberfläche und dieselbe Engine als App, ohne Internet-Berechtigung: Pyodide, Rechenkern und Kurstabellen sind
+eingebaut. Im Manifest steht nur die von AndroidX erzeugte app-eigene Signatur-Berechtigung, die nichts freigibt.
+Screenshots sind gesperrt, App-Daten werden nicht gesichert. CSVs und ZIPs kommen über die Dateiauswahl herein, Reports gehen
+über den Android-Speichern-Dialog hinaus. Anleitung in der App über den „?“-Knopf.
+
+Bewusst **nicht im Google Play Store**. Verteilung über signierte Releases von der eigenen Download-Adresse
+[api.alien-investor.org/downloads/steuertool/](https://api.alien-investor.org/downloads/steuertool/) und im [Zap Store](https://zapstore.dev).
+Jedes Release liegt zusätzlich als Spiegel hier auf [GitHub](https://github.com/Alien-Investor/btc-steuertool/releases).
+Empfohlen über **[Obtainium](https://github.com/ImranR98/Obtainium)**, in Obtainium **„App hinzufügen“**:
+
+1. **„Quell-URL der App“**:
+   ```
+   https://api.alien-investor.org/downloads/steuertool/
+   ```
+2. Unter **„Zusatzoptionen für HTML“** → **„Versionsextraktion per RegEx“**:
+   ```
+   btc-steuertool-([0-9]+(\.[0-9]+)+)\.apk$
+   ```
+3. **„Zu verwendende Gruppe abgleichen“**: `$1`
+4. **„Expected signing certificate hashes“** (so heißt es auch in der deutschen Fassung):
+   ```
+   26:C5:E0:94:A8:B7:65:0C:A6:65:01:4D:0C:3A:8B:A6:82:B1:7C:05:F5:3C:6C:DE:F0:55:D0:7C:E9:84:BF:0B
+   ```
+5. Mit dem **„+“** hinzufügen → **Installieren**. Updates meldet Obtainium automatisch.
+
+Die RegEx braucht Obtainium, um auf einer Download-Seite die Versionsnummer aus dem Dateinamen zu lesen; ohne sie kann es die
+installierte Version nicht vergleichen. Der Zertifikats-Hash ist eine harte Sperre: Eine APK mit anderem Schlüssel installiert Obtainium nicht.
+Zum Kopieren und mit „In Obtainium öffnen“ (alles vorbelegt): [Obtainium-Blatt auf der Website](https://alien-investor.org/btc-steuertool.html#obtainium).
+
+**Ohne Obtainium:** [Download-Seite](https://api.alien-investor.org/downloads/steuertool/) → `.apk` laden und installieren.
+
+**Signatur-Fingerprint** (SHA-256 des Signatur-Zertifikats, über alle Versionen gleich — mit
+[AppVerifier](https://github.com/soupslurpr/AppVerifier) prüfen):
+```
+AppVerifier (mit Doppelpunkten):
+26:C5:E0:94:A8:B7:65:0C:A6:65:01:4D:0C:3A:8B:A6:82:B1:7C:05:F5:3C:6C:DE:F0:55:D0:7C:E9:84:BF:0B
+
+Plain SHA-256 (apksigner):
+26c5e094a8b7650ca665014d0c3a8ba682b17c05f53c6cdef055d07ce984bf0b
+```
+
+Selbst bauen: `mobile/build-apk.sh` (Details und Sicherheitsregeln in `mobile/MOBILE-INVARIANTEN.md`).
+
 ## Linux-Desktop-App (Flatpak, frei)
 
 Dieselbe Oberfläche und dieselbe Engine als App, die nach der Installation **nichts mehr nachlädt**:
@@ -87,21 +132,22 @@ Pyodide, Rechenkern und Kurstabellen sind eingebaut. Das Flatpak hat **kein Netz
 fehlt) und **keinen Dateisystem-Zugriff** — CSVs kommen über den Datei-Dialog oder per Drag&Drop
 herein, Reports gehen über den Speichern-Dialog hinaus. Anleitung in der App über den „?“-Knopf.
 
-**Noch nicht veröffentlicht** — das erste Release erscheint zusammen mit der Android-App.
-Selbst bauen geht schon jetzt (siehe unten).
-
-Download (ab dem ersten Release): Bundle `btc-steuertool-<Version>-linux-x86_64.flatpak` mit `SHA256SUMS` und GPG-Signatur
-`SHA256SUMS.asc` aus den GitHub-Releases bzw. unter https://api.alien-investor.org/downloads/steuertool/.
+Download: Bundle `btc-steuertool-<Version>-linux-x86_64.flatpak` mit `SHA256SUMS` und GPG-Signatur `SHA256SUMS.asc`
+aus den [GitHub-Releases](https://github.com/Alien-Investor/btc-steuertool/releases) bzw. unter
+https://api.alien-investor.org/downloads/steuertool/. Signiert ist die Prüfsumme mit dem Release-Schlüssel von Alien Investor
+([alien-investor-release-key.asc](alien-investor-release-key.asc), auch auf alien-investor.org),
+Fingerabdruck `100F 9E25 BFAE A807 DBC3  57D7 50C0 D785 83BF CB81`.
 
 ```bash
-gpg --verify SHA256SUMS.asc SHA256SUMS      # Schlüssel 100F 9E25 BFAE A807 DBC3  57D7 50C0 D785 83BF CB81
+gpg --import alien-investor-release-key.asc
+gpg --verify SHA256SUMS.asc SHA256SUMS
 sha256sum -c SHA256SUMS
 flatpak install --user btc-steuertool-*-linux-x86_64.flatpak   # Laufzeit kommt von Flathub
 flatpak run org.alieninvestor.steuertool
 ```
 
 Update: alte Version deinstallieren (`flatpak uninstall --user org.alieninvestor.steuertool`), neue
-installieren — die App speichert keine Daten. Selbst bauen: `desktop/build-desktop.sh`
+installieren — die App speichert keine Steuerdaten, nur Sprache und Darstellung. Selbst bauen: `desktop/build-desktop.sh`
 (Details und Sicherheitsregeln in `desktop/DESKTOP-INVARIANTEN.md`).
 
 ## Datenschutz

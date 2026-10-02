@@ -39,3 +39,7 @@ mobile/*.log
 *.jks
 *.keystore
 keystore.properties
+
+# Zap-Store-Signer (SIGN_WITH=bunker://…) — NIEMALS committen
+.env
+.env.*
