@@ -1171,7 +1171,10 @@ with redirect_stdout(buf):
 
 reports = {}
 for p in sorted((data_dir / "reports").glob("*")):
-    reports[p.name] = p.read_text(encoding="utf-8")
+    # newline="": Zeilenenden unverändert lassen — die CSV-Exporte kommen aus der CLI mit CRLF
+    # (Python csv), die GUI lieferte sie bisher mit LF (Merkposten Gerätetest v1.2)
+    # (read_bytes statt read_text(newline=""): das Schluesselwort gibt es erst ab Python 3.13, Pyodide hat 3.12)
+    reports[p.name] = p.read_bytes().decode("utf-8")
 
 # Einstufung kommt von der Python-Seite, wo die Reports benannt werden (H5).
 # Fail closed: was nicht ausdruecklich offiziell ist, gilt als intern.

@@ -16,6 +16,7 @@ Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die dens
   Beispieldateien, nicht aus einem echten Export: Der Steuerreport zeigt je Datei eine Warnung „Format noch nicht bestätigt“.
   Tausch BTC gegen andere Kryptowährungen, Zuflüsse (Staking, Mining …) und Bezahlungen ohne EUR-Wert im Export werden nicht
   bewertet, sondern laut gemeldet. Konten mit noKYC-Plattformen im Namen (Bisq, RoboSats …) bleiben intern.
+- Oberfläche/App: die CSV-Dateien (Käufe, Verkäufe) sind jetzt byte-gleich zur Kommandozeile (Zeilenenden CRLF); bisher LF.
 - **Parser-Audit (alle Formate):** Jede Datei wird jetzt vor dem Lesen auf ihre Pflichtspalten geprüft. Bisher machte eine umbenannte
   Spalte oder eine UTF-8-Signatur (BOM, z. B. nach Speichern in Excel) aus einer Spalte still „leer“: Pocket-, Bison- und
   Swissquote-Dateien gingen komplett verloren, Strike-Käufe standen mit 0 BTC im Report, Gebühren wurden 0 — ohne jede Meldung.

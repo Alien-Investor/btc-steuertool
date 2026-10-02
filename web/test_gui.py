@@ -54,6 +54,9 @@ with sync_playwright() as p:
     # 1) Upload über den echten File-Input
     page.set_input_files("#file-input", [str(f) for f in UPLOAD_FILES])
     page.wait_for_selector("#file-table:not(.hidden)")
+    # Alle Dateien abwarten: intakeFile läuft asynchron je Datei; ein Klick auf „Berechnen“
+    # vor der letzten Datei löst „Dateien wurden während der Berechnung geändert“ aus
+    page.wait_for_function(f"document.querySelectorAll('#file-tbody tr').length === {len(UPLOAD_FILES)}")
 
     # 2) Sniffing prüfen
     rows = page.evaluate("""
