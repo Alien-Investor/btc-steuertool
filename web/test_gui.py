@@ -118,20 +118,23 @@ with sync_playwright() as p:
     bisq_de_bom = b"\xef\xbb\xbf" + (EXAMPLES / "Broker/bisq.csv").read_bytes()
     page2 = browser.new_page()
     page2.goto("http://localhost:8741/index.html")
+    sammel = {f"sammel-{n}": (BASE.parent / "tests" / "fixtures" / n).read_bytes() for n in (
+        "sammel_ct_import.csv", "sammel_ct_export.csv", "sammel_ct_full.csv", "sammel_blockpit_new.csv", "sammel_blockpit_old.csv")}
     page2.set_input_files("#file-input", files=[
         {"name": "tradeHistory.csv", "mimeType": "text/csv", "buffer": fixture_en},
         {"name": "bisq-bom.csv", "mimeType": "text/csv", "buffer": bisq_de_bom},
-    ])
+    ] + [{"name": n, "mimeType": "text/csv", "buffer": b} for n, b in sammel.items()])
     page2.wait_for_selector("#file-table:not(.hidden)")
     rows2 = page2.evaluate("""
         Array.from(document.querySelectorAll('#file-tbody tr')).map(tr => ({
             name: tr.cells[0].textContent, type: tr.querySelector('select').value }))
     """)
     for row in rows2:
-        ok = row["type"] == "bisq"
-        print(f"  {'✓' if ok else '✗'} {row['name']}: {row['type']}" + ("" if ok else " (erwartet: bisq)"))
+        expected = "sammel" if row["name"].startswith("sammel-") else "bisq"
+        ok = row["type"] == expected
+        print(f"  {'✓' if ok else '✗'} {row['name']}: {row['type']}" + ("" if ok else f" (erwartet: {expected})"))
         if not ok:
-            failures.append(f"Sniffing {row['name']}: {row['type']} != bisq")
+            failures.append(f"Sniffing {row['name']}: {row['type']} != {expected}")
     browser.close()
 
 print()

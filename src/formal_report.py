@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from .models import Transaction, TxType, SellResult, Lot, de_date
 from .tax_report import _freigrenze
 from .wallet_report import label as wallet_label, move_table
-from . import btc_prices, fx_rates
+from . import btc_prices, fx_rates, parsers
 
 CENT = Decimal("0.01")
 
@@ -592,6 +592,9 @@ def generate_tax_free_proof(
         if key in sources:
             # „manual" ist kein Broker: neutral benennen, nie „P2P" (nur KYC-Zeilen landen hier; Audit run-1, Fund 6)
             lines.append(f"    - {label}" if key == "manual" else f"    - {label} Broker CSV-Export")
+    # Konten aus dem Sammelimport (CoinTracking/Blockpit): Kontoname + Herkunft des Exports
+    for src in sorted(s for s in sources if s in parsers.aggregate_sources):
+        lines.append(f"    - {src} ({parsers.aggregate_sources[src]})")
     if fx_rates.used_table:
         # Global für den Lauf, nicht pro Jahr: auch Anschaffungskosten aus Vorjahren
         # (FiFo-Lots) können in CHF/USD gekauft worden sein.

@@ -1,0 +1,10 @@
+Date (UTC),Integration Name,Label,Outgoing Asset,Outgoing Amount,Incoming Asset,Incoming Amount,Fee Asset,Fee Amount,Trx. ID,Comments,Source Type,Source Name
+2024-03-15 13:22:10,Mein Kraken,Trade,EUR,615.00,BTC,0.01,EUR,1.50,,Kauf,API,Kraken
+2024-07-25 08:00:00,Mein Kraken,Withdrawal,BTC,0.0099,,,BTC,0.0001,e1e1000000000000000000000000000000000000000000000000000000000001,,API,Kraken
+2024-08-01 06:00:00,Bitpanda,Deposit,,,BTC,0.002,,,d2d2000000000000000000000000000000000000000000000000000000000002,,API,Bitpanda
+2024-08-05 10:00:00,Bitpanda,Trade,BTC,0.002,EUR,150.00,EUR,0.50,,Verkauf,API,Bitpanda
+2024-08-11 10:00:00,Mein Kraken,Payment,BTC,0.0005,,,,,,Pizza,API,Kraken
+2024-08-12 10:00:00,Mein Kraken,Gift,BTC,0.0004,,,,,,Geschenk,API,Kraken
+2024-08-13 10:00:00,Mein Kraken,Fee,BTC,0.00001,,,,,,,API,Kraken
+2024-08-14 10:00:00,Mein Kraken,Non-Taxable (In),,,EUR,1000,,,,,API,Kraken
+2024-08-15 10:00:00,Mein Kraken,Staking,,,BTC,0.00001,,,,,API,Kraken

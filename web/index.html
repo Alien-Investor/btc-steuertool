@@ -404,6 +404,7 @@
           <li><strong>Strike:</strong> App/Web → Aktivität → Report erstellen</li>
           <li><strong>Pocket:</strong> Web → Verlauf → CSV herunterladen</li>
           <li><strong>Bisq:</strong> Bisq Classic, Oberfläche auf Deutsch oder Englisch: Portfolio → Verlauf → Als CSV exportieren (englisch: Portfolio → History → Export to CSV). Bisq speichert als <code>tradeHistory.csv</code>.</li>
+          <li><strong>Andere Börsen über CoinTracking oder Blockpit:</strong> CoinTracking → Enter Coins/Trade List → Export CSV (oder eine CSV im CoinTracking-Importformat, das viele Börsen anbieten); Blockpit → Transaktionen → CSV exportieren. Jedes Konto darin wird eine eigene Wallet. Diese Formate sind aus der Dokumentation abgeleitet und noch nicht an echten Exporten bestätigt: Der Report zeigt dazu eine Warnung, bitte Beträge, Gebühren und Zeitzone prüfen und Abweichungen melden. Eine Wallet nicht doppelt laden (Sammelimport <em>und</em> eigener Export).</li>
         </ul>
         <p>Käufe ohne CSV (Robosats, Bargeld, P2P) oder bei Brokern ohne eigenen Parser trägst du in eine <code>manual_buys.csv</code> ein (siehe Fragen unten).</p>
 
@@ -458,6 +459,7 @@
           <li><strong>Strike:</strong> App/Web → Activity → Generate report</li>
           <li><strong>Pocket:</strong> Web → History → Download CSV</li>
           <li><strong>Bisq:</strong> Bisq Classic with the interface set to English or German: Portfolio → History → Export to CSV. Bisq saves the file as <code>tradeHistory.csv</code>.</li>
+          <li><strong>Other exchanges via CoinTracking or Blockpit:</strong> CoinTracking → Enter Coins/Trade List → Export CSV (or a CSV in the CoinTracking import format that many exchanges offer); Blockpit → Transactions → Export CSV. Every account in the file becomes its own wallet. These formats are derived from the documentation and not yet confirmed against real exports: the report shows a warning, so please check amounts, fees and time zone and report deviations. Do not load a wallet twice (aggregate export <em>and</em> its own export).</li>
         </ul>
         <p>Purchases without a CSV (Robosats, cash, P2P) or from brokers without a dedicated parser go into a simple <code>manual_buys.csv</code> (see questions below).</p>
 
@@ -537,7 +539,7 @@
       <div class="dropzone" id="dropzone">
         <span class="dz-icon">⬡</span>
         CSV-Exporte hierher ziehen oder <strong>klicken zum Auswählen</strong><br>
-        <span style="font-size:.72rem">BitBox · 21bitcoin · Bison · Swissquote · Strike · Pocket · Bisq · manuelle Käufe/Verkäufe</span><br>
+        <span style="font-size:.72rem">BitBox · 21bitcoin · Bison · Swissquote · Strike · Pocket · Bisq · CoinTracking/Blockpit-Export · manuelle Käufe/Verkäufe</span><br>
         <span style="font-size:.72rem; color:var(--orange)">noKYC bleibt getrennt: Bisq automatisch, manuelle Käufe per kyc-Spalte — noKYC-Wallets nach dem Laden im Dropdown markieren</span><br>
         <span style="font-size:.72rem">Zum Ausprobieren: <a href="examples/beispieldaten.zip" download onclick="event.stopPropagation()" style="color:var(--neon)">Beispieldaten (ZIP)</a> herunterladen und hierher ziehen — oder unten „Mit Beispieldaten testen“</span>
       </div>
@@ -700,7 +702,7 @@
         card01: '// 01 — CSV-Dateien laden',
         dropzoneFull: '<span class="dz-icon">⬡</span>' +
           'CSV-Exporte hierher ziehen oder <strong>klicken zum Auswählen</strong><br>' +
-          '<span style="font-size:.72rem">BitBox · 21bitcoin · Bison · Swissquote · Strike · Pocket · Bisq · manuelle Käufe/Verkäufe</span><br>' +
+          '<span style="font-size:.72rem">BitBox · 21bitcoin · Bison · Swissquote · Strike · Pocket · Bisq · CoinTracking/Blockpit-Export · manuelle Käufe/Verkäufe</span><br>' +
           '<span style="font-size:.72rem; color:var(--orange)">noKYC bleibt getrennt: Bisq automatisch, manuelle Käufe per kyc-Spalte — noKYC-Wallets nach dem Laden im Dropdown markieren</span><br>' +
           '<span style="font-size:.72rem">Zum Ausprobieren: <a href="examples/beispieldaten.zip" download onclick="event.stopPropagation()" style="color:var(--neon)">Beispieldaten (ZIP)</a> herunterladen und hierher ziehen — oder unten „Mit Beispieldaten testen“</span>',
         nokycHint: '⚠ <strong>noKYC-Wallet dabei?</strong> BitBox-Wallets werden zunächst als KYC eingestuft. ' +
@@ -743,6 +745,8 @@
           strike:       'Strike',
           pocket:       'Pocket',
           bisq:         'Bisq (noKYC)',
+          sammel:       'CoinTracking/Blockpit-Export (KYC)',
+          sammel_nokyc: 'CoinTracking/Blockpit-Export (noKYC)',
           manual_buys:  'Manuelle Käufe (Standard: noKYC)',
           manual_sales: 'Manuelle Verkäufe',
           zuordnung:    'Übertrags-Zuordnung',
@@ -831,7 +835,7 @@
         card01: '// 01 — Load CSV files',
         dropzoneFull: '<span class="dz-icon">⬡</span>' +
           'Drag your CSV exports here or <strong>click to select</strong><br>' +
-          '<span style="font-size:.72rem">BitBox · 21bitcoin · Bison · Swissquote · Strike · Pocket · Bisq · manual buys/sells</span><br>' +
+          '<span style="font-size:.72rem">BitBox · 21bitcoin · Bison · Swissquote · Strike · Pocket · Bisq · CoinTracking/Blockpit export · manual buys/sells</span><br>' +
           '<span style="font-size:.72rem; color:var(--orange)">noKYC stays separate: Bisq automatically, manual buys via kyc column — mark noKYC wallets in the dropdown after loading</span><br>' +
           '<span style="font-size:.72rem">To try it out: download the <a href="examples/beispieldaten.zip" download onclick="event.stopPropagation()" style="color:var(--neon)">sample data (ZIP)</a> and drop it here — or click "Try with sample data" below</span>',
         nokycHint: '⚠ <strong>Got a noKYC wallet?</strong> BitBox wallets are initially classified as KYC. ' +
@@ -875,6 +879,8 @@
           strike:       'Strike',
           pocket:       'Pocket',
           bisq:         'Bisq (noKYC)',
+          sammel:       'CoinTracking/Blockpit export (KYC)',
+          sammel_nokyc: 'CoinTracking/Blockpit export (noKYC)',
           manual_buys:  'Manual buys (default: noKYC)',
           manual_sales: 'Manual sells',
           zuordnung:    'Transfer assignment',
@@ -1027,6 +1033,10 @@
       strike:       { target: (n,i) => `Broker/strike_${i}.csv`,  max: 99 },
       pocket:       { target: (n,i) => `Broker/Pocket_${i}.csv`,  max: 99 },
       bisq:         { target: (n,i) => `Broker/bisq_${i}.csv`,    max: 99, nokyc: true },
+      // Sammelimport CoinTracking/Blockpit: der Parser erkennt das Format am Inhalt,
+      // der Dateiname trägt nur „nokyc" (alles intern) oder nicht
+      sammel:       { target: (n,i) => `Broker/sammelimport_${i}.csv`,       max: 99 },
+      sammel_nokyc: { target: (n,i) => `Broker/sammelimport_nokyc_${i}.csv`, max: 99, nokyc: true },
       manual_buys:  { target: ()    => 'manual_buys.csv',         max: 1, nokyc: true },
       manual_sales: { target: ()    => 'manual_sales.csv',        max: 1 },
       fxcache:      { target: ()    => 'fx_cache.json',           max: 1 },
@@ -1065,6 +1075,13 @@
       if (h.startsWith('Handels-ID,Datum/Zeit,'))       return 'bisq';
       if (h.startsWith('Trade ID,Date/Time,'))          return 'bisq';
       if (h.startsWith('datum_abgang,'))                return 'zuordnung';
+      // Sammelimport: CoinTracking (Importformat, Handelsliste, Vollansicht) und Blockpit (neu/alt);
+      // Anführungszeichen und Semikolon normalisieren, dann an den ersten Spalten erkennen
+      const hn = h.replace(/"/g, '').replace(/;/g, ',');
+      if (hn.startsWith('Type,Buy Amount,Buy Currency,'))      return 'sammel';
+      if (hn.startsWith('Type,Buy,Cur.,'))                     return 'sammel';
+      if (hn.startsWith('Date (UTC),Integration Name,Label,')) return 'sammel';
+      if (hn.startsWith('Blockpit ID,Timestamp,'))             return 'sammel';
       if (h.startsWith('date,btc_amount,eur_amount')) {
         // Beide manuellen Formate haben dieselbe Kopfzeile; nur der Dateiname
         // kann sie trennen. Verkaufs-Muster ZUERST prüfen: 'verkauf' enthält
@@ -1111,7 +1128,7 @@
       'src/parsers/broker_bison.py', 'src/parsers/broker_swissquote.py',
       'src/parsers/broker_strike.py', 'src/parsers/broker_pocket.py',
       'src/parsers/bisq.py', 'src/parsers/manual_buys.py', 'src/parsers/manual_sales.py',
-      'src/parsers/transfer_zuordnung.py',
+      'src/parsers/transfer_zuordnung.py', 'src/parsers/sammelimport.py',
     ];
     const DEMO_FILES = [
       'examples/bitbox/wallet1.csv', 'examples/bitbox/nokyc/nokyc_wallet.csv',
@@ -1812,7 +1829,7 @@ json.dumps({
 
     /* ───────────────────────── Bug-Report (Muster alien-analyzer-v2) ───────────────────────── */
     // Auswahlliste: alle Typen, die die Erkennung kennt, plus „Anderer Broker“ — Reihenfolge wie im Datei-Dropdown
-    const BUG_TYPES = ['bitbox', 'bitbox_nokyc', 'btc21', 'bison', 'swissquote', 'strike', 'pocket', 'bisq', 'manual_buys', 'manual_sales'];
+    const BUG_TYPES = ['bitbox', 'bitbox_nokyc', 'btc21', 'bison', 'swissquote', 'strike', 'pocket', 'bisq', 'sammel', 'manual_buys', 'manual_sales'];
     function bugPicked() {
       return [...document.querySelectorAll('#bug-menu input:checked')].map(i => i.value);
     }

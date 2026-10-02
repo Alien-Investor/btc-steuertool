@@ -109,6 +109,43 @@ Offer type,Status
 - Datei wird mit `utf-8-sig` gelesen (BOM aus Excel/LibreOffice stört nicht); GUI-Erkennung an `Handels-ID,Datum/Zeit,` bzw. `Trade ID,Date/Time,`
 - **`no_kyc=True`** — erscheint NICHT im offiziellen Finanzamt-Report
 
+### Sammelimport: CoinTracking / Blockpit (`Broker/cointracking*.csv`, `Broker/blockpit*.csv`, `Broker/sammelimport*.csv`)
+
+Parser `src/parsers/sammelimport.py`. Erkennung am Inhalt (fünf Kopfzeilen), Trennzeichen `,` oder `;`. **Aus der
+Dokumentation und veröffentlichten Beispieldateien abgeleitet, noch nicht an einem echten Export bestätigt** — jede Datei
+erzeugt eine sichtbare Warnung im Steuerreport (Dateiname im offiziellen Kanal redigiert).
+
+```
+CT_IMPORT  "Type","Buy Amount","Buy Currency","Sell Amount","Sell Currency","Fee","Fee Currency","Exchange","Trade-Group","Comment","Date"
+           [,"Liquidity pool (optional)","Tx-ID (optional)","Buy Value in Account Currency (optional)","Sell Value in Account Currency (optional)"]
+CT_EXPORT  "Type","Buy","Cur.","Sell","Cur.","Fee","Cur.","Exchange","Group","Comment","Date"          (leer = "-")
+CT_FULL    Type,Buy,Cur.,Value in BTC,Value in EUR,Sell,Cur.,Value in BTC,Value in EUR,Spread,Exchange,Group,Date
+BP_NEW     Date (UTC),Integration Name,Label,Outgoing Asset,Outgoing Amount,Incoming Asset,Incoming Amount,Fee Asset,Fee Amount,Trx. ID,Comments,Source Type,Source Name
+BP_OLD     Blockpit ID;Timestamp;Source Type;Source Name;Integration;Transaction Type;Outgoing Asset;Outgoing Amount;Incoming Asset;Incoming Amount;Fee Asset;Fee Amount;Transaction ID;Note;Merge ID
+```
+
+- Quellen: CoinTracking-Importseite (`cointracking.info/import/import_csv/`), Blockpit-Hilfecenter („How to export my transactions
+  as a CSV file"), veröffentlichte Beispieldateien (rotki-Testdaten: CT_EXPORT, BP_OLD, Bisq EN), Formatwissen aus BittyTax (CT_FULL,
+  BP_NEW-Vorlage). Kein fremder Code.
+- **Konto = Wallet:** Spalte `Exchange` (CT) bzw. `Source Name` (Blockpit, interner Name; nicht der selbst vergebene
+  `Integration Name`) wird `source` und `wallet`; `direct=False`. Der Kontoname erscheint als „Quelle" in den Reports und
+  unter „Datenquellen" im Nachweis (`parsers.aggregate_sources`). Leer/„no exchange" → `CoinTracking`/`Blockpit`.
+- **Zeit:** CT ohne Zeitzone → Europe/Berlin (Zeit der Kontoeinstellung, Annahme deutscher Nutzer); Blockpit `Date (UTC)`/`Timestamp`
+  → UTC. Formen `TT.MM.JJJJ HH:MM[:SS]`, `JJJJ-MM-TT HH:MM[:SS]`, ISO mit Offset/`Z`. Schrägstrich-Daten (`5/9/2017`) → harter Fehler.
+- **Abbildung (nur BTC, Zeilen ohne BTC-Bezug still übersprungen):** Trade BTC←EUR/USD/CHF → BUY (Gebühr Fiat → `fee_eur`,
+  Gebühr BTC → `fee_btc` + Einstand wie Bisq); Trade Fiat←BTC → SELL (Erlös vor Gebühr); Trade BTC↔Krypto (auch USDT) nur mit
+  EUR-Wert der BTC-Seite (CT_FULL `Value in EUR`, USD/CHF umgerechnet), sonst laute Warnung; Deposit → TRANSFER_IN; Withdrawal →
+  TRANSFER_OUT mit Betrag **ohne** Gebühr (`fee_btc` separat — Annahme wie BitBox/21bitcoin, am echten Export prüfen);
+  `Fee`/`Other Fee` in BTC → Gebührenabgang (Menge 0); BTC-Gebühr an einer Nicht-BTC-Zeile ebenso; Income/Mining/Staking/Airdrop/
+  Gift(in)/Reward/Lending mit EUR-Wert → BUY mit Hinweis „Einordnung des Zuflusses prüfen", sonst Warnung; Spend/Payment mit EUR-Wert
+  → SELL, sonst Warnung; Gift(out)/Donation → GIFT_OUT; Lost/Stolen/Margin → Warnung, Bestand bleibt; `Non-Taxable (In/Out)` →
+  wie Deposit/Withdrawal; unbekannte Typen mit BTC → Warnung.
+- **noKYC:** Kontoname nennt Bisq/RoboSats/Hodl Hodl/Peach/AgoraDesk, oder Dateiname enthält `nokyc` (GUI-Typ „CoinTracking/Blockpit-Export
+  (noKYC)") → `no_kyc=True`.
+- **Doppelt geladene Wallet:** gleiche TX-ID in gleicher Richtung wie BitBox/Broker-Export → Warnung (`main._warn_double_loaded_wallets`).
+- Fixtures: `tests/fixtures/sammel_*.csv` (eigene Werte), Tests `tests/test_sammelimport.py`. Bewusst **nicht** in `examples/`, solange das
+  Format unbestätigt ist.
+
 ### Broker: Strike (`Broker/strike_YYYY.csv`)
 CSV, Komma-getrennt, UTF-8 (mehrere Dateien pro Jahr möglich, Pattern: `strike_*.csv`):
 

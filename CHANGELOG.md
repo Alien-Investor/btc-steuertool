@@ -10,6 +10,12 @@ Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die dens
 - Bisq: Trades auf Altcoin-Märkten (XMR/BTC, BSQ/BTC …) werden als Veräußerung bzw. Anschaffung von BTC gemeldet statt nur stumm
   gezählt; eine Datei, die nur Verkäufe enthält, bekommt keine zweite Sammelwarnung mehr; eine BOM in der Kopfzeile (Excel) stört nicht mehr.
 - Oberfläche: CSV-Dateien mit BOM werden erkannt statt als „unbekannt“ gesperrt.
+- **Sammelimport CoinTracking/Blockpit (neu, unbestätigt):** CSV-Exporte aus CoinTracking (Importformat, Handelsliste, Vollansicht)
+  und Blockpit (aktuelles und älteres Format) werden gelesen; jedes Konto darin ist eine eigene Wallet, Ein-/Auszahlungen werden
+  über die Transaktions-ID mit den BitBox-Exporten verbunden. Die Formate stammen aus der Dokumentation und veröffentlichten
+  Beispieldateien, nicht aus einem echten Export: Der Steuerreport zeigt je Datei eine Warnung „Format noch nicht bestätigt“.
+  Tausch BTC gegen andere Kryptowährungen, Zuflüsse (Staking, Mining …) und Bezahlungen ohne EUR-Wert im Export werden nicht
+  bewertet, sondern laut gemeldet. Konten mit noKYC-Plattformen im Namen (Bisq, RoboSats …) bleiben intern.
 - **Parser-Audit (alle Formate):** Jede Datei wird jetzt vor dem Lesen auf ihre Pflichtspalten geprüft. Bisher machte eine umbenannte
   Spalte oder eine UTF-8-Signatur (BOM, z. B. nach Speichern in Excel) aus einer Spalte still „leer“: Pocket-, Bison- und
   Swissquote-Dateien gingen komplett verloren, Strike-Käufe standen mit 0 BTC im Report, Gebühren wurden 0 — ohne jede Meldung.

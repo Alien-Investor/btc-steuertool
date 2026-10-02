@@ -2,8 +2,8 @@
 
 ## Was macht dieses Tool?
 
-Es liest deine CSV-Dateien von BitBox, 21bitcoin, Bison, Swissquote, Strike, Pocket und Bisq
-und berechnet daraus automatisch, welche Bitcoin-Verkäufe steuerpflichtig oder steuerfrei waren.
+Es liest deine CSV-Dateien von BitBox, 21bitcoin, Bison, Swissquote, Strike, Pocket und Bisq (sowie
+Sammelexporte aus CoinTracking und Blockpit, noch unbestätigt) und berechnet daraus automatisch, welche Bitcoin-Verkäufe steuerpflichtig oder steuerfrei waren.
 Die Berechnung folgt der deutschen FiFo-Methode je Wallet (§ 23 EStG, BMF-Schreiben vom
 06.03.2025, Rn. 61 f.): BTC, die länger als ein Jahr gehalten wurden, sind beim Verkauf steuerfrei.
 
@@ -205,6 +205,10 @@ Einfach die neue CSV-Datei in den richtigen Ordner legen:
 - Strike-Export → `Broker/` (Dateiname muss mit `strike_` beginnen, z.B. `strike_2026.csv`)
 - Pocket-Export → `Broker/` (Dateiname muss mit `Pocket` beginnen)
 - Bisq-Export → `Broker/` (Dateiname muss mit `bisq` beginnen, z.B. `bisq.csv`)
+- CoinTracking- oder Blockpit-Export → `Broker/` (Dateiname beginnt mit `cointracking`, `blockpit` oder `sammelimport`;
+  mit `nokyc` im Namen gilt alles darin als noKYC). Jedes Konto in der Datei wird eine eigene Wallet. Diese Formate sind
+  noch nicht an echten Exporten bestätigt — der Report zeigt eine Warnung, bitte Beträge, Gebühren und Zeitzone prüfen.
+  Eine Wallet nie doppelt laden (Sammelimport und eigener Export).
 
 Bei Bison und Swissquote: neue Transaktionen in die bestehende Datei einfügen.
 Bei Strike, Pocket und Bisq: einfach eine neue Datei ablegen, das Tool liest alle automatisch ein.

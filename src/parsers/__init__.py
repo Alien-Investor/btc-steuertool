@@ -148,6 +148,11 @@ parser_warnings: list[ParserWarning] = []
 # liest — so bleibt der GUI-Bootstrap unverändert (er ruft nur beide auf).
 manual_links: list = []
 
+# Quellen aus dem Sammelimport (CoinTracking/Blockpit): Kontoname → Herkunft
+# („CoinTracking-Export"). Der Steuernachweis listet sie unter „Datenquellen";
+# wie parser_warnings je Lauf gefüllt und in reset_warnings geleert.
+aggregate_sources: dict[str, str] = {}
+
 
 def warn(msg: str, *, internal: bool, year: int | None = None) -> None:
     """internal=True → nur interner noKYC-Report + GUI-Log, nie Finanzamt.
@@ -211,9 +216,17 @@ def make_warning_fmt(template: str, *, internal: bool, year: int | None = None,
     )
 
 
+def warn_both(full: str, public: str, *, internal: bool, year: int | None = None) -> None:
+    """Warnung mit eigener Fassung je Kanal: `full` (interner Report, GUI-Log, CLI) und
+    `public` (Finanzamt-Dokumente). Für Meldungen, die einen Dateinamen UND einen
+    längeren Text tragen — warn_fmt kürzt eingesetzte Werte auf 80 Zeichen."""
+    _append_warning(ParserWarning(_sanitize(full), internal, msg_public=_sanitize(public), year=year))
+
+
 def reset_warnings() -> None:
     parser_warnings.clear()
     manual_links.clear()
+    aggregate_sources.clear()
     reset_suppressed()
 
 
@@ -348,9 +361,16 @@ def read_rows(filepath: Path, *, label: str, required: tuple[str, ...] | list[st
             f"die Datei in einer Tabellenkalkulation umbenannt? Ohne diese Prüfung ginge die Datei still verloren."
         )
     if len(set(header)) != len(header):
-        dup = sorted({h for h in header if header.count(h) > 1})
-        if any(h in required for h in dup):
-            raise ValueError(f"{label} {name}: Spalte(n) {', '.join(dup)} kommen mehrfach vor — Kopfzeile prüfen.")
+        # Doppelte Spaltennamen eindeutig machen („Cur.", „Cur.#2", „Cur.#3" — die
+        # CoinTracking-Handelsliste hat drei Spalten „Cur."). csv.DictReader würde
+        # sonst still die letzte behalten.
+        seen: dict[str, int] = {}
+        unique = []
+        for h in header:
+            seen[h] = seen.get(h, 0) + 1
+            unique.append(h if seen[h] == 1 else f"{h}#{seen[h]}")
+        header = unique
+        reader.fieldnames = header
 
     rows: list[dict] = []
     n_cols = len(fieldnames)

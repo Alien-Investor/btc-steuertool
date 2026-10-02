@@ -12,7 +12,7 @@ ROOT = Path(__file__).parent.parent
 
 sys.path.insert(0, str(ROOT))
 
-from src.parsers import bitbox, broker_21bitcoin, broker_bison, broker_swissquote, broker_strike, broker_pocket, manual_sales, manual_buys, bisq, transfer_zuordnung
+from src.parsers import bitbox, broker_21bitcoin, broker_bison, broker_swissquote, broker_strike, broker_pocket, manual_sales, manual_buys, bisq, transfer_zuordnung, sammelimport
 import src.parsers as parsers
 from src.fifo_engine import FifoEngine
 from src.tax_report import TaxReport
@@ -98,7 +98,8 @@ def _dedup_files(per_file: list[tuple[str, list]], label: str, internal: bool = 
         dropped = 0
         file_keys = []
         for tx in txs:
-            key = (tx.tx_id, tx.date, tx.type, str(tx.btc_amount), str(tx.eur_amount))
+            # Mengen numerisch vergleichen: 0.01 und 0.01000000 sind dieselbe Transaktion
+            key = (tx.tx_id, tx.date, tx.type, str(tx.btc_amount.normalize()), str(tx.eur_amount.normalize()))
             if key in seen:
                 dropped += 1
             else:
@@ -211,6 +212,28 @@ def _parse_file(label: str, module, path: Path, *, internal: bool = False) -> li
     return txs
 
 
+def _warn_double_loaded_wallets(sammel_txs: list, all_txs: list) -> None:
+    """Dieselbe On-Chain-TX-ID in gleicher Richtung aus dem Sammelimport UND einem
+    anderen Export (BitBox, Broker) → dieselbe Wallet ist doppelt geladen, der Bestand
+    würde doppelt gezählt. Nur melden — welche Datei weg soll, entscheidet der Nutzer."""
+    others: dict[tuple[str, TxType], str] = {}
+    for t in all_txs:
+        if t.tx_id and t.source not in {s.source for s in sammel_txs}:
+            others.setdefault((t.tx_id.lower(), t.type), t.source)
+    seen: set[tuple[str, str]] = set()
+    for t in sammel_txs:
+        key = (t.tx_id.lower(), t.type)
+        if t.tx_id and key in others and (t.source, others[key]) not in seen:
+            seen.add((t.source, others[key]))
+            parsers.warn_fmt(
+                "Sammelimport: Konto '{a}' enthält dieselbe Transaktions-ID in gleicher Richtung wie {b} — "
+                "ist diese Wallet doppelt geladen (Sammelimport UND eigener Export)? Dann eine der "
+                "Quellen entfernen, sonst zählt der Bestand doppelt.",
+                internal=t.no_kyc, a=t.source,
+                b=parsers.FileRef(others[key], "eine andere eingelesene Quelle") if others[key].startswith("bitbox:") else others[key],
+            )
+
+
 def load_all_transactions(data_dir: Path):
     parsers.reset_warnings()
     transactions = []
@@ -288,6 +311,20 @@ def load_all_transactions(data_dir: Path):
         transactions.extend(bisq_txs)
         print(f"  Bisq (noKYC): {len(bisq_txs)} Transaktionen ({len(bisq_files)} Dateien)")
 
+    # Sammelimport: CoinTracking-/Blockpit-Exporte (viele Börsen in einer Datei).
+    # Erkennung am Inhalt; Dateiname nur für die Zuordnung (und „nokyc" im Namen →
+    # alles intern). Format noch nicht an echten Exporten bestätigt — der Parser
+    # warnt sichtbar je Datei.
+    sammel_files = [p for pat in ("cointracking*.csv", "blockpit*.csv", "sammelimport*.csv")
+                    for p in _find(broker_dir, pat)]
+    if sammel_files:
+        sammel_txs = _dedup_files(
+            [(sf.name, _parse_file("Sammelimport", sammelimport, sf, internal="nokyc" in sf.name.lower()))
+             for sf in sammel_files], "Sammelimport")
+        transactions.extend(sammel_txs)
+        print(f"  Sammelimport (CoinTracking/Blockpit): {len(sammel_txs)} Transaktionen ({len(sammel_files)} Dateien)")
+        _warn_double_loaded_wallets(sammel_txs, transactions)
+
     # Manuelle Käufe (noKYC: Robosats, P2P, Bargeld etc.)
     # BEWUSST vor den Verkäufen geladen: beide Parser stempeln 12:00 UTC, also
     # entscheidet bei gleichem Kalendertag sonst die Ladereihenfolge, und ein
@@ -333,7 +370,7 @@ def load_all_transactions(data_dir: Path):
     # Bison-/Swissquote-Datei oder ein Broker ohne Parser)
     consumed = {
         p.name
-        for p in btc21_files + bison_files + sq_files + strike_files + pocket_files + bisq_files
+        for p in btc21_files + bison_files + sq_files + strike_files + pocket_files + bisq_files + sammel_files
     }
     # Pendant für bitbox/: bisher gab es hier gar keinen Auffang-Warner, also
     # verschwand eine ganze Wallet lautlos (WALLET1.CSV, wallet1.txt, ein
@@ -369,7 +406,8 @@ def load_all_transactions(data_dir: Path):
             parsers.warn_fmt(
                 "{file}: keinem Parser zugeordnet — NICHT geladen. "
                 "Erwartete Namen: 21bitcoin*.csv, Bison-CSV-Gesamt.csv, "
-                "Swissquote_CSV-Gesamt.csv, strike_*.csv, Pocket*.csv, bisq*.csv.",
+                "Swissquote_CSV-Gesamt.csv, strike_*.csv, Pocket*.csv, bisq*.csv, "
+                "cointracking*.csv, blockpit*.csv (Sammelimport).",
                 file=parsers.FileRef(f"Broker/{p.name}", "Eine Datei im Ordner Broker/"), internal=False,
             )
 

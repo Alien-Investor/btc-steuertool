@@ -1,0 +1,7 @@
+Blockpit ID;Timestamp;Source Type;Source Name;Integration;Transaction Type;Outgoing Asset;Outgoing Amount;Incoming Asset;Incoming Amount;Fee Asset;Fee Amount;Transaction ID;Note;Merge ID
+101;15.03.2024 13:22;API;Kraken;Kraken Depot;Trade;EUR;615.00;BTC;0.01;EUR;1.50;;Kauf;
+102;25.07.2024 08:00;API;Kraken;Kraken Depot;Withdrawal;BTC;0.0099;;;BTC;0.0001;e1e1000000000000000000000000000000000000000000000000000000000001;;7
+103;01.08.2024 06:00;API;Bitpanda;Bitpanda Depot;Deposit;;;BTC;0.002;;;d2d2000000000000000000000000000000000000000000000000000000000002;;8
+104;05.08.2024 10:00;API;Bitpanda;Bitpanda Depot;Trade;BTC;0.002;EUR;150.00;EUR;0.50;;Verkauf;
+105;26.01.2023 19:06;API;Bitpanda;Bitpanda Depot;NonTaxableIn;;;EUR;1000;;;;;
+106;08.01.2023 16:20;API;Binance;Binance Depot;Trade;USDT;0.24209916;BNB;0.00092036;BNB;0.0000184;;;

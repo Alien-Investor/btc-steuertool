@@ -24,7 +24,8 @@ steuerrelevante Jahresberichte für das deutsche Finanzamt.
   Brokers (Jahres- + Gesamtexport) werden erkannt und nur einmal gezählt
 - Steuerjahr und Haltefrist nach **deutschem Kalenderdatum** (Europe/Berlin),
   nicht UTC — relevant bei Käufen/Verkäufen um Mitternacht bzw. am Jahreswechsel
-- Unterstützte Broker: **21bitcoin, Bison, Swissquote, Strike, Pocket, Bisq**
+- Unterstützte Broker: **21bitcoin, Bison, Swissquote, Strike, Pocket, Bisq**; weitere Börsen über einen
+  **CoinTracking- oder Blockpit-Export** (Sammelimport, Format noch nicht an echten Exporten bestätigt — der Report warnt)
 - Unterstützte Wallets: **BitBox** (alle Wallet-CSVs werden automatisch eingelesen)
 - **noKYC-Käufe** via Bisq-CSV-Direktimport (`Broker/bisq.csv`) oder manuell via `manual_buys.csv`
 - **noKYC strikt getrennt** — erscheint nie in `steuerreport_*.txt` oder `steuernachweis_*.txt`, sondern nur in der separaten `nokyc_intern_*.txt` (mit Warnhinweis)
