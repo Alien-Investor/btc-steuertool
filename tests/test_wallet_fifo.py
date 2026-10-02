@@ -3,6 +3,7 @@
 Etappe 1: Übertrags-Zuordnung (src/transfer_matching.py).
 Etappe 2: Engine mit einem FiFo-Topf je Wallet (src/fifo_engine.py).
 Etappe 3: Reports (Umbuchungen, Bestand je Wallet, interner Wallet-Abgleich).
+Etappe 4: Spalte wallet in manual_*.csv, transfer_zuordnung.csv.
 
 Aufruf:  python -m unittest discover tests
 """
@@ -14,7 +15,7 @@ from decimal import Decimal as D
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from src.models import Transaction, TxType, ANY_WALLET            # noqa: E402
+from src.models import Transaction, TxType, ANY_WALLET, de_date   # noqa: E402
 from src.transfer_matching import match_transfers, LinkKind, giver_residual  # noqa: E402
 from src.fifo_engine import FifoEngine                              # noqa: E402
 
@@ -350,6 +351,98 @@ class StrikeFeeTest(unittest.TestCase):
                          [(D("0.00103034"), D("0.00004912")), (D("0.00543184"), D("0"))])
 
 
+def zrow(line, gd, gw, ga, td, tw, ta):
+    from datetime import date
+    from src.parsers.transfer_zuordnung import ManualLinkRow
+    return ManualLinkRow(line, date.fromisoformat(gd), gw, D(ga), date.fromisoformat(td), tw, D(ta))
+
+
+class ManualAssignmentTest(unittest.TestCase):
+
+    def test_aggregate_payout_moves_each_purchase_lot(self):
+        # Zwei Käufe (Bisq mit BTC-Handelsgebühr, Bargeld) in EINER Auszahlung
+        txs = [tx_at(at(2024, 9, 10), BUY, "0.004", "manual", eur="280", no_kyc=True, direct=True),
+               tx_at(at(2024, 11, 5), BUY, "0.0025", "bisq", eur="180", fee_btc="0.000055",
+                     no_kyc=True, direct=True),
+               tx_at(at(2024, 11, 20), BUY, "0.0015", "manual", eur="99", no_kyc=True, direct=True),
+               tx_at(at(2024, 11, 25), IN, "0.003945", "bitbox:nk", no_kyc=True)]
+        rows = [zrow(2, "2024-11-05", "bisq", "0.0025", "2024-11-25", "nk", "0.003945"),
+                zrow(3, "2024-11-20", "manuell", "0.0015", "2024-11-25", "nk", "0.003945")]
+        e = FifoEngine()
+        e.process(txs, rows)
+        self.assertEqual(held(e, "bitbox:nk"), D("0.003945"))
+        got = sorted(str(de_date(l.purchase_date)) for _, lots in e.moves for l in lots)
+        self.assertEqual(got, ["2024-11-05", "2024-11-20"])      # nicht der Kauf vom 10.09.
+        self.assertEqual(held(e, "manual"), D("0.004"))
+        self.assertFalse(e.pulled)
+        self.assertFalse(e.warnings)
+
+    def test_auto_delivery_moves_own_lot_not_oldest(self):
+        txs = [tx_at(at(2024, 1, 10), BUY, "0.002", "pocket", eur="80", direct=True),
+               tx_at(at(2024, 6, 1, 10), BUY, "0.001", "pocket", eur="65", direct=True),
+               tx_at(at(2024, 6, 1, 11), IN, "0.001", "bitbox:main")]
+        e = run(txs)
+        lots = [l for l in e.remaining_lots() if l.wallet == "bitbox:main"]
+        self.assertEqual([str(de_date(l.purchase_date)) for l in lots], ["2024-06-01"])
+
+    def test_row_not_found_is_hard_error(self):
+        txs = [tx_at(at(2024, 3, 1), OUT, "0.01", "21bitcoin"),
+               tx_at(at(2024, 3, 9), IN, "0.01", "bitbox:main")]
+        with self.assertRaises(ValueError) as cm:
+            FifoEngine().process(txs, [zrow(2, "2024-03-01", "21bitcoin", "0.02",
+                                            "2024-03-09", "main", "0.01")])
+        self.assertIn("Zeile 2", str(cm.exception))
+
+    def test_manual_row_links_outside_window(self):
+        # 8 Tage Abstand: automatisch nie, per Zuordnung ja
+        txs = [tx_at(at(2024, 1, 10), BUY, "0.01", "21bitcoin", eur="400"),
+               tx_at(at(2024, 3, 1), OUT, "0.01", "21bitcoin"),
+               tx_at(at(2024, 3, 9), IN, "0.01", "bitbox:main")]
+        e = FifoEngine()
+        e.process(txs, [zrow(2, "2024-03-01", "21bitcoin", "0.01", "2024-03-09", "main", "0.01")])
+        self.assertEqual(held(e, "bitbox:main"), D("0.01"))
+        self.assertEqual(e.matching.links[0].method, "manuell")
+
+    def test_cross_class_row_rejected(self):
+        txs = [tx_at(at(2024, 3, 1), OUT, "0.01", "bitbox:main"),
+               tx_at(at(2024, 3, 2), IN, "0.01", "bitbox:nk", no_kyc=True)]
+        with self.assertRaises(ValueError):
+            FifoEngine().process(txs, [zrow(2, "2024-03-01", "main", "0.01", "2024-03-02", "nk", "0.01")])
+
+
+class WalletColumnTest(unittest.TestCase):
+
+    def _resolve(self, txs):
+        from src.main import _resolve_manual_wallets
+        _resolve_manual_wallets(txs)
+        return txs
+
+    def test_name_resolves_to_bitbox_wallet(self):
+        sale = tx_at(at(2024, 6, 15), SELL, "0.003", "manual", eur="195", direct=True, wallet="Main")
+        self._resolve([tx_at(at(2024, 1, 1), IN, "0.01", "bitbox:main"), sale])
+        self.assertEqual(sale.wallet, "bitbox:main")
+
+    def test_unknown_wallet_is_hard_error(self):
+        sale = tx_at(at(2024, 6, 15), SELL, "0.003", "manual", eur="195", direct=True, wallet="mian")
+        with self.assertRaises(ValueError):
+            self._resolve([tx_at(at(2024, 1, 1), IN, "0.01", "bitbox:main"), sale])
+
+    def test_kyc_buy_into_nokyc_wallet_rejected(self):
+        buy = tx_at(at(2024, 6, 15), BUY, "0.003", "manual", eur="195", direct=True, wallet="nk")
+        with self.assertRaises(ValueError):
+            self._resolve([tx_at(at(2024, 1, 1), IN, "0.01", "bitbox:nk", no_kyc=True), buy])
+
+    def test_explicit_wallet_buy_consumes_its_receipt(self):
+        # Kauf mit wallet=main: das Lot liegt dort, der Eingang ist seine Lieferung
+        # — kein Eingang ohne Abgang, nichts aus „extern“, kein doppelter Bestand
+        buy = tx_at(at(2024, 6, 1), BUY, "0.002", "manual", eur="120", direct=True, wallet="bitbox:main")
+        inn = tx_at(at(2024, 6, 2), IN, "0.002", "bitbox:main")
+        e = run([buy, inn])
+        self.assertEqual(held(e, "bitbox:main"), D("0.002"))
+        self.assertFalse(e.pulled)
+        self.assertFalse(e.moves)
+
+
 class WalletReportPrivacyTest(unittest.TestCase):
     """Etappe 3: Umbuchungen und Bestand je Wallet in den offiziellen Dokumenten —
     ohne Wallet-Namen (SA-016) und ohne noKYC-Spuren; der Wallet-Abgleich ist intern."""
@@ -378,7 +471,6 @@ class WalletReportPrivacyTest(unittest.TestCase):
 
 
 def de_year(dt):
-    from src.models import de_date
     return de_date(dt).year
 
 

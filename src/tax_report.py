@@ -522,7 +522,7 @@ class TaxReport:
                 for m in sr.matches:
                     status = "haltefrist abgelaufen" if m.is_tax_free else f"{m.holding_days} Tage — innerhalb Haltefrist"
                     lines.append(
-                        f"    Lot: Kauf {de_date(m.lot_purchase_date)}  ({_lot_origin(m, None, tx.wallet)})  "
+                        f"    Lot: Kauf {de_date(m.lot_purchase_date)}  ({_lot_origin(m, None, tx.source)})  "
                         f"{m.btc_used:.8f} BTC  @  {m.cost_per_btc:,.2f} EUR/BTC"
                         f"  →  {_signed(m.gain_eur)} EUR  [{status}]"
                     )
@@ -686,12 +686,12 @@ class TaxReport:
         return saved
 
 
-def _lot_origin(m, labels, sale_wallet: str) -> str:
-    """Kaufquelle — plus die Wallet, aus der das Lot kam, wenn der Verkauf aus
-    einer anderen Wallet bedient wurde (P2P-/Pocket-Verkauf aus der BitBox,
-    Verkauf ohne Wallet-Angabe). Wie ein Lot in die verkaufende Wallet kam,
-    zeigt der Abschnitt Umbuchungen."""
-    if m.lot_wallet and m.lot_wallet != sale_wallet:
+def _lot_origin(m, labels, sale_source: str) -> str:
+    """Kaufquelle — plus die Wallet, aus der das Lot kam, wenn sie nicht die
+    Plattform des Verkaufs ist (P2P-/Pocket-Verkauf aus der BitBox, Verkauf ohne
+    Wallet-Angabe). Wie ein Lot in die verkaufende Wallet kam, zeigt der
+    Abschnitt Umbuchungen."""
+    if m.lot_wallet and m.lot_wallet != sale_source:
         return f"{m.lot_source}, aus {wallet_label(m.lot_wallet, labels)}"
     return m.lot_source
 
@@ -711,7 +711,7 @@ def _format_sell(sr: SellResult, only_taxable: bool, labels: dict | None = None)
         status = "STEUERFREI" if m.is_tax_free else f"{m.holding_days} Tage"
         gain_str = f"{_signed(m.gain_eur)} EUR"
         lines.append(
-            f"    Lot: Kauf {de_date(m.lot_purchase_date)}  ({_lot_origin(m, labels or {}, tx.wallet)})  "
+            f"    Lot: Kauf {de_date(m.lot_purchase_date)}  ({_lot_origin(m, labels or {}, tx.source)})  "
             f"{m.btc_used:.8f} BTC  @  {m.cost_per_btc:,.2f} EUR/BTC"
             f"  →  {gain_str}  [{status}]"
         )

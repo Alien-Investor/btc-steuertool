@@ -2,4 +2,5 @@ Time,Type,Amount,Unit,Fee,Fee Unit,Address,Transaction ID,Note
 2024-03-11T14:32:10+01:00,received,1000000,sat,0,sat,bc1qnokyc1example000000000000000000000000,txid_nokyc_001,P2P Kauf angekommen
 2024-03-16T10:00:00+01:00,received,988000,sat,0,sat,bc1qnokyc4example000000000000000000000000,txid_nokyc_004,Bisq Kauf angekommen
 2024-07-23T10:05:44+02:00,received,492000,sat,0,sat,bc1qnokyc2example000000000000000000000000,txid_nokyc_002,Bisq Kauf angekommen
+2024-11-25T16:00:00+01:00,received,394500,sat,0,sat,bc1qnokyc5example000000000000000000000000,txid_nokyc_005,Sammelauszahlung Bisq + Bargeld
 2025-02-14T18:20:00+01:00,sent,300000,sat,500,sat,bc1qpeer2peer0example000000000000000000000,txid_nokyc_003,P2P Verkauf

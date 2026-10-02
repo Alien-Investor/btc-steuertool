@@ -747,6 +747,7 @@
           bisq:         'Bisq (noKYC)',
           manual_buys:  'Manuelle Käufe (Standard: noKYC)',
           manual_sales: 'Manuelle Verkäufe',
+          zuordnung:    'Übertrags-Zuordnung',
           fxcache:      'fx_cache.json (Kurse)',
           ignore:       'Ignorieren',
           manual_ambig: '✗ Käufe oder Verkäufe? — bitte wählen',
@@ -876,6 +877,7 @@
           bisq:         'Bisq (noKYC)',
           manual_buys:  'Manual buys (default: noKYC)',
           manual_sales: 'Manual sells',
+          zuordnung:    'Transfer assignment',
           fxcache:      'fx_cache.json (FX rates)',
           ignore:       'Ignore',
           manual_ambig: '✗ Buys or sells? — please choose',
@@ -1026,6 +1028,9 @@
       manual_buys:  { target: ()    => 'manual_buys.csv',         max: 1, nokyc: true },
       manual_sales: { target: ()    => 'manual_sales.csv',        max: 1 },
       fxcache:      { target: ()    => 'fx_cache.json',           max: 1 },
+      // Manuelle Übertrags-Zuordnung (walletbezogenes FiFo): kann noKYC-Wallets
+      // nennen → wie noKYC behandeln (Bug-Report wählt sie nicht vor)
+      zuordnung:    { target: ()    => 'transfer_zuordnung.csv',  max: 1, nokyc: true },
       ignore:       { target: null,                               max: 999 },
       // Kauf- und Verkaufsdatei teilen sich dieselbe Kopfzeile — der Inhalt kann
       // sie nicht unterscheiden. Wenn auch der Dateiname nichts hergibt, sperrt
@@ -1052,6 +1057,7 @@
       if (h.startsWith('Transaction ID,Time (UTC)'))    return 'strike';
       if (h.startsWith('type,date,') && h.includes('value.currency') && h.includes('cost.currency')) return 'pocket';
       if (h.startsWith('Handels-ID,'))                  return 'bisq';
+      if (h.startsWith('datum_abgang,'))                return 'zuordnung';
       if (h.startsWith('date,btc_amount,eur_amount')) {
         // Beide manuellen Formate haben dieselbe Kopfzeile; nur der Dateiname
         // kann sie trennen. Verkaufs-Muster ZUERST prüfen: 'verkauf' enthält
@@ -1098,6 +1104,7 @@
       'src/parsers/broker_bison.py', 'src/parsers/broker_swissquote.py',
       'src/parsers/broker_strike.py', 'src/parsers/broker_pocket.py',
       'src/parsers/bisq.py', 'src/parsers/manual_buys.py', 'src/parsers/manual_sales.py',
+      'src/parsers/transfer_zuordnung.py',
     ];
     const DEMO_FILES = [
       'examples/bitbox/wallet1.csv', 'examples/bitbox/nokyc/nokyc_wallet.csv',
@@ -1105,6 +1112,7 @@
       'examples/Broker/bisq.csv', 'examples/Broker/Pocket_2024.csv',
       'examples/Broker/strike_2024.csv', 'examples/Broker/Swissquote_CSV-Gesamt.csv',
       'examples/fx_cache.json', 'examples/manual_buys.csv', 'examples/manual_sales.csv',
+      'examples/transfer_zuordnung.csv',
     ];
 
     const BOOTSTRAP = `

@@ -14,6 +14,10 @@ Format (UTF-8, Komma-getrennt, Spalte no_kyc optional):
 - no_kyc: "ja"/"1"/"true" → Verkauf konsumiert den noKYC-FiFo-Pool und
   erscheint NUR im internen Report, nicht in den Finanzamt-Dokumenten.
   Leer oder fehlend → normaler KYC-Verkauf.
+- wallet (optional): eigene Wallet, aus der verkauft wurde — Dateiname des
+  BitBox-Exports ohne .csv (z.B. wallet1). Leer → ergibt sich aus dem
+  passenden Abgang der Wallet; ohne Abgang wird aus Beständen ohne bekannten
+  Verwahrort bedient (walletbezogenes FiFo, BMF Rn. 62).
 """
 from __future__ import annotations
 import csv
@@ -24,7 +28,7 @@ from pathlib import Path
 from ..models import Transaction, TxType, ANY_WALLET
 from . import validate_header
 
-_KNOWN_COLUMNS = {"date", "btc_amount", "eur_amount", "note", "no_kyc"}
+_KNOWN_COLUMNS = {"date", "btc_amount", "eur_amount", "note", "no_kyc", "wallet"}
 # Die Schwesterdatei manual_buys.csv nutzt 'kyc' mit UMGEKEHRTER Bedeutung —
 # der wahrscheinlichste Tippfehler, und er scheitert Richtung Offenlegung.
 _COLUMN_HINTS = {
@@ -86,6 +90,9 @@ def _parse_row(row: dict, line: int) -> Transaction | None:
         no_kyc=no_kyc,
         # Verkauf aus einer eigenen Wallet: welche, ergibt sich aus dem passenden
         # Abgang (transfer_matching); ohne Gegenstück walletübergreifend.
-        wallet=ANY_WALLET,
+        # Spalte wallet (optional): eigene Wallet, aus der verkauft wurde —
+        # aufgelöst in main._resolve_manual_wallets. Leer → ergibt sich aus dem
+        # passenden Abgang (transfer_matching), sonst walletübergreifend.
+        wallet=row.get("wallet", "").strip() or ANY_WALLET,
         direct=True,
     )

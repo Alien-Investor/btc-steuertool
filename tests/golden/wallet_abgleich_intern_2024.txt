@@ -36,13 +36,13 @@ UMBUCHUNGEN 2024 (echte Namen)
   2024-03-11 manuell erfasst   nokyc_wallet       0.01000000 2024-03-10            Betrag/Zeit
   2024-03-16 bisq              nokyc_wallet       0.00988000 2024-03-15            Betrag/Zeit
   2024-07-23 bisq              nokyc_wallet       0.00492000 2024-07-20            Betrag/Zeit
+  2024-11-25 bisq              nokyc_wallet       0.00244500 2024-11-05            manuell
+  2024-11-25 manuell erfasst   nokyc_wallet       0.00150000 2024-11-20            manuell
 
 OFFENE ZUORDNUNGEN 2024
 ------------------------------------------------------------------------
   Direktkäufe ohne zugeordnete Lieferung (Lots bleiben beim Anbieter):
     2024-09-10  manuell erfasst        0.00400000 BTC  (manual) [noKYC]
-    2024-11-05  bisq                   0.00250000 BTC  (bisq) [noKYC]
-    2024-11-20  manuell erfasst        0.00150000 BTC  (manual) [noKYC]
     2024-12-01  manuell erfasst        0.00200000 BTC  (manual)
   Abhilfe: fehlende Exporte ergänzen oder transfer_zuordnung.csv.
 
@@ -50,19 +50,18 @@ BESTAND JE WALLET — Stand 31.12.2024 (echte Namen)
 ------------------------------------------------------------------------
   bison: 0.00500000 BTC in 1 Lot(s)
     Kauf 2024-03-01  (bison)    0.00500000  @ 60,000.00 EUR/BTC
-  bisq [noKYC]: 0.00244500 BTC in 1 Lot(s)
-    Kauf 2024-11-05  (bisq)    0.00244500  @ 73,584.00 EUR/BTC
-  nokyc_wallet [noKYC]: 0.02480000 BTC in 3 Lot(s)
+  nokyc_wallet [noKYC]: 0.02874500 BTC in 5 Lot(s)
     Kauf 2024-03-10  (manual)    0.01000000  @ 55,000.00 EUR/BTC
     Kauf 2024-03-15  (bisq)    0.00988000  @ 62,238.00 EUR/BTC
     Kauf 2024-07-20  (bisq)    0.00492000  @ 59,132.00 EUR/BTC
+    Kauf 2024-11-05  (bisq)    0.00244500  @ 73,584.00 EUR/BTC
+    Kauf 2024-11-20  (manual)    0.00150000  @ 66,000.00 EUR/BTC
   wallet1: 0.00548540 BTC in 3 Lot(s)
     Kauf 2023-08-15  (swissquote)    0.00148540  @ 26,807.67 EUR/BTC
     Kauf 2024-03-15  (strike)    0.00300000  @ 63,630.00 EUR/BTC
     Kauf 2024-06-01  (pocket)    0.00100000  @ 65,000.00 EUR/BTC
   manuell erfasst: 0.00200000 BTC in 1 Lot(s)
     Kauf 2024-12-01  (manual)    0.00200000  @ 95,000.00 EUR/BTC
-  manuell erfasst [noKYC]: 0.00550000 BTC in 2 Lot(s)
+  manuell erfasst [noKYC]: 0.00400000 BTC in 1 Lot(s)
     Kauf 2024-09-10  (manual)    0.00400000  @ 70,000.00 EUR/BTC
-    Kauf 2024-11-20  (manual)    0.00150000  @ 66,000.00 EUR/BTC
 ========================================================================

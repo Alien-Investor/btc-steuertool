@@ -25,6 +25,7 @@ UPLOAD_FILES = [
     EXAMPLES / "fx_cache.json",
     EXAMPLES / "manual_buys.csv",
     EXAMPLES / "manual_sales.csv",
+    EXAMPLES / "transfer_zuordnung.csv",
 ]
 
 EXPECTED_TYPES = {
@@ -39,6 +40,7 @@ EXPECTED_TYPES = {
     "fx_cache.json": "fxcache",
     "manual_buys.csv": "manual_buys",
     "manual_sales.csv": "manual_sales",
+    "transfer_zuordnung.csv": "zuordnung",
 }
 
 failures = []

@@ -12,13 +12,13 @@ ROOT = Path(__file__).parent.parent
 
 sys.path.insert(0, str(ROOT))
 
-from src.parsers import bitbox, broker_21bitcoin, broker_bison, broker_swissquote, broker_strike, broker_pocket, manual_sales, manual_buys, bisq
+from src.parsers import bitbox, broker_21bitcoin, broker_bison, broker_swissquote, broker_strike, broker_pocket, manual_sales, manual_buys, bisq, transfer_zuordnung
 import src.parsers as parsers
 from src.fifo_engine import FifoEngine
 from src.tax_report import TaxReport
 from src.formal_report import generate_tax_free_proof
 import src.wallet_report as wallet_report
-from src.models import TxType, de_date
+from src.models import TxType, de_date, ANY_WALLET
 import src.fx_rates as fx_rates
 
 
@@ -133,6 +133,38 @@ def _bitbox_extras(txs) -> str:
     return f" ({', '.join(parts)})" if parts else ""
 
 
+def _resolve_manual_wallets(transactions) -> None:
+    """Spalte wallet in manual_buys/manual_sales: der geschriebene Name (BitBox-
+    Dateiname ohne .csv oder Broker) wird einer eingelesenen Wallet zugeordnet.
+    Harter Fehler bei unbekanntem Namen oder falscher Klasse: ein Tippfehler
+    ließe das Lot sonst in einer Phantom-Wallet liegen, ein KYC-Kauf in einer
+    noKYC-Wallet bräche die Trennung der Bestände."""
+    own = [t for t in transactions if t.source != "manual"]
+    known = {t.wallet for t in own}
+    cls: dict[str, set[bool]] = {}
+    for t in own:
+        cls.setdefault(t.wallet, set()).add(t.no_kyc)
+    for t in transactions:
+        if t.source != "manual" or t.wallet in ("manual", ANY_WALLET):
+            continue
+        datei = "manual_buys.csv" if t.type == TxType.BUY else "manual_sales.csv"
+        wallet = transfer_zuordnung.resolve_wallet(t.wallet, known)
+        if wallet is None:
+            raise ValueError(
+                f"{datei}: Wallet '{t.wallet}' ({de_date(t.date)}, {t.btc_amount} BTC) gehört zu "
+                f"keiner eingelesenen Datei. Erlaubt: Dateiname des BitBox-Exports ohne .csv "
+                f"oder ein Broker — bekannt: {', '.join(sorted(w.replace('bitbox:', '') for w in known))}."
+            )
+        if cls.get(wallet) and t.no_kyc not in cls[wallet]:
+            raise ValueError(
+                f"{datei}: Vorgang vom {de_date(t.date)} ({t.btc_amount} BTC) ist "
+                f"{'noKYC' if t.no_kyc else 'KYC'}, die Wallet '{t.wallet}' aber nicht — "
+                f"KYC- und noKYC-Bestände bleiben strikt getrennt. Bitte Spalte "
+                f"{'kyc' if t.type == TxType.BUY else 'no_kyc'} oder wallet prüfen."
+            )
+        t.wallet = wallet
+
+
 def load_all_transactions(data_dir: Path):
     parsers.reset_warnings()
     transactions = []
@@ -227,6 +259,16 @@ def load_all_transactions(data_dir: Path):
         transactions.extend(txs)
         print(f"  Manuell (Verkäufe): {len(txs)} Transaktionen")
 
+    # Spalte wallet in manual_*.csv gegen die eingelesenen Wallets auflösen
+    _resolve_manual_wallets(transactions)
+
+    # Manuelle Übertrags-Zuordnung (walletbezogenes FiFo, BMF Rn. 90)
+    zuordnung = data_dir / transfer_zuordnung.FILENAME
+    if zuordnung.exists():
+        rows = transfer_zuordnung.parse(zuordnung)
+        parsers.manual_links.extend(rows)
+        print(f"  Übertrags-Zuordnung: {len(rows)} Zeilen")
+
     # Nicht zugeordnete CSVs im Broker-Ordner melden — CLI-Pendant zum GUI-Prinzip
     # "nicht erkannte Dateien sperren die Berechnung" (z.B. falsch benannte
     # Bison-/Swissquote-Datei oder ein Broker ohne Parser)
@@ -306,12 +348,15 @@ def main():
         _generate_report(transactions, engine, args.year, args.csv, args.nachweis, reports_dir)
 
 
-def run_engine(transactions, mode: str = "wallet") -> FifoEngine:
+def run_engine(transactions, mode: str = "wallet", manual_links=None) -> FifoEngine:
     """Ein FiFo-Lauf über ALLE Transaktionen (kumulativ) — einzige Stelle, an der
     CLI und GUI (web/index.html) die Engine starten. Walletbezogen nach BMF
     06.03.2025 Rn. 62; mode="global" nur für den Vergleich im internen Report."""
+    if manual_links is None:
+        # von load_all_transactions gesammelt (transfer_zuordnung.csv)
+        manual_links = list(parsers.manual_links)
     engine = FifoEngine(mode=mode)
-    engine.process(transactions)
+    engine.process(transactions, manual_links)
     if mode == "wallet":
         # Vergleichslauf nach der früheren gemeinsamen Rechnung — nur für die
         # interne Datei wallet_abgleich_intern_JJJJ.txt, nie für ein Finanzamt-Dokument

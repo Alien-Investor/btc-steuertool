@@ -92,7 +92,10 @@ Transaction ID,Time (UTC),Status,Transaction Type,Amount EUR,Fee EUR,Amount BTC,
 - `Time (UTC)`: Format `Mon DD YYYY HH:MM:SS` (UTC)
 - Relevante `Transaction Type`-Werte:
   - `Purchase`: BTC-Kauf — `Amount EUR` negativ (abs nehmen), `Fee EUR`, `Amount BTC`, `Exchange Rate`
-  - `Send`: BTC-Auszahlung an eigene Wallet — `Amount BTC` negativ (abs nehmen), kein EUR-Betrag
+  - `Send`: BTC-Auszahlung an eigene Wallet — `Amount BTC` negativ (abs nehmen), kein EUR-Betrag.
+    `Amount BTC` **enthält** die Netzwerkgebühr `Fee BTC` (geprüft am echten Export gegen den
+    BitBox-Eingang derselben TX-ID): übertragen = `|Amount BTC| − Fee BTC`, die Gebühr ist eine
+    Veräußerung des Gebührenanteils (`fee_btc`). `Transaction Hash` = On-Chain-TX-ID.
   - `Receive`: BTC-Eingang ohne Kaufpreis (Trinkgeld/Spende) — TRANSFER_IN, `eur_amount = 0`
   - `Deposit`: EUR-Einzahlung — irrelevant
 
@@ -109,8 +112,53 @@ type,date,value.currency,value.amount,cost.currency,cost.amount,fee.currency,fee
 - Zugehörige `deposit`-Zeile mit gleichem Timestamp enthält Betrag der Gegenseite
 - **CHF/USD-Käufe** (Pocket ist ein Schweizer Dienst): EUR-Kurs aus der gebündelten
   EZB-Tabelle via `fx_rates` — wie bei Swissquote
+- Pocket hält keinen Bestand (`direct=True`): ein Kauf wird dem Eingang in der eigenen
+  Wallet zugeordnet (Lieferung), ein Verkauf dem Abgang, aus dem er bedient wurde.
 
----
+### Manuelle Käufe (`manual_buys.csv`)
+CSV, Komma-getrennt, UTF-8. Unbekannte Spalten sind ein harter Fehler.
+
+```
+date,btc_amount,eur_amount,note,kyc,wallet
+2024-03-10,0.01000000,550.00,P2P Kauf,,
+2024-12-01,0.00200000,190.00,Coinbase Kauf,ja,wallet1
+```
+
+- `date` = `YYYY-MM-DD` (12:00 UTC), `eur_amount` = gezahlter Gesamtbetrag
+- `kyc`: `ja`/`1`/`true` → KYC-Kauf (Broker ohne Parser, im Finanzamt-Report); leer → noKYC
+- `wallet` (optional): eigene Wallet, an die geliefert wurde — Dateiname des BitBox-Exports
+  ohne `.csv` oder ein Broker. Leer → Lieferung über den passenden Eingang automatisch.
+  Unbekannter Name oder KYC-Kauf in eine noKYC-Wallet (und umgekehrt) → harter Fehler.
+
+### Manuelle Verkäufe (`manual_sales.csv`)
+
+```
+date,btc_amount,eur_amount,note,no_kyc,wallet
+2024-06-15,0.00300000,195.00,Privatverkauf,,wallet1
+```
+
+- `no_kyc`: `ja` → Verkauf aus dem noKYC-Bestand (nur interner Report). **Umgekehrte
+  Polarität** zu `kyc` in `manual_buys.csv`.
+- `wallet` (optional): Wallet, aus der verkauft wurde. Leer → aus dem passenden Abgang der
+  Wallet ermittelt; ohne Abgang aus Beständen ohne bekannten Verwahrort, mit Warnung.
+
+### Übertrags-Zuordnung (`transfer_zuordnung.csv`)
+Nur nötig, wenn die automatische Zuordnung (TX-ID, sonst Betrag in ±48 h) nicht greift —
+typisch: mehrere Bisq-Käufe in einer Auszahlung, Eingang mehr als 48 h nach dem Abgang.
+
+```
+datum_abgang,von,menge_abgang,datum_eingang,nach,menge_eingang,notiz
+2024-11-05,bisq,0.00250000,2024-11-25,nokyc_wallet,0.00394500,Sammelauszahlung
+2024-11-20,manual,0.00150000,2024-11-25,nokyc_wallet,0.00394500,Sammelauszahlung
+```
+
+- Eine Zeile = eine Verbindung „abgebend → aufnehmend“. Abgebend: Abgang (BitBox `sent`,
+  Broker-Auszahlung) oder Direktkauf (Pocket, Bisq, manual); aufnehmend: Eingang oder
+  Direktverkauf. Mehrere Zeilen mit demselben Eingang = Sammelauszahlung.
+- Datum (deutsches Kalenderdatum), Wallet und Menge wie in Warnung bzw. internem
+  Wallet-Abgleich. Wallet: BitBox-Dateiname ohne `.csv`, Broker oder `manual`.
+- Bei einem Direktkauf wandert genau dessen Lot (abzüglich einer BTC-Handelsgebühr).
+- Nicht auffindbare oder mehrdeutige Zeile, KYC↔noKYC → harter Fehler.
 
 ---
 

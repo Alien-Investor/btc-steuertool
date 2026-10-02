@@ -17,6 +17,10 @@ Format (UTF-8, Komma-getrennt, Spalte kyc optional):
 - kyc: "ja"/"1"/"true" → Kauf bei einem KYC-Broker ohne eigenen Parser:
   landet im KYC-FiFo-Pool und erscheint im offiziellen Finanzamt-Report.
   Leer oder fehlend → noKYC (Standard, nur im internen Report).
+- wallet (optional): eigene Wallet, an die geliefert wurde — Dateiname des
+  BitBox-Exports ohne .csv (z.B. wallet1) oder ein Broker. Dann liegt das Lot
+  von Anfang an dort (walletbezogenes FiFo, BMF Rn. 62). Leer → die Lieferung
+  wird über den passenden Eingang automatisch zugeordnet.
 
 Hinweis: Der Report weist manuell eingegebene Käufe als solche aus.
 Ein Report mit korrekten Anschaffungskosten reicht in der Regel; im Einzelfall kann das
@@ -31,7 +35,7 @@ from pathlib import Path
 from ..models import Transaction, TxType
 from . import validate_header
 
-_KNOWN_COLUMNS = {"date", "btc_amount", "eur_amount", "note", "kyc"}
+_KNOWN_COLUMNS = {"date", "btc_amount", "eur_amount", "note", "kyc", "wallet"}
 # Die Schwesterdatei manual_sales.csv nutzt 'no_kyc' mit UMGEKEHRTER Bedeutung.
 _COLUMN_HINTS = {
     "no_kyc": "hier heisst die Spalte 'kyc' und hat die UMGEKEHRTE Bedeutung: "
@@ -92,4 +96,7 @@ def _parse_row(row: dict, line: int) -> Transaction | None:
         note=note,
         no_kyc=not kyc,
         direct=True,  # Lieferung an eine eigene Wallet (Zuordnung über den Eingang)
+        # Name wie geschrieben; main._resolve_manual_wallets ordnet ihn einer
+        # eingelesenen Wallet zu (leer → Quelle „manual“)
+        wallet=row.get("wallet", "").strip(),
     )

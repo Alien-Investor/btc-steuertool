@@ -99,6 +99,9 @@ class FifoEngine:
         self._year_end: dict[int, list[Lot]] = {}
         self._first_year: int | None = None
         self._last_year: int | None = None
+        # id(Kauf) → sein Lot: eine Lieferung bewegt GENAU das Lot des
+        # gelieferten Kaufs, nicht das älteste beim Anbieter
+        self._lot_of: dict[int, Lot] = {}
         # Töpfe ohne bekannten Verwahrort — siehe _untracked_wallets()
         self._untracked: set[str] = {EXTERN_WALLET}
 
@@ -141,15 +144,17 @@ class FifoEngine:
 
     # ── Ablauf ──
 
-    def process(self, transactions: list[Transaction]) -> None:
-        """Verarbeitet alle Transaktionen chronologisch."""
+    def process(self, transactions: list[Transaction], manual_links=()) -> None:
+        """Verarbeitet alle Transaktionen chronologisch.
+
+        manual_links: Zeilen aus transfer_zuordnung.csv (nur mode="wallet")."""
         sale_wallet: dict[int, str] = {}   # id(SELL) → Wallet aus VERKAUF-Verbindung
         events: list[tuple] = []
         for tx in transactions:
             events.append((tx.date, self._TYPE_ORDER[tx.type], len(events), "tx", tx))
         if self.mode == "wallet":
             self._untracked = self._untracked_wallets(transactions)
-            self.matching = match_transfers(transactions)
+            self.matching = match_transfers(transactions, manual_links)
             self.warnings.extend(self.matching.warnings)
             for link in self.matching.links:
                 if link.kind == LinkKind.VERKAUF:
@@ -212,7 +217,7 @@ class FifoEngine:
     def _add_lot(self, tx: Transaction) -> None:
         # Einstandspreis inkl. Kaufgebühren
         cost_per_btc = _round((tx.eur_amount + tx.fee_eur) / tx.btc_amount) if tx.btc_amount else ZERO
-        insort(self._pot(tx.no_kyc, tx.wallet), Lot(
+        lot = Lot(
             purchase_date=tx.date,
             btc_amount=tx.btc_amount,
             cost_per_btc=cost_per_btc,
@@ -220,7 +225,9 @@ class FifoEngine:
             tx_id=tx.tx_id,
             no_kyc=tx.no_kyc,
             wallet=self._wallet(tx.wallet),
-        ), key=_lot_key)
+        )
+        self._lot_of[id(tx)] = lot
+        insort(self._pot(tx.no_kyc, tx.wallet), lot, key=_lot_key)
 
     def _take(self, pot: list[Lot], quantity: Decimal) -> tuple[list[Lot], Decimal]:
         """Nimmt `quantity` BTC von vorn aus dem Topf; liefert die Teil-Lots und
@@ -239,8 +246,17 @@ class FifoEngine:
                 remaining = ZERO
         return taken, remaining
 
-    def _transfer(self, no_kyc: bool, src: str, dst: str, quantity: Decimal) -> tuple[list[Lot], Decimal]:
-        taken, missing = self._take(self._pot(no_kyc, src), quantity)
+    def _transfer(self, no_kyc: bool, src: str, dst: str, quantity: Decimal,
+                  first: Lot | None = None) -> tuple[list[Lot], Decimal]:
+        """Bewegt `quantity` BTC FiFo von src nach dst. `first`: dieses Lot
+        zuerst (Lieferung eines bestimmten Kaufs), nur der Rest FiFo."""
+        pot = self._pot(no_kyc, src)
+        taken: list[Lot] = []
+        if first is not None and quantity > 0 and any(l is first for l in pot):
+            part, quantity = self._take_lot(pot, first, quantity)
+            taken.append(part)
+        more, missing = self._take(pot, quantity)
+        taken += more
         target = self._pot(no_kyc, dst)
         for lot in taken:
             lot.wallet = dst
@@ -249,7 +265,12 @@ class FifoEngine:
 
     def _move(self, link) -> None:
         g, t = link.giver, link.taker
-        taken, missing = self._transfer(g.no_kyc, g.wallet, t.wallet, link.btc_amount)
+        if g.wallet == t.wallet:
+            # Kauf mit ausdrücklicher Wallet: das Lot liegt schon dort, der
+            # Eingang ist nur seine Lieferung — nichts zu bewegen
+            return
+        own = self._lot_of.get(id(g)) if link.kind == LinkKind.LIEFERUNG else None
+        taken, missing = self._transfer(g.no_kyc, g.wallet, t.wallet, link.btc_amount, first=own)
         self.moves.append((link, [replace(l) for l in taken]))
         if missing > 0:
             what = "Lieferung des Kaufs" if link.kind == LinkKind.LIEFERUNG else "Übertrag"

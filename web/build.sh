@@ -26,6 +26,7 @@ files = [
     "examples/Broker/bisq.csv", "examples/Broker/Pocket_2024.csv",
     "examples/Broker/strike_2024.csv", "examples/Broker/Swissquote_CSV-Gesamt.csv",
     "examples/fx_cache.json", "examples/manual_buys.csv", "examples/manual_sales.csv",
+    "examples/transfer_zuordnung.csv",
 ]
 with zipfile.ZipFile("dist/examples/beispieldaten.zip", "w", zipfile.ZIP_DEFLATED) as z:
     for f in files:

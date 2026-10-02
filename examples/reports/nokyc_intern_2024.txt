@@ -53,8 +53,9 @@
   2024-03-11   nokyc_wallet         empfangen        0.01000000               P2P Kauf angekommen | Adresse: bc1qnokyc1example000000000000000000000000
   2024-03-16   nokyc_wallet         empfangen        0.00988000               Bisq Kauf angekommen | Adresse: bc1qnokyc4example000000000000000000000000
   2024-07-23   nokyc_wallet         empfangen        0.00492000               Bisq Kauf angekommen | Adresse: bc1qnokyc2example000000000000000000000000
+  2024-11-25   nokyc_wallet         empfangen        0.00394500               Sammelauszahlung Bisq + Bargeld | Adresse: bc1qnokyc5example000000000000000000000000
   ────────────────────────────────────────────────────────────────────────
-  Gesamt empfangen:     0.02480000 BTC
+  Gesamt empfangen:     0.02874500 BTC
   Gesamt gesendet:      0.00000000 BTC (zzgl. Gebühren 0.00000000 BTC)
-  Netto (Saldo):        0.02480000 BTC
+  Netto (Saldo):        0.02874500 BTC
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

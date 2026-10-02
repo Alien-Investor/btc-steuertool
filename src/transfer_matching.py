@@ -14,7 +14,8 @@ Drei Arten von Verbindung (LinkKind), immer „abgebend → aufnehmend“:
              aus der Wallet IST die Lieferung an den Käufer — ohne diese
              Verbindung verbrauchte die Engine die Lots zweimal)
 
-Stufen: (1) gleiche TX-ID, (2) Betrag passt im Zeitfenster. Grundsatz: lieber
+Stufen: (0) transfer_zuordnung.csv des Nutzers, (1) gleiche TX-ID, (2) Betrag
+passt im Zeitfenster. Grundsatz: lieber
 keine Verbindung und eine laute Warnung als eine geratene — eine falsche
 Zuordnung verschiebt Anschaffungsdaten in ein Dokument fürs Finanzamt.
 
@@ -36,6 +37,7 @@ from enum import Enum
 
 from .models import Transaction, TxType, ANY_WALLET, de_date, wallet_label
 from .parsers import ParserWarning, make_warning_fmt
+from .parsers.transfer_zuordnung import FILENAME as ZUORDNUNG, resolve_wallet
 
 # Zeitfenster Abgang ↔ Eingang, in BEIDE Richtungen: die Quellen stempeln in
 # verschiedenen Zeitzonen (Swissquote/Bisq lokal, manual_* 12:00 UTC ohne
@@ -116,7 +118,12 @@ def _structurally_possible(giver: Transaction, taker: Transaction) -> LinkKind |
         return None
     delta = taker.date - giver.date
     if kind == LinkKind.LIEFERUNG:
-        if not (-WINDOW <= delta <= DELIVERY_AFTER) or taker.wallet == giver.wallet:
+        if not (-WINDOW <= delta <= DELIVERY_AFTER):
+            return None
+        # Kauf mit ausdrücklicher Wallet (manual_buys, Spalte wallet): nur der
+        # Eingang IN dieser Wallet ist seine Lieferung; sonst eine andere Wallet.
+        explicit = giver.wallet != giver.source
+        if (taker.wallet == giver.wallet) != explicit:
             return None
     elif kind == LinkKind.TRANSFER:
         if abs(delta) > WINDOW or taker.wallet == giver.wallet:
@@ -131,7 +138,27 @@ def _sort_key(tx: Transaction):
     return (tx.date, tx.type.value, tx.source, tx.tx_id)
 
 
-def match_transfers(transactions: list[Transaction]) -> MatchResult:
+def transferable(giver: Transaction) -> Decimal:
+    """Menge, die ein abgebender Vorgang weitergeben kann: beim Direktkauf
+    abzüglich der in BTC entrichteten Handelsgebühr (die verbucht die Engine
+    aus demselben Lot), beim Abgang der übertragene Betrag."""
+    return giver.btc_amount - giver.fee_btc if giver.type == TxType.BUY else giver.btc_amount
+
+
+def _find(pool: list[Transaction], day, wallet: str, amount: Decimal, line: int, side: str):
+    hits = [t for t in pool if de_date(t.date) == day and t.wallet == wallet
+            and amount in (t.btc_amount, t.btc_amount + t.fee_btc)]
+    if len(hits) != 1:
+        raise ValueError(
+            f"{ZUORDNUNG} Zeile {line}: {side} am {day} über {amount} BTC in "
+            f"'{wallet.replace('bitbox:', '')}' "
+            + ("nicht gefunden." if not hits else f"nicht eindeutig ({len(hits)} Treffer).")
+            + " Datum (deutsches Kalenderdatum), Wallet und Menge wie in der Warnung angeben."
+        )
+    return hits[0]
+
+
+def match_transfers(transactions: list[Transaction], manual_rows=()) -> MatchResult:
     result = MatchResult()
     givers = sorted(
         (t for t in transactions
@@ -148,10 +175,53 @@ def match_transfers(transactions: list[Transaction]) -> MatchResult:
     taken: set[int] = set()             # id(taker) → schon verbunden
     ambiguous: set[int] = set()         # id(giver) in einem offenen Mehrdeutigkeits-Fall
 
-    def link(kind, g, t, method):
-        result.links.append(TransferLink(kind, g, t, t.btc_amount, method))
-        moved[id(g)] = moved.get(id(g), Decimal("0")) + t.btc_amount
+    def link(kind, g, t, method, amount=None):
+        amount = t.btc_amount if amount is None else amount
+        result.links.append(TransferLink(kind, g, t, amount, method))
+        moved[id(g)] = moved.get(id(g), Decimal("0")) + amount
         taken.add(id(t))
+
+    # ── Stufe 0: transfer_zuordnung.csv (Absicht des Nutzers, Rn. 90) ──
+    if manual_rows:
+        known = {t.wallet for t in transactions}
+        filled: dict[int, Decimal] = {}     # id(taker) → bereits zugeordnet
+        manual_takers: list[Transaction] = []
+        for row in manual_rows:
+            wallets = []
+            for raw in (row.giver_wallet, row.taker_wallet):
+                w = resolve_wallet(raw, known)
+                if w is None:
+                    raise ValueError(f"{ZUORDNUNG} Zeile {row.line}: Wallet '{raw}' gehört zu keiner "
+                                     f"eingelesenen Datei.")
+                wallets.append(w)
+            g = _find(givers, row.giver_date, wallets[0], row.giver_amount, row.line, "Abgang/Kauf")
+            t = _find(takers, row.taker_date, wallets[1], row.taker_amount, row.line, "Eingang/Verkauf")
+            kind = _kind(g, t)
+            if kind is None:
+                raise ValueError(f"{ZUORDNUNG} Zeile {row.line}: ein Kauf kann nicht direkt mit einem "
+                                 f"Verkauf verbunden werden.")
+            if g.no_kyc != t.no_kyc:
+                # Wortlaut ohne „noKYC“: Fehlermeldung, kein Dokument — trotzdem neutral
+                raise ValueError(f"{ZUORDNUNG} Zeile {row.line}: Abgang und Eingang gehören zu "
+                                 f"getrennten Beständen (KYC/noKYC) — nicht verbindbar.")
+            amount = min(transferable(g) - moved.get(id(g), Decimal("0")),
+                         t.btc_amount - filled.get(id(t), Decimal("0")))
+            if amount <= 0:
+                raise ValueError(f"{ZUORDNUNG} Zeile {row.line}: Abgang oder Eingang ist durch "
+                                 f"vorherige Zeilen schon vollständig zugeordnet.")
+            link(kind, g, t, "manuell", amount)
+            filled[id(t)] = filled.get(id(t), Decimal("0")) + amount
+            if t not in manual_takers:
+                manual_takers.append(t)
+        for t in manual_takers:
+            if filled[id(t)] < t.btc_amount:
+                result.warnings.append(make_warning_fmt(
+                    "Manuelle Zuordnung: Eingang am {tag} über {menge} BTC in {ziel} nur zu {gedeckt} BTC "
+                    "durch die angegebenen Abgänge gedeckt — der Rest kommt ohne Anschaffungsdaten an.",
+                    internal=t.no_kyc, year=de_date(t.date).year, tag=de_date(t.date),
+                    menge=f"{t.btc_amount:.8f}", ziel=wallet_label(t.wallet),
+                    gedeckt=f"{filled[id(t)]:.8f}",
+                ))
 
     # ── Stufe 1: gleiche TX-ID (On-Chain zwischen zwei BitBox-Wallets, Strike-Hash) ──
     by_txid: dict[str, tuple[list, list]] = {}
@@ -162,10 +232,10 @@ def match_transfers(transactions: list[Transaction]) -> MatchResult:
         if t.type == TxType.TRANSFER_IN and t.tx_id in by_txid:
             by_txid[t.tx_id][1].append(t)
     for outs, ins in by_txid.values():
-        if len(outs) != 1 or not ins:
+        if len(outs) != 1 or not ins or id(outs[0]) in moved:
             continue
         g = outs[0]
-        ins = [t for t in ins if t.wallet != g.wallet and t.no_kyc == g.no_kyc]
+        ins = [t for t in ins if t.wallet != g.wallet and t.no_kyc == g.no_kyc and id(t) not in taken]
         # Eine Transaktion kann mehrere eigene Wallets bedienen — dann muss die
         # Summe der Eingänge in den Abgang passen, sonst lieber Stufe 2.
         if ins and sum((t.btc_amount for t in ins), Decimal("0")) <= g.btc_amount:

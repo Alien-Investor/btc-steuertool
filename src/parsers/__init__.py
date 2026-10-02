@@ -143,6 +143,11 @@ class ParserWarning:
 
 parser_warnings: list[ParserWarning] = []
 
+# Zeilen aus transfer_zuordnung.csv (manuelle Übertrags-Zuordnung, BMF Rn. 90).
+# Wie parser_warnings je Lauf gesammelt: load_all_transactions füllt, run_engine
+# liest — so bleibt der GUI-Bootstrap unverändert (er ruft nur beide auf).
+manual_links: list = []
+
 
 def warn(msg: str, *, internal: bool, year: int | None = None) -> None:
     """internal=True → nur interner noKYC-Report + GUI-Log, nie Finanzamt.
@@ -208,6 +213,7 @@ def make_warning_fmt(template: str, *, internal: bool, year: int | None = None,
 
 def reset_warnings() -> None:
     parser_warnings.clear()
+    manual_links.clear()
 
 
 def validate_header(
