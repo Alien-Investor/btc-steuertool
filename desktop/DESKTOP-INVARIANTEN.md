@@ -29,6 +29,8 @@ Tests: `node desktop/verify-desktop.mjs` (echte Hülle, gepinntes Electron, Repo
 - **Links:** keine Navigation, keine neuen Fenster. Nur die feste Liste `LINKS` (exakter URL-Vergleich, keine Präfixe) und `mailto:` an
   genau `kontakt@alien-investor.org` mit höchstens `subject`/`body` und ≤ 8000 Zeichen gehen per `shell.openExternal` an den System-Browser
   bzw. das Mailprogramm (OpenURI-Portal, kein Flatpak-Recht nötig). Neuer Link in der GUI = Eintrag in `LINKS` + Test.
+  **`LINKS`, `MAIL`/`MAIL_MAX` und `CSP` liest auch die APK** (`mobile/patch-hardening.mjs`, per Regex) — Form der drei Zeilen beibehalten,
+  sonst bricht der APK-Build mit Fehler ab (gewollt, nie still).
 - **Brücke = genau `saveFile(name, bytes)`.** Name `^[\w.-]{1,120}\.(txt|csv|zip)$`, nur `Uint8Array`, ≤ 50 MB, Aufruf nur vom obersten Frame
   der eigenen Seite. Speichern-Dialog (Portal), atomar über `atomic.js`; Rückfall auf direktes Schreiben nur für ein NEUES Ziel.
   Browser-Downloads bleiben gesperrt (`will-download`).
@@ -39,6 +41,7 @@ Tests: `node desktop/verify-desktop.mjs` (echte Hülle, gepinntes Electron, Repo
 - `downloadBlob` → `DESK.saveFile` (Speichern-Dialog), Knöpfe heißen am Desktop „speichern“ statt „herunterladen“.
 - Eigene Download-Links (`a[download]`, Beispieldaten-ZIP) laufen am Desktop über denselben Weg (delegierter Klick-Handler, weil
   `applyLang` die Dropzone neu schreibt).
+- App-Kopf (`html.app`, Flatpak + APK): Sprache links, „?“ rechts wie Alien Pass, Website-Leiste aus, Darstellung Neon/Soft im Fuß.
 - Privacy-Strip mit Desktop-Text (`privacyDesk`, kein „Code kommt vom Server“), „← Zentrale“ ausgeblendet, Bug-Report nennt „Desktop“.
 - Handbuch („?“-Knopf, Overlay, DE/EN) liegt offline in der GUI — gilt für Web, Desktop und APK gleich.
 

@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BTC Steuertool — Bitcoin Steuerreport im Browser</title>
   <meta name="description" content="Bitcoin Steuerreport für Deutschland (FiFo, §23 EStG) — läuft komplett im Browser, deine CSVs verlassen nie deinen Rechner.">
-  <script>(function(){const t=localStorage.getItem('alien-theme');if(t==='soft')document.documentElement.setAttribute('data-theme','soft');})();</script>
+  <script>(function(){const t=localStorage.getItem('alien-theme');if(t==='soft')document.documentElement.setAttribute('data-theme','soft');
+    // App-Fassung (Flatpak-Hülle oder Android/Capacitor): Kopf wie die anderen Alien-Apps statt Website-Leiste
+    const C=window.Capacitor;if(window.AlienDesktop||(C&&C.isNativePlatform&&C.isNativePlatform()))document.documentElement.classList.add('app');})();</script>
   <!-- Selbst gehostet — kein Google-Fonts-CDN (Privacy) -->
   <link href="vendor/fonts/fonts.css" rel="stylesheet">
   <style>
@@ -128,9 +130,27 @@
 
     /* ── HEADER ── */
     header { text-align:center; margin-bottom:28px; position:relative; }
-    .header-glow { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:400px; height:100px; background:radial-gradient(ellipse,rgba(0,255,204,.08) 0%,transparent 70%); pointer-events:none; }
+    .header-glow { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:min(400px,100%); height:100px; background:radial-gradient(ellipse,rgba(0,255,204,.08) 0%,transparent 70%); pointer-events:none; }
     .logo { font-family:'Orbitron',sans-serif; font-size:clamp(1.4rem,4vw,2rem); font-weight:900; letter-spacing:4px; text-transform:uppercase; color:var(--neon); text-shadow:0 0 20px rgba(0,255,204,.7),0 0 40px rgba(0,255,204,.3); margin-bottom:6px; }
     .subtitle { font-size:.8rem; letter-spacing:5px; color:var(--text-dim); text-transform:uppercase; }
+    /* App-Fassung (html.app): Kopf wie Alien Pass / Tresor / Notes (Kit app-design) — Sprache links, „?“ rechts, Logo mittig.
+       Die Website-Leiste (Zentrale, Breadcrumb, BETA) gehört nur zur Web-Version. */
+    html:not(.app) .app-only { display:none !important; }
+    html.app .top-nav { display:none; }
+    html.app header .logo { padding:0 52px; min-height:36px; display:flex; align-items:center; justify-content:center; font-size:clamp(1.3rem,4vw,1.9rem); margin-bottom:0; }
+    html.app .subtitle { font-size:.72rem; letter-spacing:3px; margin-top:6px; }
+    .app-help, .app-lang { position:absolute; top:0; height:36px; border:1px solid var(--neon-mid); background:var(--neon-dim); color:var(--neon);
+      font-family:'Orbitron',sans-serif; font-weight:700; cursor:pointer; z-index:5; }
+    .app-help { right:0; width:36px; border-radius:50%; font-size:1.05rem; padding:0; }
+    .app-lang { left:0; padding:0 10px; border-radius:18px; font-size:.7rem; letter-spacing:1px; }
+    html.app .app-help, html.app .app-lang { display:flex; align-items:center; justify-content:center; }
+    .app-help:hover, .app-lang:hover, .app-help:focus-visible, .app-lang:focus-visible { outline:none; box-shadow:0 0 12px rgba(0,255,204,.45); }
+    @media (max-width:520px) { html.app header .logo { letter-spacing:2px; font-size:clamp(1rem,4.4vw,1.5rem); } }
+    .seg { display:flex; gap:8px; max-width:360px; margin:0 auto 14px; }
+    .seg button { flex:1; background:none; border:1px solid var(--border); color:var(--text-dim); padding:8px; border-radius:3px; cursor:pointer;
+      font-family:inherit; font-size:.74rem; letter-spacing:1px; text-transform:uppercase; }
+    .seg button.on { color:var(--neon); background:var(--neon-dim); border-color:var(--neon-mid); }
+    html.app .seg { display:flex; }
 
     /* ── CARD ── */
     .card {
@@ -499,6 +519,8 @@
 
     <header>
       <div class="header-glow"></div>
+      <button class="app-lang app-only" id="app-lang" onclick="toggleLang()" title="Sprache / Language">DE</button>
+      <button class="app-help app-only" id="app-help" onclick="openHelp()" title="Anleitung" aria-label="Anleitung">?</button>
       <div class="logo" id="logo">BTC Steuertool</div>
       <div class="subtitle" id="subtitle">Bitcoin Steuerreport · Deutschland · FiFo · §23 EStG</div>
     </header>
@@ -589,6 +611,10 @@
     </div>
 
     <footer>
+      <div class="seg app-only" id="theme-seg" role="group">
+        <button id="th-dark" onclick="setTheme('dark')">Schwarz (Neon)</button>
+        <button id="th-soft" onclick="setTheme('soft')">Soft (Marine)</button>
+      </div>
       <a href="https://github.com/Alien-Investor/btc-steuertool">GitHub</a> ·
       <a href="https://alien-investor.org">alien-investor.org</a> ·
       <span id="legal-links"></span> ·
@@ -603,6 +629,16 @@
     'use strict';
     // Desktop-Hülle (desktop/preload.js), sonst null. Alles Desktop-Spezifische hängt an DESK — ohne Hülle bleibt die Web-Version unverändert.
     const DESK = window.AlienDesktop || null;
+    // Android-Hülle (mobile/, Capacitor-Plugin „SaveFile“ aus mobile/patch-hardening.mjs), sonst null. Gleiche Schnittstelle wie DESK:
+    // saveFile(name, bytes) → Promise<Name oder null (abgebrochen)>. Speichern läuft über den Android-Speichern-Dialog (SAF).
+    const DROID = (() => {
+      const C = window.Capacitor;
+      const P = C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.SaveFile;
+      if (!P) return null;
+      const b64 = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+      return { saveFile: (name, bytes) => P.save({ name: String(name), data: b64(bytes) }).then(r => (r && r.saved) ? (r.name || name) : null) };
+    })();
+    const SHELL = DESK || DROID;   // App-Fassung (Flatpak oder APK): Speichern-Dialog statt Browser-Download
 
     /* ───────────────────────── Theme ───────────────────────── */
     function toggleTheme() {
@@ -612,9 +648,14 @@
       else { html.setAttribute('data-theme', 'soft'); localStorage.setItem('alien-theme', 'soft'); }
       updateThemeBtn();
     }
+    function setTheme(mode) {   // App-Fassung: Umschaltleiste im Fuß (wie die Darstellungs-Wahl in Alien Pass)
+      if ((mode === 'soft') !== (document.documentElement.getAttribute('data-theme') === 'soft')) toggleTheme();
+    }
     function updateThemeBtn() {
       const soft = document.documentElement.getAttribute('data-theme') === 'soft';
       document.getElementById('theme-toggle').textContent = soft ? 'DARK' : 'SOFT';
+      document.getElementById('th-dark').classList.toggle('on', !soft);
+      document.getElementById('th-soft').classList.toggle('on', soft);
     }
     updateThemeBtn();
 
@@ -646,6 +687,16 @@
           'Open Source — Code auf <a href="https://github.com/Alien-Investor/btc-steuertool" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">GitHub</a> prüfbar',
           'Desktop-App ohne Netzzugriff — Rechenkern und Kurstabellen sind fest eingebaut',
         ],
+        privacyDroid: [
+          '100% lokal — deine CSVs verlassen nie dein Handy',
+          'Kein Account, kein Upload, kein Tracking',
+          'Open Source — Code auf <a href="https://github.com/Alien-Investor/btc-steuertool" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">GitHub</a> prüfbar',
+          'Android-App ohne Internet-Berechtigung — Rechenkern und Kurstabellen sind fest eingebaut',
+        ],
+        themeDark: 'Schwarz (Neon)', themeSoft: 'Soft (Marine)',
+        // Android: Ziehen gibt es dort nicht — erste und letzte Zeile der Dropzone ersetzen
+        dzLeadTouch: 'CSV-Exporte <strong>antippen zum Auswählen</strong>',
+        dzTryTouch: '<span style="font-size:.72rem">Zum Ausprobieren: <a href="examples/beispieldaten.zip" download onclick="event.stopPropagation()" style="color:var(--neon)">Beispieldaten (ZIP)</a> speichern und hier auswählen — oder unten „Mit Beispieldaten testen“</span>',
         card01: '// 01 — CSV-Dateien laden',
         dropzoneFull: '<span class="dz-icon">⬡</span>' +
           'CSV-Exporte hierher ziehen oder <strong>klicken zum Auswählen</strong><br>' +
@@ -739,7 +790,7 @@
         bugCancel: 'Abbrechen',
         bugLink: '🐛 Bug melden',
         bugBody: (broker, desc) =>
-          'Version: BTC Steuertool ' + (DESK ? 'Desktop' : 'Web') + '\n' +
+          'Version: BTC Steuertool ' + (DESK ? 'Desktop' : DROID ? 'Android' : 'Web') + '\n' +
           'Broker / Dateityp: ' + broker + '\n\nBeschreibung:\n' + desc,
       },
       en: {
@@ -762,6 +813,15 @@
           'Open source — verify the code on <a href="https://github.com/Alien-Investor/btc-steuertool" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">GitHub</a>',
           'Desktop app without network access — calculation core and exchange-rate tables are built in',
         ],
+        privacyDroid: [
+          '100% local — your CSVs never leave your phone',
+          'No account, no upload, no tracking',
+          'Open source — verify the code on <a href="https://github.com/Alien-Investor/btc-steuertool" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">GitHub</a>',
+          'Android app without internet permission — calculation core and exchange-rate tables are built in',
+        ],
+        themeDark: 'Black (Neon)', themeSoft: 'Soft (Navy)',
+        dzLeadTouch: '<strong>Tap to select</strong> your CSV exports',
+        dzTryTouch: '<span style="font-size:.72rem">To try it out: save the <a href="examples/beispieldaten.zip" download onclick="event.stopPropagation()" style="color:var(--neon)">sample data (ZIP)</a> and select it here — or tap "Try with sample data" below</span>',
         card01: '// 01 — Load CSV files',
         dropzoneFull: '<span class="dz-icon">⬡</span>' +
           'Drag your CSV exports here or <strong>click to select</strong><br>' +
@@ -856,7 +916,7 @@
         bugCancel: 'Cancel',
         bugLink: '🐛 Report a bug',
         bugBody: (broker, desc) =>
-          'Version: BTC Steuertool ' + (DESK ? 'Desktop' : 'Web') + '\n' +
+          'Version: BTC Steuertool ' + (DESK ? 'Desktop' : DROID ? 'Android' : 'Web') + '\n' +
           'Broker / file type: ' + broker + '\n\nDescription:\n' + desc,
       },
     };
@@ -870,7 +930,7 @@
       const setHtml = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
 
       document.documentElement.lang = lang;
-      document.title = DESK ? t.docTitleDesk : t.docTitle;
+      document.title = SHELL ? t.docTitleDesk : t.docTitle;
 
       const bl = document.getElementById('back-link');
       bl.textContent = t.backLink;
@@ -884,9 +944,11 @@
       document.getElementById('help-de').classList.toggle('hidden', lang !== 'de');
       document.getElementById('help-en').classList.toggle('hidden', lang !== 'en');
       setText('subtitle', t.subtitle);
-      setHtml('privacy-strip', (DESK ? t.privacyDesk : t.privacy).map(p => `<span>${p}</span>`).join(''));
+      setHtml('privacy-strip', (DESK ? t.privacyDesk : DROID ? t.privacyDroid : t.privacy).map(p => `<span>${p}</span>`).join(''));
       setText('card01-label', t.card01);
-      document.getElementById('dropzone').innerHTML = t.dropzoneFull;
+      const dz = t.dropzoneFull.split('<br>');
+      if (DROID) { dz[0] = '<span class="dz-icon">⬡</span>' + t.dzLeadTouch; dz[dz.length - 1] = t.dzTryTouch; }
+      document.getElementById('dropzone').innerHTML = dz.join('<br>');
       setHtml('nokyc-hint', t.nokycHint);
       setHtml('unknown-hint', t.unknownHint);
       setText('th-file', t.thFile); setText('th-size', t.thSize); setText('th-type', t.thType);
@@ -895,8 +957,8 @@
       setText('card02-label', t.card02);
       setText('card03-label', t.card03);
       setText('doc-intern-badge', t.internBadge);
-      setText('btn-download', DESK ? t.btnSave : t.btnDownload);   // Desktop: Speichern-Dialog statt Browser-Download
-      setText('btn-download-all', DESK ? t.btnSaveAll : t.btnDownloadAll);
+      setText('btn-download', SHELL ? t.btnSave : t.btnDownload);   // App: Speichern-Dialog statt Browser-Download
+      setText('btn-download-all', SHELL ? t.btnSaveAll : t.btnDownloadAll);
       setText('hint-label', t.hintLabel);
       setHtml('disclaimer-text', t.disclaimer);
       setText('footer-disclaimer', t.footerDisclaimer);
@@ -920,6 +982,10 @@
 
       const lb = document.getElementById('lang-toggle');
       if (lb) lb.textContent = lang === 'de' ? 'EN' : 'DE';
+      setText('app-lang', lang === 'de' ? 'DE' : 'EN');   // App-Kopf zeigt wie die anderen Apps die aktuelle Sprache
+      const ah = document.getElementById('app-help');
+      ah.title = t.helpTitle; ah.setAttribute('aria-label', t.helpTitle);
+      setText('th-dark', t.themeDark); setText('th-soft', t.themeSoft);
 
       renderFiles();                                            // Dropdown-Labels neu zeichnen
       if (lastReports) renderYearTabs(lastYears, lastReports);  // Tab-Labels neu zeichnen
@@ -1522,9 +1588,9 @@ json.dumps({
     }
 
     function downloadBlob(name, blob) {
-      if (DESK) {   // Desktop: Speichern-Dialog über die Hülle (Browser-Downloads sind dort gesperrt)
+      if (SHELL) {   // App: Speichern-Dialog über die Hülle (Browser-Downloads sind dort gesperrt bzw. gibt es nicht)
         blob.arrayBuffer()
-          .then(buf => DESK.saveFile(name, new Uint8Array(buf)))
+          .then(buf => SHELL.saveFile(name, new Uint8Array(buf)))
           .then(saved => { if (saved) log('✓ ' + saved, 'ok'); })
           .catch(err => log('✗ ' + name + ': ' + ((err && err.message) || err), 'err'));
         return;
@@ -1603,9 +1669,9 @@ json.dumps({
       return new Blob([...parts, ...central, new Uint8Array(eocd.buffer)], { type: 'application/zip' });
     }
 
-    // Desktop: Download-Links der eigenen App (Beispieldaten-ZIP) gehen ebenfalls über den Speichern-Dialog.
+    // App: Download-Links der eigenen App (Beispieldaten-ZIP) gehen ebenfalls über den Speichern-Dialog.
     // Delegiert, weil applyLang die Dropzone bei jedem Sprachwechsel neu schreibt.
-    if (DESK) document.addEventListener('click', e => {
+    if (SHELL) document.addEventListener('click', e => {
       const a = e.target.closest && e.target.closest('a[download]');
       if (!a || !a.href.startsWith(location.protocol + '//' + location.host + '/')) return;
       e.preventDefault(); e.stopPropagation();

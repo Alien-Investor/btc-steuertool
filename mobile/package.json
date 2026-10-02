@@ -1,0 +1,12 @@
+{
+  "name": "btc-steuertool-mobile",
+  "version": "1.0.0",
+  "description": "Android-Hülle des BTC Steuertools (Capacitor): lädt web/dist unverändert, keine INTERNET-Berechtigung.",
+  "private": true,
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/android": "6.2.2",
+    "@capacitor/cli": "6.2.2",
+    "@capacitor/core": "6.2.2"
+  }
+}

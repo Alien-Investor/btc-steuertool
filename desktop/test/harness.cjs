@@ -29,10 +29,12 @@ async function fresh(){
   R('kein Server-Hinweis der Web-Version', await js(`!document.getElementById('privacy-strip').textContent.includes('vom Server')`));
   R('Knöpfe heißen „speichern“', await js(`document.getElementById('btn-download').textContent.includes('speichern')&&document.getElementById('btn-download-all').textContent.includes('speichern')`));
   R('Fenstertitel ohne „im Browser“', await js(`document.title==='BTC Steuertool — Bitcoin Steuerreport'`), await js('document.title'));
-  R('Zentrale-Link ausgeblendet', await js(`getComputedStyle(document.getElementById('back-link')).display==='none'`));
+  R('Website-Leiste (Zentrale, BETA) ausgeblendet', await js(`document.getElementById('back-link').offsetParent===null&&getComputedStyle(document.querySelector('.top-nav')).display==='none'`));
+  R('App-Kopf wie die anderen Apps: Sprache links, „?“ rechts', await js(`(()=>{const l=document.getElementById('app-lang').getBoundingClientRect(),h=document.getElementById('app-help').getBoundingClientRect(),g=document.getElementById('logo').getBoundingClientRect();return l.width>0&&h.width>0&&l.right<g.left+60&&h.left>g.right-60&&document.getElementById('app-lang').textContent==='DE';})()`));
+  R('Darstellung im Fuß umschaltbar', await js(`(()=>{document.getElementById('th-soft').click();const a=document.documentElement.dataset.theme==='soft'&&document.getElementById('th-soft').classList.contains('on');document.getElementById('th-dark').click();return a&&!document.documentElement.dataset.theme;})()`));
 
   // Handbuch („?“) offline in der App; Links darin gehen nur über die feste Liste
-  await js(`document.getElementById('help-btn').click()`);
+  await js(`document.getElementById('app-help').click()`);
   R('Handbuch öffnet offline', await js(`!document.getElementById('help-overlay').classList.contains('hidden')&&document.getElementById('help-de').textContent.includes('Erkennung prüfen')`));
   { opened.length=0; await js(`document.querySelector('#help-de a[href^="https://"]').click()`); await sleep(300);
     R('Handbuch-Link extern über die Liste', opened.length===1&&opened[0]==='https://alien-investor.org/steuertool-guide.html'&&win.webContents.getURL()==='app://steuertool/index.html', opened.slice()); }

@@ -216,6 +216,15 @@ Brücke nur `saveFile`, Weiche `DESK` in `web/index.html`. **Vor jeder Änderung
 - Handbuch („?“) liegt offline in `web/index.html` (`help-de`/`help-en`) — eine Quelle für Web, Desktop und APK. Inhaltliche
   Änderungen dort brauchen einen Faktencheck (öffentlich).
 
+## Android-App (`mobile/`, Capacitor 6.2.2, `org.alieninvestor.steuertool`) — seit 02.10.2026
+
+Capacitor-Hülle nach Alien-Pass-Muster, enthält `web/dist` unverändert. Keine Berechtigung (auch kein INTERNET), FLAG_SECURE, kein Backup,
+Brücke nur `SaveFile` (Android-Speichern-Dialog), Weiche `DROID` in `web/index.html`. **Vor jeder Änderung `mobile/MOBILE-INVARIANTEN.md` lesen.**
+- Bauen: `mobile/build-apk.sh` (Capacitor-Pin, Härtung, Signatur, Endkontrolle an der fertigen APK). `mobile/android/` ist generiert.
+- Link-Liste und CSP liest die APK aus `desktop/main.js` — eine Quelle für beide Hüllen.
+- Gemeinsamer App-Kopf (Flatpak + APK, `html.app`): Sprache links, „?“ rechts wie die anderen Alien-Apps, Darstellung im Fuß.
+- `VERSION_CODE` in `VERSION` je Release hochzählen.
+
 ## Technologie-Stack
 
 - **Python 3.10+**

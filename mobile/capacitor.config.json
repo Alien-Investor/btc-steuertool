@@ -1,0 +1,8 @@
+{
+  "appId": "org.alieninvestor.steuertool",
+  "appName": "BTC Steuertool",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  }
+}

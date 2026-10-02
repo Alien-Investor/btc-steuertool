@@ -29,3 +29,13 @@ web/vendor/
 
 # Desktop-Hülle: Abhängigkeiten der Build-Werkzeuge
 desktop/node_modules/
+
+# Android-Hülle: regenerierbar (npm, www aus web/dist, Capacitor-Projekt) + Build-Logs
+mobile/node_modules/
+mobile/www/
+mobile/android/
+mobile/*.log
+# Signatur-Geheimnisse — NIEMALS committen
+*.jks
+*.keystore
+keystore.properties
