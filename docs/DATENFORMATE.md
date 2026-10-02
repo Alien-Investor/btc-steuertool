@@ -68,18 +68,36 @@ Aufgelaufene Zinsen;Nettobetrag;Saldo;Währung
 
 ### Broker: Bisq (`Broker/bisq*.csv`)
 
-CSV, Komma-getrennt, deutschsprachig (Bisq-Classic-Export "Portfolio → Verlauf → Als CSV exportieren", nur deutsche Oberfläche; Bisq speichert als `tradeHistory.csv`):
+CSV, Komma-getrennt, UTF-8 (Bisq-Classic-Export „Portfolio → Verlauf → Als CSV exportieren" bzw. „Portfolio → History →
+Export to CSV"; Bisq speichert als `tradeHistory.csv`). Spaltenköpfe und die Werte in `Angebotstyp`/`Status` kommen aus
+Bisqs Sprachdatei — der Parser kennt **Deutsch und Englisch** (`bisq.LANGUAGES`, Quelle: Bisq `ClosedTradesView.ColumnNames`
++ `displayStrings.properties` / `displayStrings_de.properties`, Stand 10/2026). Andere Oberflächensprachen → interne Warnung,
+keine Transaktion. Der englische Export ist aus dem Quellcode abgeleitet, noch nicht an einer echten Datei bestätigt.
 
 ```
 Handels-ID,Datum/Zeit,Markt,Preis,Abweichung,Betrag in BTC,Betrag,Währung,
 Transaktionsgebühr,Handelsgebühr BTC,Handelsgebühr BSQ,Käufer-Kaution,
 Verkäufer-Kaution,Angebotstyp,Status
+
+Trade ID,Date/Time,Market,Price,Deviation,Amount in BTC,Amount,Currency,
+Transaction Fee,Trade Fee BTC,Trade Fee BSQ,Buyer Deposit,Seller Deposit,
+Offer type,Status
 ```
 
-- Nur `Status=Abgeschlossen` + `Angebotstyp=BTC kaufen` wird geparst
-- `Betrag in BTC` → btc_amount, `Betrag` → eur_amount, `Preis` → eur_price_per_btc
-- Gebühren: `Transaktionsgebühr` + `Handelsgebühr BTC` (beide in BTC) × Preis = fee_eur
-- Kautionen sind KEINE Gebühren — werden ignoriert
+- Nur `Status=Abgeschlossen`/`Completed` + `Angebotstyp=BTC kaufen`/`Buy BTC` wird geparst; `BTC verkaufen`/`Sell BTC` → Warnung
+  (manual_sales.csv). Andere Status (`Abgebrochen`/`Canceled`, `Vermittelt`/`Arbitrated`, `Mediiert`/`Mediated`) werden gezählt.
+- `Betrag in BTC`/`Amount in BTC` → btc_amount, `Betrag`/`Amount` → eur_amount (Bisq rundet Fiat-Volumen auf ganze EUR),
+  `Preis`/`Price` → eur_price_per_btc. Zahlen immer mit Punkt, ohne Tausendertrennung (bitcoinj `MonetaryFormat`, sprachunabhängig).
+- Gebühren: `Transaktionsgebühr`/`Transaction Fee` + `Handelsgebühr BTC`/`Trade Fee BTC` (beide in BTC) × Preis = fee_eur, zusätzlich fee_btc
+- Kautionen (`Käufer-/Verkäufer-Kaution`, `Buyer/Seller Deposit`) sind KEINE Gebühren — werden ignoriert
+- **Datum/Zeit** = lokale Systemzeit ohne Zeitzone (als Europe/Berlin gelesen), Form nach Javas `DateFormat.DEFAULT` der
+  Bisq-Locale (Sprache + Land). Deutsch immer `15.03.2024 14:22:10`. Englisch je Land: `15 Mar 2024 14:22:10` (GB, DE, AT, CH),
+  `Mar 15, 2024 2:22:10 PM` (US; ab Java 20 mit schmalem Leerzeichen U+202F vor PM), `… p.m.` (CA), `… pm` (AU),
+  `15-Mar-2024 …` (IN), `15/03/2024 …` (NZ), September auch als `Sept`. `bisq.parse_datetime_en` nimmt alle; unlesbar → harter Fehler.
+- **Altcoin-Märkte** (`Markt`/`Market` ohne `BTC/`-Präfix, z. B. `XMR/BTC`, `BSQ/BTC`): `XMR kaufen`/`Buy XMR` = BTC hergegeben =
+  Veräußerung von BTC; `XMR verkaufen`/`Sell XMR` = Anschaffung von BTC gegen Altcoin. Beides laute interne Warnung mit Anweisung
+  (manual_sales.csv bzw. manual_buys.csv mit EUR-Wert), nie stilles Zählen.
+- Datei wird mit `utf-8-sig` gelesen (BOM aus Excel/LibreOffice stört nicht); GUI-Erkennung an `Handels-ID,Datum/Zeit,` bzw. `Trade ID,Date/Time,`
 - **`no_kyc=True`** — erscheint NICHT im offiziellen Finanzamt-Report
 
 ### Broker: Strike (`Broker/strike_YYYY.csv`)

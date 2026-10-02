@@ -3,6 +3,14 @@
 Das CLI und die Web-Version haben keine eigenen Versionen; sie laufen immer auf dem Stand von `main`.
 Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die denselben Rechenkern enthalten.
 
+## Unveröffentlicht (main)
+- Bisq: auch der **englische Export** wird gelesen (Spaltenköpfe „Trade ID, Date/Time, …“, Werte „Buy BTC“/„Completed“); die
+  Zeitstempel aller englischen Länder-Einstellungen von Bisq werden erkannt. Abgeleitet aus dem Bisq-Quellcode, noch nicht an
+  einem echten englischen Export bestätigt — bitte Ergebnis prüfen und Abweichungen melden.
+- Bisq: Trades auf Altcoin-Märkten (XMR/BTC, BSQ/BTC …) werden als Veräußerung bzw. Anschaffung von BTC gemeldet statt nur stumm
+  gezählt; eine Datei, die nur Verkäufe enthält, bekommt keine zweite Sammelwarnung mehr; eine BOM in der Kopfzeile (Excel) stört nicht mehr.
+- Oberfläche: CSV-Dateien mit BOM werden erkannt statt als „unbekannt“ gesperrt.
+
 ## v1.2 — 2026-10-02
 - **FiFo jetzt walletbezogen** (BMF-Schreiben vom 06.03.2025, Rn. 61 f.): Jede Wallet ist ein eigener Bestand, jedes Börsenkonto behandelt das
   Tool als eigene Wallet. Bei

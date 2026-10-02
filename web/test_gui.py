@@ -111,6 +111,27 @@ with sync_playwright() as p:
         failures.append("Report-Ansicht leer nach Tab-Wechsel")
 
     page.screenshot(path="/tmp/gui-screenshot.png", full_page=True)
+
+    # 6) Erkennung ohne Rechnen: englischer Bisq-Export (Fixture) und eine CSV mit BOM
+    print("\nErkennung Sonderfälle (nur Sniffing):")
+    fixture_en = (BASE.parent / "tests" / "fixtures" / "bisq_en.csv").read_bytes()
+    bisq_de_bom = b"\xef\xbb\xbf" + (EXAMPLES / "Broker/bisq.csv").read_bytes()
+    page2 = browser.new_page()
+    page2.goto("http://localhost:8741/index.html")
+    page2.set_input_files("#file-input", files=[
+        {"name": "tradeHistory.csv", "mimeType": "text/csv", "buffer": fixture_en},
+        {"name": "bisq-bom.csv", "mimeType": "text/csv", "buffer": bisq_de_bom},
+    ])
+    page2.wait_for_selector("#file-table:not(.hidden)")
+    rows2 = page2.evaluate("""
+        Array.from(document.querySelectorAll('#file-tbody tr')).map(tr => ({
+            name: tr.cells[0].textContent, type: tr.querySelector('select').value }))
+    """)
+    for row in rows2:
+        ok = row["type"] == "bisq"
+        print(f"  {'✓' if ok else '✗'} {row['name']}: {row['type']}" + ("" if ok else " (erwartet: bisq)"))
+        if not ok:
+            failures.append(f"Sniffing {row['name']}: {row['type']} != bisq")
     browser.close()
 
 print()

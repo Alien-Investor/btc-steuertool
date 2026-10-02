@@ -403,7 +403,7 @@
           <li><strong>Swissquote:</strong> Web → Konto → Transaktionen → CSV-Export</li>
           <li><strong>Strike:</strong> App/Web → Aktivität → Report erstellen</li>
           <li><strong>Pocket:</strong> Web → Verlauf → CSV herunterladen</li>
-          <li><strong>Bisq:</strong> Bisq Classic mit deutscher Oberfläche: Portfolio → Verlauf → Als CSV exportieren</li>
+          <li><strong>Bisq:</strong> Bisq Classic, Oberfläche auf Deutsch oder Englisch: Portfolio → Verlauf → Als CSV exportieren (englisch: Portfolio → History → Export to CSV). Bisq speichert als <code>tradeHistory.csv</code>.</li>
         </ul>
         <p>Käufe ohne CSV (Robosats, Bargeld, P2P) oder bei Brokern ohne eigenen Parser trägst du in eine <code>manual_buys.csv</code> ein (siehe Fragen unten).</p>
 
@@ -457,7 +457,7 @@
           <li><strong>Swissquote:</strong> Web → Account → Transactions → CSV export</li>
           <li><strong>Strike:</strong> App/Web → Activity → Generate report</li>
           <li><strong>Pocket:</strong> Web → History → Download CSV</li>
-          <li><strong>Bisq:</strong> Bisq Classic with the interface set to German: Portfolio → Verlauf (History) → Als CSV exportieren (Export to CSV). The tool reads the German column headers.</li>
+          <li><strong>Bisq:</strong> Bisq Classic with the interface set to English or German: Portfolio → History → Export to CSV. Bisq saves the file as <code>tradeHistory.csv</code>.</li>
         </ul>
         <p>Purchases without a CSV (Robosats, cash, P2P) or from brokers without a dedicated parser go into a simple <code>manual_buys.csv</code> (see questions below).</p>
 
@@ -1043,7 +1043,9 @@
       const lower = name.toLowerCase();
       if (lower.endsWith('.json')) return 'fxcache';
       const head = bytes.slice(0, 600);
-      const utf8 = new TextDecoder('utf-8').decode(head);
+      // BOM abstreifen: Bisq, BitBox & Co. schreiben keine, aber eine in Excel/LibreOffice
+      // neu gespeicherte CSV hat eine — und wäre sonst 'unknown' (sperrt die Berechnung).
+      const utf8 = new TextDecoder('utf-8').decode(head).replace(/^\uFEFF/, '');
       const latin = new TextDecoder('latin1').decode(head);
       const h = utf8.split(/\r?\n/)[0].trim();
       const hLatin = latin.split(/\r?\n/)[0].trim();
@@ -1054,7 +1056,10 @@
       if (hLatin.startsWith('Datum;Auftrag'))           return 'swissquote';
       if (h.startsWith('Transaction ID,Time (UTC)'))    return 'strike';
       if (h.startsWith('type,date,') && h.includes('value.currency') && h.includes('cost.currency')) return 'pocket';
-      if (h.startsWith('Handels-ID,'))                  return 'bisq';
+      // Bisq: deutsche oder englische Oberfläche (Spaltenköpfe aus Bisqs Sprachdatei).
+      // Englisch mit zweiter Spalte prüfen — „Trade ID" allein exportieren auch andere.
+      if (h.startsWith('Handels-ID,Datum/Zeit,'))       return 'bisq';
+      if (h.startsWith('Trade ID,Date/Time,'))          return 'bisq';
       if (h.startsWith('datum_abgang,'))                return 'zuordnung';
       if (h.startsWith('date,btc_amount,eur_amount')) {
         // Beide manuellen Formate haben dieselbe Kopfzeile; nur der Dateiname

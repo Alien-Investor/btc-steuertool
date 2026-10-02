@@ -229,11 +229,14 @@ von Person zu Person oder gegen Bargeld — gibt es drei Wege:
 
 ### Option A: Bisq-CSV direkt importieren (empfohlen für Bisq-Nutzer)
 
-Bisq Classic bietet einen CSV-Export unter "Portfolio → Verlauf → Als CSV exportieren".
-Die Oberfläche muss dabei auf Deutsch stehen (Einstellungen → Voreinstellungen → Sprache), denn der Parser liest
-die deutschen Spaltenköpfe. Bisq speichert als `tradeHistory.csv`: die Datei als `bisq.csv`
-(jeder Name, der mit `bisq` beginnt) in den `Broker/`-Ordner legen.
-Das Tool liest sie automatisch ein und erkennt alle abgeschlossenen Käufe.
+Bisq Classic bietet einen CSV-Export unter „Portfolio → Verlauf → Als CSV exportieren"
+(englische Oberfläche: „Portfolio → History → Export to CSV"). Das Tool liest die deutschen und die
+englischen Spaltenköpfe; bei einer anderen Oberflächensprache die Sprache unter
+Einstellungen → Voreinstellungen umstellen und neu exportieren. Bisq speichert als `tradeHistory.csv`:
+die Datei als `bisq.csv` (jeder Name, der mit `bisq` beginnt) in den `Broker/`-Ordner legen.
+Das Tool liest sie automatisch ein und erkennt alle abgeschlossenen Käufe. Verkäufe über Bisq und
+Trades auf Altcoin-Märkten (z. B. XMR/BTC) bewertet das Tool nicht selbst, sondern meldet sie im
+internen Report mit Anweisung (`manual_sales.csv` bzw. `manual_buys.csv`).
 
 ### Option B: Manuelle Eingabe via `manual_buys.csv`
 
