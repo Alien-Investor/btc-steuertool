@@ -91,4 +91,5 @@ def _parse_row(row: dict, line: int) -> Transaction | None:
         tx_id=f"manual-buy-{date_str}-{btc_str}",
         note=note,
         no_kyc=not kyc,
+        direct=True,  # Lieferung an eine eigene Wallet (Zuordnung über den Eingang)
     )

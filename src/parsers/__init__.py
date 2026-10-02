@@ -188,15 +188,22 @@ def warn_fmt(template: str, *, internal: bool, year: int | None = None, **values
     was kein FileRef ist, bleibt in beiden Fassungen identisch — unsere eigenen
     Textbausteine werden also nie angetastet.
     """
+    parser_warnings.append(make_warning_fmt(template, internal=internal, year=year, **values))
+
+
+def make_warning_fmt(template: str, *, internal: bool, year: int | None = None,
+                     **values) -> ParserWarning:
+    """Wie warn_fmt(), liefert die Warnung aber zurück statt sie zu sammeln —
+    für Erzeuger außerhalb der Parser (Übertrags-Zuordnung, Engine)."""
     full = {k: _cell(v) for k, v in values.items()}
     public = {k: _cell(v.placeholder if isinstance(v, FileRef) else v)
               for k, v in values.items()}
-    parser_warnings.append(ParserWarning(
+    return ParserWarning(
         _sanitize(template.format(**full)),
         internal,
         msg_public=_sanitize(template.format(**public)),
         year=year,
-    ))
+    )
 
 
 def reset_warnings() -> None:

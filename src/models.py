@@ -35,6 +35,25 @@ class DisposalKind(Enum):
     GIFT = "gift"   # unentgeltliche Übertragung: kein Veräußerungsgeschäft, nur Bestandsabgang
 
 
+# Pseudo-Wallets der walletbezogenen FiFo-Rechnung (BMF 06.03.2025 Rn. 62).
+# ANY_WALLET: Verkauf ohne bekannte Wallet (manual_sales ohne Spalte `wallet`) —
+#   die Engine rechnet ihn walletübergreifend innerhalb seiner Klasse, mit Warnung.
+# EXTERN_WALLET: Ziel eines Abgangs, zu dem kein Eingang in einer eingelesenen
+#   Wallet gefunden wurde — die Lots bleiben erhalten, sind aber nicht mehr greifbar.
+ANY_WALLET = "*"
+EXTERN_WALLET = "extern"
+
+
+def wallet_label(wallet: str):
+    """Bezeichnung einer Wallet für Meldungen. BitBox-Namen sind private Labels
+    (SA-016) und gehen nur in den internen Kanal — im offiziellen steht ein
+    neutraler Platzhalter. Broker-Konten dürfen beim Namen genannt werden."""
+    from .parsers import FileRef
+    if wallet.startswith("bitbox:"):
+        return FileRef(f"BitBox-Wallet „{wallet[len('bitbox:'):]}“", placeholder="eine Hardware-Wallet")
+    return wallet
+
+
 SATOSHI = Decimal("100000000")
 
 
@@ -59,10 +78,22 @@ class Transaction:
     # zu btc_amount und wird von der FiFo-Engine als eigene Veräußerung des
     # Gebührenanteils zum Tageskurs verbucht (H8). 0 = keine oder unbekannt.
     fee_btc: Decimal = Decimal("0")
+    # Wallet, in der der Vorgang stattfindet (FiFo-Topf, BMF Rn. 62). Leer → die
+    # Quelle selbst: das Broker-Konto bzw. `bitbox:{name}`. manual_* setzen sie
+    # aus der Spalte `wallet`, manual_sales ohne Spalte → ANY_WALLET.
+    wallet: str = ""
+    # Handel direkt mit der eigenen Wallet, ohne Bestand beim Anbieter: der
+    # Kauf liefert an eine eigene Wallet (Pocket, Bisq, manual_buys), der Verkauf
+    # wird aus einer eigenen Wallet bedient (Pocket, manual_sales). Die
+    # Übertrags-Zuordnung verbindet solche Vorgänge mit dem passenden
+    # Eingang bzw. Abgang (transfer_matching).
+    direct: bool = False
 
     _DECIMAL_FIELDS = ("btc_amount", "eur_amount", "eur_price_per_btc", "fee_eur", "fee_btc")
 
     def __post_init__(self):
+        if not self.wallet:
+            self.wallet = self.source
         # Sicherstellen dass alle Decimal-Felder auch Decimal sind
         for f in self._DECIMAL_FIELDS:
             val = getattr(self, f)
@@ -103,6 +134,7 @@ class Lot:
     source: str
     tx_id: str
     no_kyc: bool = False
+    wallet: str = ""        # Wallet, in der das Lot gerade liegt (wandert mit Überträgen)
 
 
 @dataclass
@@ -116,6 +148,7 @@ class DisposalMatch:
     gain_eur: Decimal           # positiv = Gewinn, negativ = Verlust
     holding_days: int
     is_tax_free: bool           # Haltedauer > 365 Tage
+    lot_wallet: str = ""        # Wallet, aus der das Lot verbraucht wurde
 
 
 @dataclass

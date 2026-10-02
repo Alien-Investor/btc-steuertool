@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from ..models import Transaction, TxType
+from ..models import Transaction, TxType, ANY_WALLET
 from . import validate_header
 
 _KNOWN_COLUMNS = {"date", "btc_amount", "eur_amount", "note", "no_kyc"}
@@ -84,4 +84,8 @@ def _parse_row(row: dict, line: int) -> Transaction | None:
         tx_id=f"manual-{date_str}-{btc_str}",
         note=note,
         no_kyc=no_kyc,
+        # Verkauf aus einer eigenen Wallet: welche, ergibt sich aus dem passenden
+        # Abgang (transfer_matching); ohne Gegenstück walletübergreifend.
+        wallet=ANY_WALLET,
+        direct=True,
     )

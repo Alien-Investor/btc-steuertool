@@ -124,6 +124,7 @@ def _parse_row(row: dict, filename: str, skipped: dict) -> Transaction | None:
         tx_id=trade_id,
         note="Bisq P2P Kauf",
         no_kyc=True,
+        direct=True,  # Bisq-Kauf landet in der eigenen Wallet (keine Auszahlungszeile im Export)
     )
 
 

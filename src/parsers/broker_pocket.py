@@ -108,6 +108,7 @@ def _parse_sell(exchange: dict, deposit: dict | None) -> Transaction | None:
         eur_price_per_btc=eur_price_per_btc,
         fee_eur=Decimal("0"),  # Gebühr in BTC abgezogen, bereits in eur_amount reflektiert
         source="pocket",
+        direct=True,  # Pocket hält keinen Bestand: Lieferung an / Verkauf aus eigener Wallet
         # Betrag im Schlüssel: zwei Trades in derselben Sekunde bleiben unterscheidbar
         tx_id=f"pocket-{exchange['date']}-{exchange.get('value.amount', '')}",
         note=note,
@@ -142,6 +143,7 @@ def _parse_buy(exchange: dict, deposit: dict | None) -> Transaction | None:
         eur_price_per_btc=eur_price_per_btc,
         fee_eur=Decimal("0"),  # Gebühr in eur_amount enthalten
         source="pocket",
+        direct=True,  # Pocket hält keinen Bestand: Lieferung an / Verkauf aus eigener Wallet
         # Betrag im Schlüssel: zwei Trades in derselben Sekunde bleiben unterscheidbar
         tx_id=f"pocket-{exchange['date']}-{exchange.get('value.amount', '')}",
         note=note,
