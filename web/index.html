@@ -619,7 +619,9 @@
       <a href="https://alien-investor.org">alien-investor.org</a> ·
       <span id="legal-links"></span> ·
       <a href="#" id="bug-link" onclick="openBugReport(); return false;" style="color:var(--text-dim); opacity:.8;">🐛 Bug melden</a><br>
-      <span style="color:rgba(74,122,109,.7)" id="footer-disclaimer">Keine Steuerberatung – reine Berechnungshilfe. Denke selbst. Vertraue niemandem.</span>
+      <span style="color:rgba(74,122,109,.7)" id="footer-disclaimer">Keine Steuerberatung – reine Berechnungshilfe. Denke selbst. Vertraue niemandem.</span><br>
+      <!-- Spenden-Blitz wie in Alien Pass / Notes / Tresor. In den App-Hüllen öffnet er den System-Browser (Ziel muss in LINKS von desktop/main.js stehen). -->
+      <a id="donate-link" href="https://alien-investor.org/spenden.html" target="_blank" rel="noopener noreferrer" style="color:var(--neon);opacity:1;display:inline-block;margin-top:10px;letter-spacing:2px;"><svg viewBox="0 0 24 24" aria-hidden="true" style="width:1.4em;height:1.4em;vertical-align:-0.32em;margin-right:.2em;fill:currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg><span id="donate-text">Energie aufladen · Spenden</span></a>
     </footer>
   </div>
 
@@ -729,6 +731,7 @@
           'Auch Gewinne aus noKYC-Verkäufen sind steuerpflichtig und müssen deklariert werden — ' +
           'die Trennung ändert nichts an der Steuerpflicht.',
         footerDisclaimer: 'Keine Steuerberatung – reine Berechnungshilfe. Denke selbst. Vertraue niemandem.',
+        donateText: 'Energie aufladen · Spenden', donateHref: 'https://alien-investor.org/spenden.html',
         legalPrefix: 'Rechtliches:',
         legalLinks: [
           ['Datenschutz', 'https://alien-investor.org/steuertool-rechtliches.html#datenschutz'],
@@ -856,6 +859,7 @@
           'the separation does not change the tax liability.<br><br>' +
           '<strong>Reports are generated in German</strong> — they are documents made for the German tax office (Finanzamt).',
         footerDisclaimer: 'No tax advice – pure calculation aid. Think for yourself. Trust no one.',
+        donateText: 'Recharge energy · Donate', donateHref: 'https://alien-investor.org/en/spenden.html',
         legalPrefix: 'Legal:',
         legalLinks: [
           ['Privacy', 'https://alien-investor.org/en/steuertool-rechtliches.html#privacy'],
@@ -964,6 +968,8 @@
       setText('hint-label', t.hintLabel);
       setHtml('disclaimer-text', t.disclaimer);
       setText('footer-disclaimer', t.footerDisclaimer);
+      setText('donate-text', t.donateText);
+      document.getElementById('donate-link').href = t.donateHref;
       const legalEl = document.getElementById('legal-links');
       if (legalEl) {
         legalEl.innerHTML = t.legalPrefix + ' ' + t.legalLinks

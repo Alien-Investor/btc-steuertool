@@ -24,6 +24,7 @@ const SAVE_FILTER={txt:'Text',csv:'CSV',zip:'ZIP'};
 const LINKS=new Set(['https://alien-investor.org/','https://alien-investor.org/en/',
   'https://alien-investor.org/steuertool-guide.html','https://alien-investor.org/en/steuertool-guide.html',
   'https://alien-investor.org/steuertool-rechtliches.html#datenschutz','https://alien-investor.org/en/steuertool-rechtliches.html#privacy',
+  'https://alien-investor.org/spenden.html','https://alien-investor.org/en/spenden.html',
   'https://github.com/Alien-Investor/btc-steuertool']);
 const MAIL='kontakt@alien-investor.org', MAIL_MAX=8000;
 

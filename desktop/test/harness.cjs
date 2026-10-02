@@ -80,6 +80,10 @@ async function fresh(){
   for(const u of ok){ const o=await tryOpen(u,'open'); R('Link extern geöffnet: '+u, o.length===1&&o[0]===u, o); }
   const navOk=await tryOpen('https://alien-investor.org/steuertool-guide.html','nav');
   R('Link per Navigation extern, Seite bleibt', navOk.length===1&&win.webContents.getURL()==='app://steuertool/index.html', navOk);
+  // Spenden-Blitz im Fuß (v1.1): Klick öffnet genau die Spendenseite der eingestellten Sprache im System-Browser
+  { opened.length=0; await js(`document.getElementById('donate-link').click()`); await sleep(300);
+    const want=await js(`document.getElementById('donate-link').href`);
+    R('Spenden-Blitz extern geöffnet', opened.length===1&&opened[0]===want&&/^https:\/\/alien-investor\.org\/(en\/)?spenden\.html$/.test(want)&&win.webContents.getURL()==='app://steuertool/index.html', opened.slice()); }
   for(const u of ['https://example.org/','https://alien-investor.org/anderes.html','https://github.com/Alien-Investor/btc-steuertool/evil','http://alien-investor.org/','https://alien-investor.org.evil.com/','file:///etc/passwd','javascript:alert(1)'])
     { const o=await tryOpen(u,'open'); R('Link verweigert: '+u, o.length===0, o); }
   const mail='mailto:kontakt@alien-investor.org?subject=%5BBTC%20Steuertool%5D%20Bug&body=Version%3A%20BTC%20Steuertool%20Desktop';

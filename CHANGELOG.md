@@ -3,6 +3,10 @@
 Das CLI und die Web-Version haben keine eigenen Versionen; sie laufen immer auf dem Stand von `main`.
 Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die denselben Rechenkern enthalten.
 
+## v1.1 — 2026-10-02
+- Spenden-Blitz unten in der App („Energie aufladen · Spenden“) wie in den anderen Alien-Apps. Er öffnet die Spendenseite auf
+  alien-investor.org im Browser des Systems; die App selbst bleibt ohne Netz.
+
 ## v1.0 — 2026-10-02
 - Erste Veröffentlichung als App: **Linux-Desktop (Flatpak)** und **Android (APK)**, frei und quelloffen.
 - Derselbe Rechenkern wie CLI und Web-Version (FiFo nach § 23 EStG, Jahresfrist, Freigrenze, Gebühren in Bitcoin
