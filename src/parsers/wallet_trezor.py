@@ -23,7 +23,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, de_date
-from . import read_rows, parse_amount, warn_fmt, FileRef, LINE_KEY
+from . import read_rows, parse_amount, warn_fmt, FileRef, LINE_KEY, wallet_files
 from .wallet_export import Stats, delta_tx, emit_stats, warn_unconfirmed_format
 
 LABEL = "Trezor Suite"
@@ -49,6 +49,8 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
 
     stats = Stats()
     groups: dict[str, dict] = {}     # txid → {type, date, amount, fee, labels, line}
+    own_addr: set[str] = set()       # Empfangsadressen dieses Kontos (RECV/SELF)
+    sent_addr: list[tuple[str, int]] = []
     order: list[str] = []
     unknown: dict[tuple[str, int | None], int] = {}
     for row in rows:
@@ -62,6 +64,11 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
             raise ValueError(f"{LABEL} {filename} Zeile {line}, Spalte 'Timestamp': '{row['Timestamp']}' ist keine Unix-Zeit.") from None
         typ = row["Type"].upper()
         unit = row["Amount unit"].upper()
+        if unit in ("SAT", "SATS", "SATOSHI", "MBTC", "UBTC", "BITS"):
+            # Die Suite schreibt immer BTC (Netzwerk-Konfiguration) — eine Bitcoin-Untereinheit hieße
+            # geändertes Exportformat; überspringen wäre ein stiller Bestandsverlust (Audit v1.4, B3)
+            raise ValueError(f"{LABEL} {filename} Zeile {line}: Einheit '{row['Amount unit']}' statt BTC — "
+                             f"Exportformat geändert? Bitte melden.")
         if unit and unit != "BTC":
             stats.add("other_coin", None)
             continue
@@ -70,25 +77,40 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
             unknown[key] = unknown.get(key, 0) + 1
             continue
         txid = row["Transaction ID"]
+        if not txid:
+            raise ValueError(f"{LABEL} {filename} Zeile {line}: Transaction ID fehlt — ohne sie lassen sich die "
+                             f"Zeilen einer Transaktion nicht zusammenfassen.")
         g = groups.get(txid)
         if g is None:
             g = groups[txid] = {"type": typ, "date": date, "amount": Decimal("0"), "fee": None, "labels": [], "line": line}
             order.append(txid)
         elif g["type"] != typ:
             raise ValueError(f"{LABEL} {filename} Zeile {line}: Transaktion {txid[:16]}… hat Zeilen vom Typ {g['type']} und {typ}.")
-        g["amount"] += parse_amount(row["Amount"], label=LABEL, filename=filename, line=line, field="Amount")
+        amount = parse_amount(row["Amount"], label=LABEL, filename=filename, line=line, field="Amount")
+        if amount < 0:
+            # Amount ist vorzeichenlos (Richtung steht in Type) — ein Vorzeichen drehte die Richtung still um
+            raise ValueError(f"{LABEL} {filename} Zeile {line}: negativer Betrag '{row['Amount']}' — Exportformat geändert?")
+        g["amount"] += amount
         if row["Fee"]:
             if row["Fee unit"].upper() not in ("BTC", ""):
                 raise ValueError(f"{LABEL} {filename} Zeile {line}: Gebühr in unbekannter Einheit '{row['Fee unit']}'.")
             if g["fee"] is not None:
                 raise ValueError(f"{LABEL} {filename} Zeile {line}: zweite Gebühr für Transaktion {txid[:16]}… — Datei umsortiert oder beschädigt?")
             g["fee"] = parse_amount(row["Fee"], label=LABEL, filename=filename, line=line, field="Fee")
+            if g["fee"] < 0:
+                raise ValueError(f"{LABEL} {filename} Zeile {line}: negative Gebühr '{row['Fee']}'.")
+        addr = row.get("Address", "")
+        if addr and typ in ("RECV", "SELF"):
+            own_addr.add(addr)
+        elif addr and typ == "SENT":
+            sent_addr.append((addr, de_date(date).year))
         label = row["Label"]
         if label[:1] == "'" and label[1:2] in ("=", "+", "-", "@"):
             label = label[1:]
         if label and label not in g["labels"]:
             g["labels"].append(label)
 
+    wallet_files.setdefault(source, []).append((filename, ""))
     txs: list[Transaction] = []
     for txid in order:
         g = groups[txid]
@@ -113,6 +135,16 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
     for (typ, year), n in sorted(unknown.items(), key=lambda kv: (kv[0][1] or 0, kv[0][0])):
         warn_fmt("{file}: {n} Zeile(n) mit unbekanntem Typ '{typ}' nicht verarbeitet.",
                  internal=no_kyc, year=year, file=FileRef(filename, "ein Trezor-Suite-Export"), n=n, typ=typ)
+    # Ein SENT-Output an eine Adresse, die im selben Konto auch empfängt, ist ein eigener Output:
+    # er wurde mitgezählt, obwohl er das Konto nie verlassen hat (Audit v1.4, Format noch unklar)
+    own_out: dict[int, int] = {}
+    for addr, year in sent_addr:
+        if addr in own_addr:
+            own_out[year] = own_out.get(year, 0) + 1
+    for year, n in sorted(own_out.items()):
+        warn_fmt("{file}: {n} gesendete(r) Output(s) im Jahr {jahr} an eine eigene Empfangsadresse dieses Kontos — "
+                 "als Abgang mitgezählt; bitte prüfen, ob der Betrag das Konto wirklich verlassen hat.",
+                 internal=no_kyc, year=year, jahr=year, file=FileRef(filename, "ein Trezor-Suite-Export"), n=n)
     emit_stats(stats, label=LABEL, filename=filename, no_kyc=no_kyc)
     warn_unconfirmed_format(
         filename, "Trezor Suite", txs, no_kyc=no_kyc,

@@ -24,12 +24,23 @@ from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, de_date
-from . import read_rows, parse_amount, parse_iso_datetime, warn_fmt, FileRef, LINE_KEY, _sanitize
+from . import read_rows, parse_amount, parse_iso_datetime, warn_fmt, FileRef, LINE_KEY, _sanitize, wallet_files
 from .wallet_export import Stats, delta_tx, emit_stats, warn_unconfirmed_format
 
 LABEL = "Ledger Wallet"
 REQUIRED = ("Operation Date", "Currency Ticker", "Operation Type", "Operation Amount", "Operation Fees",
             "Operation Hash", "Account Name")
+
+
+def _account_key(row: dict, key_col: str | None) -> str:
+    """xpub des Kontos. Alte Exporte haben „Account id“ (z. B. libcore:1:bitcoin:xpub…:native_segwit) —
+    daraus den xpub ziehen, damit alter und neuer Export desselben Kontos denselben Schlüssel haben."""
+    raw = row.get(key_col, "") if key_col else ""
+    if key_col == "Account id":
+        for part in raw.split(":"):
+            if part[:4].lower() in ("xpub", "ypub", "zpub", "tpub", "vpub", "upub"):
+                return part
+    return raw
 
 
 def matches(header: list[str]) -> bool:
@@ -42,8 +53,17 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
     key_col = "Account xpub" if "Account xpub" in header else ("Account id" if "Account id" in header else None)
 
     stats = Stats()
-    names: dict[str, str] = {}          # Konto-Schlüssel (xpub/id) → Wallet-Name
-    taken: dict[str, int] = {}
+    # Vorlauf: Konto-Schlüssel je Name, Nummerierung nach dem SCHLÜSSEL sortiert statt nach der
+    # Zeilenfolge — sonst wechselte „Bitcoin 1 (2)“ bei jedem Neuexport das Konto (Audit v1.4)
+    by_name: dict[str, set[str]] = {}
+    for row in rows:
+        if row["Currency Ticker"].upper() == "BTC":
+            n = _sanitize(row["Account Name"]).strip() or "Bitcoin"
+            by_name.setdefault(n, set()).add(_account_key(row, key_col) or n)
+    names: dict[str, str] = {}          # Konto-Schlüssel (xpub) → Wallet-Name
+    for n, keys in by_name.items():
+        for i, k in enumerate(sorted(keys), 1):
+            names[k] = n if i == 1 else f"{n} ({i})"
     groups: dict[tuple[str, str], dict] = {}
     order: list[tuple[str, str]] = []
     unknown: dict[tuple[str, int | None], int] = {}
@@ -53,8 +73,12 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
         if row["Currency Ticker"].upper() != "BTC":
             stats.add("other_coin", None)
             continue
-        if row.get("Status", "").lower() == "failed":
+        status = row.get("Status", "").lower()
+        if status == "failed":
             failed += 1
+            continue
+        if status not in ("", "confirmed", "succeeded"):
+            stats.add("unconfirmed", None)     # z. B. „Pending“: erst nach Bestätigung buchen
             continue
         date = parse_iso_datetime(row["Operation Date"], label=LABEL, filename=filename, line=line, field="Operation Date")
         typ = row["Operation Type"].upper()
@@ -63,24 +87,30 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
             unknown[key] = unknown.get(key, 0) + 1
             continue
         name = _sanitize(row["Account Name"]).strip() or "Bitcoin"
-        account_key = row[key_col] if key_col and row[key_col] else name
-        if account_key not in names:
-            n = taken[name] = taken.get(name, 0) + 1
-            names[account_key] = name if n == 1 else f"{name} ({n})"
-        wallet = names[account_key]
+        wallet = names[_account_key(row, key_col) or name]
+        if not row["Operation Hash"]:
+            raise ValueError(f"{LABEL} {filename} Zeile {line}: Operation Hash fehlt — ohne ihn lassen sich "
+                             f"Selbstüberweisungen und Überträge nicht erkennen.")
         gkey = (wallet, row["Operation Hash"])
         g = groups.get(gkey)
         if g is None:
             g = groups[gkey] = {"date": date, "net": Decimal("0"), "fee": None, "line": line}
             order.append(gkey)
         amount = parse_amount(row["Operation Amount"], label=LABEL, filename=filename, line=line, field="Operation Amount")
+        if amount < 0:
+            # Beträge sind vorzeichenlos (Richtung in Operation Type) — ein Vorzeichen drehte sie still um
+            raise ValueError(f"{LABEL} {filename} Zeile {line}: negativer Betrag '{row['Operation Amount']}' — Exportformat geändert?")
         if typ == "IN":
             g["net"] += amount
         else:
             g["net"] -= amount
             g["fee"] = parse_amount(row["Operation Fees"], label=LABEL, filename=filename, line=line, field="Operation Fees")
+            if g["fee"] < 0:
+                raise ValueError(f"{LABEL} {filename} Zeile {line}: negative Gebühr '{row['Operation Fees']}'.")
         g["date"] = min(g["date"], date)
 
+    for key, wallet in names.items():
+        wallet_files.setdefault(f"ledger:{wallet}", []).append((filename, key))
     txs: list[Transaction] = []
     for wallet, txid in order:
         g = groups[(wallet, txid)]

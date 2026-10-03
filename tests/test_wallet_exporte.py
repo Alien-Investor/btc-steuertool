@@ -327,5 +327,196 @@ class FullRun(unittest.TestCase):
             self.assertIn("wallets/nokyc/", nokyc)
 
 
+class AuditPrivacy(unittest.TestCase):
+    """Release-Audit v1.4, Runde 1 (Datenschutz): Überträge noKYC → KYC, die die Sperre umgingen
+    und als „nicht eingelesen“ mit Datum und Betrag im Steuernachweis standen."""
+
+    BISON = ("Transaction ID; Transaction type; Currency; Asset; Eur (amount); Asset (amount); Asset (market price); Fee; "
+             "Date (UTC - Coordinated Universal Time)\n"
+             "TX-1; Buy; ; Btc; 20000.00; 0.50000000; 40000.00; 0; 2024-01-10 10:00:00\n"
+             "TX-2; Withdraw; ; Btc; 0.00; 0.50000000; 0.00; 0; 2024-01-11 10:00:00\n")
+    KYC = ("Date (UTC),Label,Value (BTC),Balance (BTC),Fee (BTC),Txid\n"
+           "2024-01-11 10:00:00,,0.50000000,0.50000000,,1111111111111111111111111111111111111111111111111111111111111111\n"
+           "2024-03-01 11:00:00,,0.09990000,0.59990000,,3333333333333333333333333333333333333333333333333333333333333333\n")
+    NOKYC = ("Date,Label,Value,Balance,Txid\n"
+             "2024-02-02 12:00,Treffen,20000000,20000000,2222222222222222222222222222222222222222222222222222222222222222\n"
+             "2024-03-01 12:00,Umzug,-10000000,10000000,3333333333333333333333333333333333333333333333333333333333333333\n")
+
+    def _data(self, tmp, kyc_name="kyc_cold.csv", nokyc_name="p2p.csv"):
+        d = Path(tmp) / "data"
+        (d / "Broker").mkdir(parents=True)
+        (d / "wallets" / "nokyc").mkdir(parents=True)
+        (d / "Broker" / "Bison-CSV-Gesamt.csv").write_text(self.BISON)
+        (d / "manual_buys.csv").write_text("date,btc_amount,eur_amount,note,kyc\n2024-02-01,0.2,8000.00,P2P,\n")
+        (d / "wallets" / kyc_name).write_text(self.KYC)
+        (d / "wallets" / "nokyc" / nokyc_name).write_text(self.NOKYC)
+        return d
+
+    def _run_load(self, d):
+        from src.main import run_engine
+        with contextlib.redirect_stdout(io.StringIO()):
+            run_engine(_load(d))
+
+    def test_b2_unknown_fee_same_txid_aborts(self):
+        """Altes Sparrow-Format ohne Gebühr: Abgang 0,1 vs. Eingang 0,0999 — gleiche TX-ID muss abbrechen."""
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError, "noKYC-Bestand"):
+                self._run_load(self._data(tmp))
+
+    def test_b1_same_wallet_name_in_both_classes_aborts(self):
+        """Trezor-Zeitstempel abgestreift → gleicher Name in wallets/ und wallets/nokyc/."""
+        with tempfile.TemporaryDirectory() as tmp:
+            d = self._data(tmp, kyc_name="cold.csv", nokyc_name="cold.csv")
+            with self.assertRaisesRegex(ValueError, "KYC- und im noKYC-Bestand"):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    _load(d)
+
+
+class AuditRobust(unittest.TestCase):
+    """Release-Audit v1.4, Runde 1 (Robustheit): laut abbrechen statt still falsch rechnen."""
+
+    TREZOR_HEAD = "Timestamp,Date,Time,Type,Transaction ID,Fee,Fee unit,Address,Label,Amount,Amount unit,Fiat (EUR),Other\n"
+    LEDGER_HEAD = ("Operation Date,Status,Currency Ticker,Operation Type,Operation Amount,Operation Fees,Operation Hash,"
+                   "Account Name,Account xpub,Countervalue Ticker,Countervalue at Operation Date,Countervalue at CSV Export\n")
+
+    def _parse_text(self, name, text):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / name
+            p.write_text(text)
+            parsers.reset_warnings()
+            return wallet_export.parse(p), list(parsers.parser_warnings)
+
+    def test_negative_amounts_rejected(self):
+        with self.assertRaisesRegex(ValueError, "negativer Betrag"):
+            self._parse_text("t.csv", self.TREZOR_HEAD + "1717243200,,,SENT,ab,0.0001,BTC,x,,-0.1,BTC,,\n")
+        with self.assertRaisesRegex(ValueError, "negativer Betrag"):
+            self._parse_text("l.csv", self.LEDGER_HEAD + "2024-06-01T12:00:00.000Z,Confirmed,BTC,OUT,-0.5,0.0001,ab,Bitcoin 1,xpubA,,,\n")
+
+    def test_trezor_sat_unit_is_an_error_not_skipped(self):
+        with self.assertRaisesRegex(ValueError, "statt BTC"):
+            self._parse_text("t.csv", self.TREZOR_HEAD + "1717243200,,,RECV,ab,,,x,,10000,sat,,\n")
+
+    def test_missing_txid_rejected(self):
+        with self.assertRaisesRegex(ValueError, "Transaction ID fehlt"):
+            self._parse_text("t.csv", self.TREZOR_HEAD + "1717243200,,,RECV,,,,x,,0.1,BTC,,\n")
+        with self.assertRaisesRegex(ValueError, "Operation Hash fehlt"):
+            self._parse_text("l.csv", self.LEDGER_HEAD + "2024-06-01T12:00:00.000Z,Confirmed,BTC,IN,0.5,,,Bitcoin 1,xpubA,,,\n")
+
+    def test_unconfirmed_not_booked(self):
+        txs, warns = self._parse_text("l.csv", self.LEDGER_HEAD + "2024-06-01T12:00:00.000Z,Pending,BTC,IN,0.5,,ab,Bitcoin 1,xpubA,,,\n")
+        self.assertEqual(txs, [])
+        self.assertTrue(any("unbestätigte" in w.full for w in warns))
+        txs, _ = self._parse_text("e.csv", "oc_transaction_hash,ln_payment_hash,label,confirmations,amount_chain_bc,"
+                                  "amount_lightning_bc,fiat_value,network_fee_bc,fiat_fee,timestamp\n"
+                                  "ab,,,0,0.1,0.,,0.,,2026-09-01 10:00:00\n")
+        self.assertEqual(txs, [])
+
+    def test_implausible_amount_rejected(self):
+        with self.assertRaisesRegex(ValueError, "unplausibel"):
+            self._parse_text("s.csv", "Date (UTC),Label,Value (BTC),Balance (BTC),Fee (BTC),Txid\n"
+                             "2024-01-02 03:04:05,,999999999.00000000,0,,ab\n")
+
+    def _two_files(self, tmp, names, texts):
+        d = Path(tmp) / "data"
+        (d / "wallets").mkdir(parents=True)
+        for n, t in zip(names, texts):
+            (d / "wallets" / n).write_text(t)
+        return d
+
+    def test_ledger_same_name_two_devices_aborts(self):
+        a = self.LEDGER_HEAD + "2024-01-10T12:00:00.000Z,Confirmed,BTC,IN,0.5,,aa,Bitcoin 1,xpubDEVICE1,,,\n"
+        b = self.LEDGER_HEAD + "2024-03-10T12:00:00.000Z,Confirmed,BTC,IN,0.2,,bb,Bitcoin 1,xpubDEVICE2,,,\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError, "zwei Geräte"):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    _load(self._two_files(tmp, ["ledger_a.csv", "ledger_b.csv"], [a, b]))
+
+    def test_ledger_overlapping_exports_same_xpub_ok(self):
+        a = self.LEDGER_HEAD + "2024-01-10T12:00:00.000Z,Confirmed,BTC,IN,0.5,,aa,Bitcoin 1,xpubDEVICE1,,,\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            with contextlib.redirect_stdout(io.StringIO()):
+                txs = _load(self._two_files(tmp, ["ledger_a.csv", "ledger_b.csv"], [a, a]))
+            self.assertEqual(len(txs), 1)          # Dedup über beide Dateien
+
+    def test_trezor_two_files_same_name_warns(self):
+        a = self.TREZOR_HEAD + "1717243200,,,RECV,aa,,,x,,0.1,BTC,,\n"
+        b = self.TREZOR_HEAD + "1717329600,,,RECV,bb,,,x,,0.2,BTC,,\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            with contextlib.redirect_stdout(io.StringIO()):
+                _load(self._two_files(tmp, ["Bitcoin #1_20250105T101010.csv", "Bitcoin #1_20250106T111111.csv"], [a, b]))
+            w = [w for w in parsers.parser_warnings if "Trezor: 2 Dateien" in w.full]
+            self.assertEqual(len(w), 1)
+            self.assertIn("Bitcoin #1", w[0].full)
+            self.assertNotIn("Bitcoin #1", str(w[0]))     # Name nur im internen Kanal
+
+
+class AuditCalc(unittest.TestCase):
+    """Release-Audit v1.4, Runde 1 (Rechenrichtigkeit)."""
+
+    SP = "Date (UTC),Label,Value (BTC),Balance (BTC),Fee (BTC),Txid\n"
+    EL = ("oc_transaction_hash,ln_payment_hash,label,confirmations,amount_chain_bc,amount_lightning_bc,"
+          "fiat_value,network_fee_bc,fiat_fee,timestamp\n")
+    LH = AuditRobust.LEDGER_HEAD
+    TH = AuditRobust.TREZOR_HEAD
+
+    def _load_files(self, tmp, files):
+        d = Path(tmp) / "data"
+        for rel, text in files.items():
+            (d / rel).parent.mkdir(parents=True, exist_ok=True)
+            (d / rel).write_text(text)
+        with contextlib.redirect_stdout(io.StringIO()):
+            return _load(d)
+
+    def test_batch_tx_to_two_own_wallets_not_deduplicated(self):
+        """Gleiche TX-ID, gleicher Betrag in zwei verschiedenen Wallets ist kein überlappender Export."""
+        row = "2024-03-03 10:00:00,,0.05000000,0.05000000,,bb\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            txs = self._load_files(tmp, {"wallets/a.csv": self.SP + row, "wallets/b.csv": self.SP + row})
+        self.assertEqual(sorted(t.source for t in txs), ["sparrow:a", "sparrow:b"])
+
+    def test_same_wallet_overlap_still_deduplicated(self):
+        row = "2024-03-03 10:00:00,,0.05000000,0.05000000,,bb\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            txs = self._load_files(tmp, {"wallets/a.csv": self.SP + row, "wallets/nokyc/x.csv": self.SP.replace("BTC", "BTC") + "2024-03-04 10:00:00,,0.01000000,0.01000000,,cc\n"})
+        self.assertEqual(len([t for t in txs if t.source == "sparrow:a"]), 1)
+
+    def test_ledger_numbering_follows_xpub_not_row_order(self):
+        rows = {"X": "2024-01-10T12:00:00.000Z,Confirmed,BTC,IN,0.1,,aa,Bitcoin 1,xpubX,,,\n",
+                "Y": "2024-01-11T12:00:00.000Z,Confirmed,BTC,IN,0.3,,bb,Bitcoin 1,xpubY,,,\n"}
+        a, _ = AuditRobust()._parse_text("l.csv", self.LH + rows["X"] + rows["Y"])
+        b, _ = AuditRobust()._parse_text("l.csv", self.LH + rows["Y"] + rows["X"])
+        self.assertEqual({(t.tx_id, t.source) for t in a}, {(t.tx_id, t.source) for t in b})
+        self.assertEqual({t.source for t in a if t.tx_id == "aa"}, {"ledger:Bitcoin 1"})     # xpubX < xpubY
+
+    def test_ledger_old_account_id_matches_new_xpub(self):
+        old = ("Operation Date,Currency Ticker,Operation Type,Operation Amount,Operation Fees,Operation Hash,"
+               "Account Name,Account id\n2024-01-10T12:00:00.000Z,BTC,IN,0.1,,aa,Bitcoin 1,libcore:1:bitcoin:xpubX:native_segwit\n")
+        new = self.LH + "2024-02-10T12:00:00.000Z,Confirmed,BTC,IN,0.2,,bb,Bitcoin 1,xpubX,,,\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            txs = self._load_files(tmp, {"wallets/alt.csv": old, "wallets/neu.csv": new})
+        self.assertEqual({t.source for t in txs}, {"ledger:Bitcoin 1"})
+
+    def test_trezor_sent_to_own_address_warns(self):
+        txt = (self.TH + "1717243200,,,RECV,aa,,,bc1qown,,0.1,BTC,,\n"
+               "1717329600,,,SENT,bb,0.0001,BTC,bc1qfremd,,0.05,BTC,,\n"
+               "1717329600,,,SENT,bb,,,bc1qown,,0.02,BTC,,\n")
+        _, warns = AuditRobust()._parse_text("t.csv", txt)
+        self.assertTrue(any("eigene Empfangsadresse" in w.full for w in warns))
+
+    def test_dst_fold_resolved_by_counterpart(self):
+        """27.10.2024: Sparrow (UTC) 01:10 → Electrum zeigt 02:10 (zweite 02:10, MEZ). Electrum gibt um 02:30
+        weiter. Ohne Auflösung lief der Abgang vor dem Eingang seiner Lots."""
+        sp = self.SP + ("2024-10-26 10:00:00,,0.10000000,0.10000000,,a1\n"
+                        "2024-10-27 01:10:00,,-0.05001000,0.04999000,0.00001000,a2\n")
+        el = self.EL + ("a2,,,1,0.05,0.,,0.,,2024-10-27 02:10:00\n"
+                        "a3,,,1,-0.04,0.,,0.00001,,2024-10-27 02:30:00\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            txs = self._load_files(tmp, {"wallets/sp.csv": sp, "wallets/el.csv": el})
+        inn = next(t for t in txs if t.source == "electrum:el" and t.tx_id == "a2")
+        out = next(t for t in txs if t.source == "electrum:el" and t.tx_id == "a3")
+        self.assertEqual(inn.date, datetime(2024, 10, 27, 1, 10, tzinfo=UTC))
+        self.assertEqual(out.date, datetime(2024, 10, 27, 1, 30, tzinfo=UTC))      # Reihenfolge: zweite Lesart
+
+
 if __name__ == "__main__":
     unittest.main()

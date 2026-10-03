@@ -405,6 +405,12 @@ def match_transfers(transactions: list[Transaction], manual_rows=()) -> MatchRes
             continue
         hit = [t for t in window(g)
                if not t.no_kyc and _structurally_possible(g, t) and fits_any(g, t)]
+        # Gleiche On-Chain-TX-ID ist ein sicherer Kreuzfall — unabhängig von Betrag und
+        # Wallet-Name (Audit v1.4: Abgang mit unbekannter Gebühr passte betragsmäßig nicht,
+        # gleich benannte Wallets galten als „dieselbe Wallet“ — beides umging die Sperre)
+        if not hit and g.tx_id and g.type != TxType.BUY:
+            hit = [t for t in takers if not t.no_kyc and t.type == TxType.TRANSFER_IN
+                   and t.tx_id and t.tx_id.lower() == g.tx_id.lower()]
         if hit:
             t = hit[0]
             raise ValueError(

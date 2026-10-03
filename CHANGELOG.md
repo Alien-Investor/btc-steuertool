@@ -11,6 +11,11 @@ Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die dens
   (Wort im Label) werden wie bei der BitBox gebucht. Die Formate stammen aus dem Quellcode der Programme, nicht aus echten Exporten:
   Der Steuerreport zeigt je Datei eine Warnung „Format noch nicht bestätigt“. Electrum schreibt Zeiten ohne Zeitzone (gelesen als deutsche
   Ortszeit), Lightning-Zahlungen werden gemeldet, nicht erfasst. In der App: Typ „Sparrow/Electrum/Trezor/Ledger (KYC/noKYC)“.
+- Internes Release-Audit (drei Prüfer, Datenschutz/Rechnung/Robustheit) vor v1.4, alle Funde behoben: Ein Übertrag aus einer noKYC-Wallet
+  in eine KYC-Wallet wird jetzt auch erkannt, wenn die Gebühr im Export fehlt oder beide Wallets gleich heißen (bisher stand der Eingang
+  dann im Steuernachweis); eine Transaktion mit gleichem Betrag an zwei eigene Wallets galt fälschlich als doppelter Export; gleich benannte
+  Ledger-Konten zweier Geräte, negative Beträge, Satoshi-Einheit bei Trezor und unbestätigte Ledger-Vorgänge brechen ab oder werden gemeldet
+  statt still falsch gebucht; Zeiten in der doppelten Stunde der Winterzeit-Umstellung werden richtig zugeordnet.
 - Bisq: der englische Export ist jetzt an einem echten Export des Autors bestätigt (gleiche Trades auf Deutsch und Englisch exportiert,
   Ergebnis feldgleich). Der Hinweis „bitte Ergebnis prüfen“ aus v1.3 gilt für Bisq damit nicht mehr.
 

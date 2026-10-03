@@ -128,6 +128,8 @@ with sync_playwright() as p:
         "sparrow.csv", "sparrow_alt.csv", "electrum.csv", "electrum_46.csv", "electrum_45.csv",
         "trezor.csv", "trezor_semikolon.csv", "ledger.csv")}
     wallets["wallet-ledger-nokyc.csv"] = wallets["wallet-ledger.csv"]
+    # Semikolon nur bei Trezor zulässig — eine in Excel umgespeicherte Sparrow-Datei sperrt (Audit v1.4)
+    wallets["semi-sparrow.csv"] = wallets["wallet-sparrow.csv"].replace(b",", b";")
     page2 = browser.new_page()
     page2.goto("http://localhost:8741/index.html")
     sammel = {f"sammel-{n}": (BASE.parent / "tests" / "fixtures" / n).read_bytes() for n in (
@@ -147,6 +149,8 @@ with sync_playwright() as p:
         expected = "sammel" if row["name"].startswith("sammel-") else "bisq"
         if row["name"].startswith("wallet-"):
             expected = "wallet_nokyc" if "nokyc" in row["name"] else "wallet"
+        if row["name"].startswith("semi-"):
+            expected = "unknown"
         ok = row["type"] == expected
         print(f"  {'✓' if ok else '✗'} {row['name']}: {row['type']}" + ("" if ok else f" (erwartet: {expected})"))
         if not ok:

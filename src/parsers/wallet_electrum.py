@@ -22,7 +22,8 @@ from pathlib import Path
 
 from ..models import Transaction, sat_to_btc, de_date
 from . import read_rows, parse_amount, LINE_KEY
-from .wallet_export import Stats, delta_tx, emit_stats, local_time, warn_unconfirmed_format
+from . import dst_candidates
+from .wallet_export import Stats, delta_tx, dst_alternative, emit_stats, local_time, warn_unconfirmed_format
 
 LABEL = "Electrum"
 
@@ -53,13 +54,14 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
 
     stats = Stats()
     txs: list[Transaction] = []
+    prev = None
     for row in rows:
         line = row[LINE_KEY]
-        if not row["timestamp"]:
+        if not row["timestamp"] or row.get("confirmations") == "0":
             stats.add("unconfirmed", None)
             continue
-        date = local_time(row["timestamp"], "%Y-%m-%d %H:%M:%S" if row["timestamp"].count(":") == 2 else "%Y-%m-%d %H:%M",
-                          label=LABEL, filename=filename, line=line, field="timestamp")
+        date = prev = local_time(row["timestamp"], "%Y-%m-%d %H:%M:%S" if row["timestamp"].count(":") == 2 else "%Y-%m-%d %H:%M",
+                                 label=LABEL, filename=filename, line=line, field="timestamp", after=prev)
         if new and _num(row, "amount_lightning_bc", filename) != 0:
             stats.add("lightning", de_date(date).year)
         delta = _num(row, amount_col, filename)
@@ -79,6 +81,9 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
                       no_kyc=no_kyc, where=f"{LABEL} {filename} Zeile {line}", stats=stats)
         if tx is not None:
             txs.append(tx)
+            alt = dst_alternative(date)
+            if alt is not None:
+                dst_candidates.append((tx, alt))
 
     emit_stats(stats, label=LABEL, filename=filename, no_kyc=no_kyc)
     extra = " Zeiten ohne Zeitzone (Electrum schreibt die Ortszeit des Rechners) als deutsche Ortszeit gelesen."

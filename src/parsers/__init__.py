@@ -153,6 +153,16 @@ manual_links: list = []
 # wie parser_warnings je Lauf gefüllt und in reset_warnings geleert.
 aggregate_sources: dict[str, str] = {}
 
+# Wallet-Exporte (v1.4): Quelle → [(Dateiname, Konto-Schlüssel)]. Ledger trägt den xpub als
+# Schlüssel ein, Trezor einen leeren. Der Loader prüft damit, ob gleich benannte Konten aus
+# verschiedenen Dateien wirklich dieselbe Wallet sind (Audit v1.4, Robustheit B1).
+wallet_files: dict[str, list[tuple[str, str]]] = {}
+
+# Ortszeiten in der doppelten Stunde der Winterzeit-Umstellung (Electrum, alte Sparrow-Exporte):
+# (Transaktion, andere Lesart). Der Loader nimmt die andere Lesart, wenn dieselbe TX-ID in einer
+# Quelle mit Zeitzone genau zu ihr passt — beide Seiten tragen die Blockzeit (Audit v1.4).
+dst_candidates: list = []
+
 
 def warn(msg: str, *, internal: bool, year: int | None = None) -> None:
     """internal=True → nur interner noKYC-Report + GUI-Log, nie Finanzamt.
@@ -227,6 +237,8 @@ def reset_warnings() -> None:
     parser_warnings.clear()
     manual_links.clear()
     aggregate_sources.clear()
+    wallet_files.clear()
+    dst_candidates.clear()
     reset_suppressed()
 
 

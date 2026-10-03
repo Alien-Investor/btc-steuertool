@@ -84,6 +84,15 @@ Ledger    Operation Date,Status,Currency Ticker,Operation Type,Operation Amount,
   Selbstüberweisung im selben Konto (OUT + IN, gleicher Hash) → nur Gebühr. Hash kleingeschrieben. `Status` Failed → übersprungen.
   Konten werden über den Namen zusammengeführt, auch über mehrere Dateien (überlappende Exporte werden so dedupliziert) —
   zwei Ledger-Geräte mit gleich benannten Konten („Bitcoin 1“) in Ledger Wallet vor dem Export umbenennen, sonst gelten sie als eine Wallet.
+- **Release-Audit v1.4 (Regeln aus den Funden):** Dedup überlappender Exporte nur innerhalb derselben Wallet (Batch-TX an zwei
+  eigene Wallets bleibt erhalten). Gleicher Wallet-Name in KYC und noKYC → Abbruch; gleiche TX-ID zwischen noKYC-Abgang und
+  KYC-Eingang → Abbruch (auch bei unbekannter Gebühr). Ledger: gleicher Kontoname mit verschiedenem xpub über zwei Dateien →
+  Abbruch; Nummerierung „(2)“ nach xpub sortiert; xpub aus altem „Account id“ gezogen; Status außer Confirmed/Succeeded/leer →
+  unbestätigt, nicht gebucht. Trezor: zwei Dateien mit gleichem Namen → Hinweis; SENT an eine Empfangsadresse desselben Kontos →
+  Hinweis; Einheit sat/mBTC → Abbruch. Negative Beträge (Trezor, Ledger), fehlende TX-ID/Hash, Beträge über 21 Mio. BTC → Abbruch.
+  Electrum `confirmations` 0 → unbestätigt. Doppelte Stunde der Winterzeit (Ortszeit-Formate): gleiche TX-ID mit Zeitzone in einer
+  anderen Quelle entscheidet, sonst die aufsteigende Reihenfolge der Datei (`main._resolve_dst`). Ohne Report gibt das CLI die
+  Warnungen aus.
 - Fixtures: `tests/fixtures/{sparrow,sparrow_alt,electrum,electrum_46,electrum_45,trezor,trezor_semikolon,ledger}.csv`
   (eigene Werte), Tests `tests/test_wallet_exporte.py`, GUI `web/test_gui.py` (Erkennung + Rechenlauf gegen CLI).
   Bewusst **nicht** in `examples/`, solange die Formate unbestätigt sind.

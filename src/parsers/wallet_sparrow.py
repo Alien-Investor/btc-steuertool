@@ -25,7 +25,8 @@ from pathlib import Path
 
 from ..models import Transaction, sat_to_btc
 from . import read_rows, parse_amount, LINE_KEY
-from .wallet_export import Stats, delta_tx, emit_stats, local_time, warn_unconfirmed_format
+from . import dst_candidates
+from .wallet_export import Stats, delta_tx, dst_alternative, emit_stats, local_time, warn_unconfirmed_format
 
 LABEL = "Sparrow"
 _VALUE = re.compile(r"^Value(?: \((BTC|sats)\))?$")
@@ -57,6 +58,7 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
 
     stats = Stats()
     txs: list[Transaction] = []
+    prev = None
     for row in rows:
         line = row[LINE_KEY]
         raw_date = row[date_col]
@@ -70,13 +72,16 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
                 raise ValueError(f"{LABEL} {filename} Zeile {line}, Spalte '{date_col}': '{raw_date}' — erwartet JJJJ-MM-TT HH:MM:SS.") from None
         else:
             fmt = "%Y-%m-%d %H:%M:%S" if raw_date.count(":") == 2 else "%Y-%m-%d %H:%M"
-            date = local_time(raw_date, fmt, label=LABEL, filename=filename, line=line, field=date_col)
+            date = prev = local_time(raw_date, fmt, label=LABEL, filename=filename, line=line, field=date_col, after=prev)
         delta = _btc(row, value_col, unit, filename)
         fee = _btc(row, fee_col, unit, filename) if fee_col and row[fee_col] else None
         tx = delta_tx(date=date, delta=delta, fee=fee, label=row["Label"], tx_id=row["Txid"], source=source,
                       no_kyc=no_kyc, where=f"{LABEL} {filename} Zeile {line}", stats=stats)
         if tx is not None:
             txs.append(tx)
+            alt = dst_alternative(date) if not utc else None
+            if alt is not None:
+                dst_candidates.append((tx, alt))
 
     emit_stats(stats, label=LABEL, filename=filename, no_kyc=no_kyc)
     extra = ""
