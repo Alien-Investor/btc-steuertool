@@ -376,6 +376,16 @@
         <label class="api-label" for="bug-desc" id="bug-label-desc">Beschreibung</label>
         <textarea class="api-key-input" id="bug-desc" rows="4" placeholder="Was ist passiert? Welche Datei, welche Meldung?" style="resize:vertical;"></textarea>
       </div>
+      <!-- Diagnose (v1.4): geschwärzt in Python (src/diagnose.py), vor dem Senden vollständig sichtbar -->
+      <div class="api-field">
+        <div class="bug-sent" id="bug-diag-intro" style="margin-top:0">Optional: eine Diagnose ohne Dateinamen, Beträge, Daten, Adressen und Wallet-Namen anhängen.</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+          <button class="btn" style="margin-left:0;" onclick="createDiagnose()" id="bug-diag-create">Diagnose erstellen</button>
+          <button class="btn hidden" onclick="saveDiagnose()" id="bug-diag-save">⬇ Diagnose speichern</button>
+          <button class="btn hidden" onclick="removeDiagnose()" id="bug-diag-remove">Entfernen</button>
+        </div>
+        <textarea class="api-key-input hidden" id="bug-diag" rows="7" readonly style="margin-top:8px;font-size:.72rem;"></textarea>
+      </div>
       <div style="display:flex;gap:10px;">
         <button class="btn btn-primary" style="margin-left:0;" onclick="sendBugReport()" id="bug-send">Senden</button>
         <button class="btn" onclick="closeBugReport()" id="bug-cancel">Abbrechen</button>
@@ -441,6 +451,7 @@
         <p><strong>Überträge zwischen meinen Wallets und ihre Gebühren?</strong><br>Der übertragene Bestand bleibt steuerneutral und behält sein Kaufdatum (siehe „Mehrere Wallets“). Die Netzwerk- oder Auszahlungsgebühr in Bitcoin bucht die App als kleine Veräußerung des Gebührenanteils: Die Gebühr ist ein Tausch gegen eine Dienstleistung (abgeleitet aus dem BMF-Schreiben vom 06.03.2025, Rn. 33, 54, 60). FiFo-Zuordnung, Bewertung zum Tagesschlusskurs (Rn. 91), eigener Abschnitt „GEBÜHREN IN BITCOIN“ im Report.</p>
         <p><strong>Bitcoin verschenkt oder gespendet?</strong><br>Trag in der BitBoxApp vor dem Export ein Wort wie „Spende“, „Geschenk“ oder „Schenkung“ in die Notiz der Transaktion ein. Die App bucht die Zeile dann als unentgeltliche Übertragung: kein Verkauf, kein Gewinn, aber ein Abgang aus dem Bestand. Der Report nennt je Lot Kaufdatum und Einstand, weil dem Empfänger die Anschaffung zugerechnet wird (§ 23 Abs. 1 Satz 3 EStG). Eine dabei gezahlte Netzwerkgebühr bleibt eine kleine Veräußerung (siehe oben). Notizen mit „Gutschein“ oder „Gift Card“ und verneinte Formen wie „kein Geschenk“ wertet die App nicht als Schenkung.</p>
         <p><strong>Mein Broker fehlt?</strong><br>Käufe in <code>manual_buys.csv</code> eintragen (<code>date,btc_amount,eur_amount,note,kyc,wallet</code>; bei KYC-Brokern wie Coinbase die Spalte <code>kyc</code> auf <code>ja</code>; <code>wallet</code> optional: die eigene Wallet, an die geliefert wurde). Und die CSV-Kopfzeile ohne echte Daten an <a href="mailto:kontakt@alien-investor.org">kontakt@alien-investor.org</a> schicken. Neue Parser kommen mit einem Update.</p>
+        <p><strong>Etwas klappt nicht?</strong><br>„🐛 Bug melden“ unten auf der Seite. Dort kannst du eine <em>Diagnose</em> erstellen: erkannte Dateitypen, Zeilenzahl, die erste Zeile nicht erkannter Dateien und die Meldungen der letzten Berechnung, ohne Dateinamen, Beträge, Daten, Adressen und Wallet-Namen. Du siehst sie vor dem Senden vollständig; sie geht mit in die Mail oder lässt sich als Datei speichern. Das volle Log („Log speichern“) enthält dagegen Wallet-Namen und Beträge und ist nur für dich gedacht. Support gibt es zu Technik und Dateiformaten, nicht zu Steuerfragen.</p>
         <p><strong>Erst mal ausprobieren?</strong><br>„Mit Beispieldaten testen“ lädt fiktive Daten für alle unterstützten Broker. Oder die Beispieldaten als ZIP speichern und selbst in die Zone ziehen.</p>
 
         <h2>Wichtig</h2>
@@ -497,6 +508,7 @@
         <p><strong>Transfers between my wallets and their fees?</strong><br>The transferred holding stays tax-neutral and keeps its purchase date (see "Several wallets"). The network or withdrawal fee paid in bitcoin is booked as a small disposal of the fee share: the fee is an exchange for a service (derived from the German Federal Ministry of Finance letter of 06.03.2025, paras. 33, 54, 60). FiFo matching, valued at the daily closing price (para. 91), own section "GEBÜHREN IN BITCOIN" in the report.</p>
         <p><strong>Gave bitcoin away or donated it?</strong><br>Before exporting, put a word like "gift", "donation", "Spende", "Geschenk" or "Schenkung" into the transaction note in the BitBoxApp. The app then books the line as a gratuitous transfer: no sale, no gain, but the coins leave your holdings. The report lists purchase date and cost per lot, because the acquisition is attributed to the recipient (§ 23 (1) sentence 3 EStG). A network fee paid along the way is still a small disposal (see above). Notes containing "gift card" or "Gutschein" (voucher) and negations such as "not a gift" are not treated as gifts.</p>
         <p><strong>My broker is missing?</strong><br>Enter purchases in <code>manual_buys.csv</code> (<code>date,btc_amount,eur_amount,note,kyc,wallet</code>; for KYC brokers like Coinbase set <code>kyc</code> to <code>ja</code>; <code>wallet</code> is optional: your own wallet the coins were delivered to). And send the CSV header line without real data to <a href="mailto:kontakt@alien-investor.org">kontakt@alien-investor.org</a>. New parsers arrive with an update.</p>
+        <p><strong>Something does not work?</strong><br>"🐛 Report a bug" at the bottom of the page. There you can create a <em>diagnosis</em>: detected file types, line counts, the first line of unrecognized files and the messages of the last calculation, without file names, amounts, dates, addresses or wallet names. You see all of it before sending; it goes into the email or can be saved as a file. The full log ("Save log") does contain wallet names and amounts and is meant for you only. Support covers technical and file-format questions, not tax questions.</p>
         <p><strong>Try it first?</strong><br>"Try with sample data" loads fictitious data for all supported brokers. Or save the sample data as a ZIP and drag it into the zone yourself.</p>
 
         <h2>Important</h2>
@@ -585,6 +597,7 @@
     <div class="card hidden" id="status-card">
       <div class="card-label" id="card02-label">// 02 — System-Log</div>
       <div id="log"></div>
+      <div style="margin-top:10px;"><button class="btn" style="margin-left:0;" id="btn-log-save" onclick="saveLog()">⬇ Log speichern (intern)</button></div>
     </div>
 
     <div class="card hidden" id="results-card">
@@ -806,6 +819,13 @@
         bugBody: (broker, desc) =>
           'Version: BTC Steuertool ' + (DESK ? 'Desktop' : DROID ? 'Android' : 'Web') + '\n' +
           'Broker / Dateityp: ' + broker + '\n\nBeschreibung:\n' + desc,
+        bugDiagIntro: 'Optional: eine Diagnose ohne Dateinamen, Beträge, Daten, Adressen und Wallet-Namen anhängen. Du siehst sie vor dem Senden vollständig; sie geht mit in die Mail oder lässt sich als Datei speichern.',
+        bugDiagCreate: 'Diagnose erstellen',
+        bugDiagRefresh: 'Diagnose neu erstellen',
+        bugDiagSave: '⬇ Diagnose speichern',
+        bugDiagRemove: 'Entfernen',
+        btnLogSave: '⬇ Log speichern (intern)',
+        logFileHead: '!! INTERN — enthält Dateinamen (Wallet-Namen) und Beträge. Nur für dich, nicht weitergeben. Für einen Bug-Report die Diagnose verwenden („Bug melden“). !!',
       },
       en: {
         docTitle: 'BTC Steuertool — Bitcoin Tax Report in Your Browser',
@@ -942,6 +962,13 @@
         bugBody: (broker, desc) =>
           'Version: BTC Steuertool ' + (DESK ? 'Desktop' : DROID ? 'Android' : 'Web') + '\n' +
           'Broker / file type: ' + broker + '\n\nDescription:\n' + desc,
+        bugDiagIntro: 'Optional: attach a diagnosis without file names, amounts, dates, addresses or wallet names. You see all of it before sending; it goes into the email or can be saved as a file.',
+        bugDiagCreate: 'Create diagnosis',
+        bugDiagRefresh: 'Recreate diagnosis',
+        bugDiagSave: '⬇ Save diagnosis',
+        bugDiagRemove: 'Remove',
+        btnLogSave: '⬇ Save log (internal)',
+        logFileHead: '!! INTERNAL — contains file names (wallet names) and amounts. For you only, do not share. For a bug report use the diagnosis ("Report a bug"). !!',
       },
     };
 
@@ -1002,6 +1029,11 @@
       setText('bug-send', t.bugSend);
       setText('bug-cancel', t.bugCancel);
       setText('bug-link', t.bugLink);
+      setText('bug-diag-intro', t.bugDiagIntro);
+      setText('bug-diag-create', diagText ? t.bugDiagRefresh : t.bugDiagCreate);
+      setText('bug-diag-save', t.bugDiagSave);
+      setText('bug-diag-remove', t.bugDiagRemove);
+      setText('btn-log-save', t.btnLogSave);
       document.getElementById('bug-broker').placeholder = t.bugPhBroker;
       if (document.getElementById('bug-menu').childElementCount) renderBugMenu(bugPicked());
       document.getElementById('bug-desc').placeholder = t.bugPhDesc;
@@ -1127,6 +1159,9 @@
     // Dateiliste oder Einstufung erhöht inputVersion und verwirft gezeigte Ergebnisse — ein Ergebnis, dessen
     // Eingaben sich während des Laufs geändert haben, wird nie angezeigt oder gespeichert.
     let running = false, runSeq = 0, inputVersion = 0;
+    // Rohangaben der letzten Berechnung für die Diagnose (geschwärzt wird erst in Python)
+    let lastDiag = { ran: false, error: null, warnings: [] };
+    let diagText = '';
     // Bis 10/2026 lagen abgerufene Wechselkurse (= Kaufdaten des Nutzers) im localStorage.
     // Kurse sind jetzt gebündelt — den Altbestand einmal wegräumen, nichts mehr speichern.
     try { localStorage.removeItem('btc-steuertool-fx'); } catch (e) {}
@@ -1149,6 +1184,8 @@
       'src/parsers/transfer_zuordnung.py', 'src/parsers/sammelimport.py',
       'src/parsers/wallet_export.py', 'src/parsers/wallet_sparrow.py', 'src/parsers/wallet_electrum.py',
       'src/parsers/wallet_trezor.py', 'src/parsers/wallet_ledger.py',
+      // Diagnose für Bug-Reports (Schwärzung an einer Stelle, in Python)
+      'src/diagnose.py',
     ];
     const DEMO_FILES = [
       'examples/bitbox/wallet1.csv', 'examples/bitbox/nokyc/nokyc_wallet.csv',
@@ -1212,6 +1249,10 @@ json.dumps({
     # die eigentlich nuetzliche Angabe (redigiert wird nur Richtung Finanzamt)
     "warnings": [getattr(w, "full", None) or str(w)
                  for w in (list(_parsers.parser_warnings) + list(engine.warnings))],
+    # Für die Diagnose (Bug-Report): nur offizielle Warnungen in der redigierten Fassung —
+    # src/diagnose.py schwärzt danach noch Beträge, Daten und IDs
+    "warnings_public": [str(w) for w in (list(_parsers.parser_warnings) + list(engine.warnings))
+                        if not getattr(w, "internal", True)],
 })
 `;
 
@@ -1267,7 +1308,7 @@ json.dumps({
     }
     // Eine Berechnung im Worker ausführen (immer nur eine — btn-run ist währenddessen gesperrt, `running`).
     // Jede Anfrage trägt eine Lauf-ID; angenommen wird nur die Antwort mit derselben ID — nie das Ergebnis eines anderen Laufs.
-    function runInWorker(payload) {
+    function runInWorker(payload, cmd = 'run') {
       const id = ++runSeq;
       return new Promise((resolve, reject) => {
         const onMsg = (e) => {
@@ -1279,7 +1320,7 @@ json.dumps({
         function cleanup() { worker.removeEventListener('message', onMsg); worker.removeEventListener('error', onErr); }
         worker.addEventListener('message', onMsg);
         worker.addEventListener('error', onErr);
-        worker.postMessage({ cmd: 'run', id, payload });
+        worker.postMessage({ cmd, id, payload });
       });
     }
     // Gezeigte Ergebnisse verwerfen (SA2-15 + Audit run-1 Fund 1): nach jeder Änderung an Dateiliste oder Einstufung
@@ -1638,6 +1679,7 @@ json.dumps({
 
         lastReports = result.reports;
         lastInternal = result.internal_reports || [];
+        lastDiag = { ran: true, error: null, warnings: result.warnings_public || [] };
         renderResults(result.years, result.reports);
 
         window.__GUI_RESULT = result;   // Test-Hook
@@ -1657,6 +1699,7 @@ json.dumps({
         // Laufs nicht aussagekräftig (er kann aus der halb übernommenen Änderung
         // stammen, z.B. der KYC/noKYC-Sperre) — der Hinweis „erneut berechnen“ gilt
         const msg = changed ? i18n[currentLang].errInputsChanged : String(err.message || err);
+        lastDiag = { ran: true, error: changed ? null : msg, warnings: [] };
         log(i18n[currentLang].errPrefix + msg, 'err');
         console.error(err);
         window.__GUI_RESULT = null;
@@ -1897,11 +1940,72 @@ json.dumps({
       toggleBugMenu(false);
       document.getElementById('bug-broker').value = '';
       document.getElementById('bug-desc').value = '';
+      removeDiagnose();
       document.getElementById('bug-sent').classList.add('hidden');
       setText0('bug-cancel', i18n[currentLang].bugCancel);
       document.getElementById('bug-overlay').classList.remove('hidden');
     }
     function setText0(id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt; }
+    /* ───────────────────────── Diagnose + Log speichern (v1.4) ───────────────────────── */
+    // Diagnose: die GUI liefert nur Rohangaben (Typ, Zeilen, Größe, erste Zeile nicht erkannter Dateien,
+    // letzte Meldung); geschwärzt wird in Python (src/diagnose.py). noKYC-fähige Typen werden nur gezählt.
+    async function createDiagnose() {
+      const t = i18n[currentLang];
+      const btn = document.getElementById('bug-diag-create');
+      btn.disabled = true;
+      try {
+        const info = {
+          platform: DESK ? 'Desktop' : DROID ? 'Android' : 'Web',
+          lang: currentLang,
+          files: files.map(f => {
+            const text = new TextDecoder('utf-8').decode(f.bytes.slice(0, 2_000_000));
+            return {
+              label: typeLabel(f.type),
+              lines: (text.match(/\n/g) || []).length + (text && !text.endsWith('\n') ? 1 : 0),
+              kb: f.bytes.length / 1024,
+              hidden: !!(TYPES[f.type] && TYPES[f.type].nokyc),
+              header: BLOCKING_TYPES.includes(f.type) ? text.split(/\r?\n/)[0].slice(0, 400) : '',
+            };
+          }),
+          error: lastDiag.error,
+          ran: lastDiag.ran,
+          warnings: lastDiag.warnings,
+          names: files.flatMap(f => [f.name, baseName(f.name)]),
+        };
+        await ensureWorker();
+        const result = await runInWorker({ srcFiles: SRC_FILES, info }, 'diagnose');
+        diagText = result.text;
+        const ta = document.getElementById('bug-diag');
+        ta.value = diagText;
+        ta.classList.remove('hidden');
+        document.getElementById('bug-diag-save').classList.remove('hidden');
+        document.getElementById('bug-diag-remove').classList.remove('hidden');
+        btn.textContent = t.bugDiagRefresh;
+      } catch (err) {
+        log('✗ ' + t.bugDiagCreate + ': ' + ((err && err.message) || err), 'err');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+    function saveDiagnose() {
+      if (diagText) downloadFile('steuertool-diagnose.txt', diagText);
+    }
+    function removeDiagnose() {
+      diagText = '';
+      const ta = document.getElementById('bug-diag');
+      ta.value = '';
+      ta.classList.add('hidden');
+      document.getElementById('bug-diag-save').classList.add('hidden');
+      document.getElementById('bug-diag-remove').classList.add('hidden');
+      setText0('bug-diag-create', i18n[currentLang].bugDiagCreate);
+    }
+    // Volles Log nur für den Nutzer selbst: enthält Dateinamen (Wallet-Namen) und Beträge — klar gekennzeichnet,
+    // nie zum Senden angeboten
+    function saveLog() {
+      const t = i18n[currentLang];
+      downloadFile('steuertool-log-INTERN.txt', t.logFileHead + '\n\n' + logEl.innerText + '\n');
+    }
+
     function closeBugReport() {
       toggleBugMenu(false);
       document.getElementById('bug-overlay').classList.add('hidden');
@@ -1925,7 +2029,7 @@ json.dumps({
       const broker = parts.join(', ') || '—';
       const desc = document.getElementById('bug-desc').value.trim() || '—';
       // Bewusst keine Dateinamen im Report (können privat sein)
-      const bodyText = t.bugBody(broker, desc);
+      const bodyText = t.bugBody(broker, desc) + (diagText ? '\n\n' + diagText : '');
       // mailto bleibt unter der Grenze der Hüllen (MAIL_MAX 8000 Zeichen KODIERT); der volle Text steht unten zum Kopieren.
       // Gekürzt wird nach kodierter Länge und an Codepoint-Grenzen — sonst sprengen Umlaute/CJK die Grenze (die Hülle
       // verwirft still) oder ein halbes Surrogat-Paar lässt encodeURIComponent werfen.

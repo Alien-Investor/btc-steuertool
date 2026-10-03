@@ -4,6 +4,10 @@ Das CLI und die Web-Version haben keine eigenen Versionen; sie laufen immer auf 
 Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die denselben Rechenkern enthalten.
 
 ## Unveröffentlicht (main)
+- **Diagnose für Bug-Reports (neu):** Im Dialog „Bug melden“ lässt sich eine Diagnose erstellen, die erkannte Dateitypen, Zeilenzahl, die
+  erste Zeile nicht erkannter Dateien und die Meldungen der letzten Berechnung enthält, aber keine Dateinamen, Beträge, Daten, Adressen
+  oder Wallet-Namen; Dateien, die noKYC sein können, werden nur gezählt. Vor dem Senden vollständig sichtbar, geht mit in die Mail oder
+  wird als Datei gespeichert. **„Log speichern“** sichert das volle Log für dich selbst (als intern gekennzeichnet, nicht zum Weitergeben).
 - **Wallet-Exporte Sparrow, Electrum, Trezor Suite, Ledger Wallet/Ledger Live (neu, unbestätigt):** Transaktions-CSVs dieser Programme werden gelesen
   (das Tool erkennt das Programm an der Kopfzeile, auch ältere Exportformate). Jede Wallet ist ein eigener Bestand, bei Ledger jedes
   Konto; Überträge werden über die Transaktions-ID mit Börsen und anderen Wallets verbunden. In den Finanzamt-Dokumenten heißen sie nur

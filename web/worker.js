@@ -17,6 +17,17 @@ function writeFS(fullPath, bytes) {
   pyodide.FS.writeFile(fullPath, bytes);
 }
 
+// Quellcode (unverändert aus dem Open-Source-Repo) einmalig ins Worker-FS holen
+async function loadSrc(srcFiles) {
+  if (srcLoaded) return;
+  for (const p of srcFiles) {
+    const resp = await fetch(BASE + p);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status} für ${p}`);
+    writeFS('/work/' + p, new Uint8Array(await resp.arrayBuffer()));
+  }
+  srcLoaded = true;
+}
+
 async function init() {
   pyodide = await loadPyodide({ indexURL: BASE + 'vendor/pyodide/' });
   // tzdata: Zeitzonen-Datenbank für Europe/Berlin im Steuernachweis. pandas wird seit 10/2026
@@ -36,16 +47,7 @@ self.onmessage = async (e) => {
     }
     if (msg.cmd === 'run') {
       const { srcFiles, bootstrap, fxCache, dataFiles } = msg.payload;
-
-      // Quellcode (unverändert aus dem Open-Source-Repo) einmalig ins Worker-FS holen
-      if (!srcLoaded) {
-        for (const p of srcFiles) {
-          const resp = await fetch(BASE + p);
-          if (!resp.ok) throw new Error(`HTTP ${resp.status} für ${p}`);
-          writeFS('/work/' + p, new Uint8Array(await resp.arrayBuffer()));
-        }
-        srcLoaded = true;
-      }
+      await loadSrc(srcFiles);
 
       // Datenverzeichnis frisch aufsetzen. Kein ignore_errors mehr (H7): scheiterte
       // das Löschen teilweise, blieben Dateien des vorherigen Laufs liegen, und
@@ -62,6 +64,20 @@ self.onmessage = async (e) => {
 
       const result = JSON.parse(pyodide.runPython(bootstrap));
       self.postMessage({ type: 'result', id: msg.id, result });   // Lauf-ID zurück: die GUI nimmt nur die passende Antwort an
+      return;
+    }
+    if (msg.cmd === 'diagnose') {
+      // Diagnose für den Bug-Report: Schwärzung in Python (src/diagnose.py), Eingabe nur als JSON-Daten
+      // über globals — nie in den Code-String eingesetzt
+      await loadSrc(msg.payload.srcFiles);
+      pyodide.globals.set('diag_info', JSON.stringify(msg.payload.info));
+      const text = pyodide.runPython(
+        'import sys, json\n' +
+        'if "/work" not in sys.path: sys.path.insert(0, "/work")\n' +
+        'from src.diagnose import build\n' +
+        'build(json.loads(diag_info))\n'
+      );
+      self.postMessage({ type: 'result', id: msg.id, result: { text } });
       return;
     }
   } catch (err) {

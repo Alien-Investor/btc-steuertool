@@ -108,7 +108,9 @@ Regeln:
   WASM-Compile an einen Tap hängen, auf den der Nutzer wartet (Datei-Picker).
 - Kein `accept`-Attribut am File-Input (GrapheneOS-Picker grayt sonst CSVs aus).
 - Nicht erkannte Dateien sperren die Berechnung; `BLOCKING_TYPES` ist die einzige Liste.
-- Bug-Report ohne Dateinamen und ohne URL. Support nur Technik/Format, nie Steuerfragen.
+- Bug-Report ohne Dateinamen und ohne URL. Support nur Technik/Format, nie Steuerfragen. Die optionale Diagnose schwärzt
+  ausschließlich `src/diagnose.py` (Python, eine Stelle; GUI liefert nur Rohangaben, noKYC-fähige Typen nur gezählt);
+  Leck-Tests `tests/test_diagnose.py` + `web/test_audit.py`. „Log speichern“ = volles Log, nur intern.
 - Tests: `python3 -m http.server 8741 --directory web/dist` + `python3 web/test_gui.py`
   (Referenz: CLI `--all --nachweis --csv --data-dir` auf eine examples-Kopie unter
   `/tmp/poc-ref/examples`, Reports müssen byte-gleich sein) + `python3 web/test_lang.py` + `python3 web/test_audit.py`.

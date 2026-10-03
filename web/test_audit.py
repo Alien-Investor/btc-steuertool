@@ -115,6 +115,44 @@ with sync_playwright() as p:
     check("während der Berechnung geändert" not in err, "kein falscher Hinweis „Eingaben geändert“")
     check("Traceback" not in err and "/lib/python" not in err, "kein Python-Traceback")
 
+    print("v1.4: Diagnose für Bug-Reports (geschwärzt) und „Log speichern“")
+    import re as _re
+    # Diagnose nach dem Abbruch oben: die Meldung ist enthalten, Dateiname und Betrag nicht
+    page.click("#bug-link")
+    page.click("#bug-diag-create")
+    page.wait_for_function("document.getElementById('bug-diag').value.length > 0", timeout=120000)
+    diag = page.evaluate("document.getElementById('bug-diag').value")
+    check("negativer Betrag" in diag and "Abbruch" in diag, "Abbruchmeldung in der Diagnose")
+    check("t.csv" not in diag and "0.08" not in diag, "kein Dateiname, kein Betrag")
+    with page.expect_download() as dl:
+        page.click("#bug-diag-save")
+    check(dl.value.suggested_filename == "steuertool-diagnose.txt", "Diagnose speicherbar")
+    page.click("#bug-send")
+    body = page.evaluate("document.getElementById('bug-sent-body').value")
+    check(diag.strip() in body, "Diagnose steht im Mail-Text")
+    page.click("#bug-cancel")
+    # Beispieldaten (mit noKYC-Wallet, Bisq, manual_buys): keine Namen, keine Beträge, kein noKYC
+    page.goto(URL)
+    page.click("#btn-demo")
+    page.wait_for_selector("#file-table:not(.hidden)")
+    page.click("#btn-run")
+    page.wait_for_function("window.__GUI_DONE === true", timeout=180000)
+    page.click("#bug-link")
+    page.click("#bug-diag-create")
+    page.wait_for_function("document.getElementById('bug-diag').value.length > 0", timeout=120000)
+    diag = page.evaluate("document.getElementById('bug-diag').value")
+    check("ohne Abbruch" in diag and "nicht aufgeschlüsselt" in diag, "Diagnose der Beispieldaten erstellt")
+    for bad in ("nokyc", "wallet1", "Bisq", "P2P", "gesamt"):
+        check(bad.lower() not in diag.lower(), f"„{bad}“ nicht in der Diagnose")
+    check(not _re.search(r"\d+[.,]\d{2,}|\b\d{4}-\d{2}-\d{2}\b|\b[0-9a-f]{16,}\b", diag), "keine Beträge, Daten, IDs")
+    page.click("#bug-cancel")
+    with page.expect_download() as dl:
+        page.click("#btn-log-save")
+    path = dl.value.path()
+    content = open(path, encoding="utf-8").read()
+    check(dl.value.suggested_filename == "steuertool-log-INTERN.txt" and content.startswith("!! INTERN"),
+          "Log speichern: Datei als intern gekennzeichnet")
+
     browser.close()
 
 if failures:
