@@ -24,7 +24,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, de_date
-from . import read_rows, parse_amount, parse_iso_datetime, warn_fmt, FileRef, LINE_KEY, _sanitize, wallet_files
+from . import read_rows, parse_amount, parse_iso_datetime, warn_fmt, FileRef, LINE_KEY, _sanitize, ledger_keys
 from .wallet_export import Stats, delta_tx, emit_stats, warn_unconfirmed_format
 
 LABEL = "Ledger Wallet"
@@ -53,17 +53,9 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
     key_col = "Account xpub" if "Account xpub" in header else ("Account id" if "Account id" in header else None)
 
     stats = Stats()
-    # Vorlauf: Konto-Schlüssel je Name, Nummerierung nach dem SCHLÜSSEL sortiert statt nach der
-    # Zeilenfolge — sonst wechselte „Bitcoin 1 (2)“ bei jedem Neuexport das Konto (Audit v1.4)
-    by_name: dict[str, set[str]] = {}
-    for row in rows:
-        if row["Currency Ticker"].upper() == "BTC":
-            n = _sanitize(row["Account Name"]).strip() or "Bitcoin"
-            by_name.setdefault(n, set()).add(_account_key(row, key_col) or n)
-    names: dict[str, str] = {}          # Konto-Schlüssel (xpub) → Wallet-Name
-    for n, keys in by_name.items():
-        for i, k in enumerate(sorted(keys), 1):
-            names[k] = n if i == 1 else f"{n} ({i})"
+    # Gleichnamige Konten („Bitcoin 1“ auf zwei Geräten) unterscheidet der xpub. Die Nummerierung
+    # „Bitcoin 1 (2)“ vergibt der Loader über ALLE Ledger-Dateien gemeinsam (main._number_ledger_accounts);
+    # je Datei vergeben wechselte sie mit der Kontenauswahl des Exports (Audit v1.4, R2-F2).
     groups: dict[tuple[str, str], dict] = {}
     order: list[tuple[str, str]] = []
     unknown: dict[tuple[str, int | None], int] = {}
@@ -87,14 +79,14 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
             unknown[key] = unknown.get(key, 0) + 1
             continue
         name = _sanitize(row["Account Name"]).strip() or "Bitcoin"
-        wallet = names[_account_key(row, key_col) or name]
+        key = _account_key(row, key_col) or name
         if not row["Operation Hash"]:
             raise ValueError(f"{LABEL} {filename} Zeile {line}: Operation Hash fehlt — ohne ihn lassen sich "
                              f"Selbstüberweisungen und Überträge nicht erkennen.")
-        gkey = (wallet, row["Operation Hash"])
+        gkey = (key, row["Operation Hash"].lower())
         g = groups.get(gkey)
         if g is None:
-            g = groups[gkey] = {"date": date, "net": Decimal("0"), "fee": None, "line": line}
+            g = groups[gkey] = {"date": date, "net": Decimal("0"), "fee": None, "line": line, "name": name}
             order.append(gkey)
         amount = parse_amount(row["Operation Amount"], label=LABEL, filename=filename, line=line, field="Operation Amount")
         if amount < 0:
@@ -109,14 +101,13 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
                 raise ValueError(f"{LABEL} {filename} Zeile {line}: negative Gebühr '{row['Operation Fees']}'.")
         g["date"] = min(g["date"], date)
 
-    for key, wallet in names.items():
-        wallet_files.setdefault(f"ledger:{wallet}", []).append((filename, key))
     txs: list[Transaction] = []
-    for wallet, txid in order:
-        g = groups[(wallet, txid)]
-        tx = delta_tx(date=g["date"], delta=g["net"], fee=g["fee"], label="", tx_id=txid.lower(),
-                      source=f"ledger:{wallet}", no_kyc=no_kyc, where=f"{LABEL} {filename} Zeile {g['line']}", stats=stats)
+    for key, txid in order:
+        g = groups[(key, txid)]
+        tx = delta_tx(date=g["date"], delta=g["net"], fee=g["fee"], label="", tx_id=txid,
+                      source=f"ledger:{g['name']}", no_kyc=no_kyc, where=f"{LABEL} {filename} Zeile {g['line']}", stats=stats)
         if tx is not None:
+            ledger_keys[id(tx)] = (g["name"], key)
             txs.append(tx)
 
     for (typ, year), n in sorted(unknown.items(), key=lambda kv: (kv[0][1] or 0, kv[0][0])):
@@ -126,7 +117,7 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
         warn_fmt("{file}: {n} fehlgeschlagene Operation(en) übersprungen.", internal=True,
                  file=FileRef(filename, "ein Ledger-Export"), n=failed)
     emit_stats(stats, label=LABEL, filename=filename, no_kyc=no_kyc)
-    accounts = len({w for w, _ in order})
+    accounts = len({k for k, _ in order})
     warn_unconfirmed_format(
         filename, "Ledger Wallet/Ledger Live", txs, no_kyc=no_kyc,
         extra=f" {accounts} Bitcoin-Konto/-Konten, jedes als eigene Wallet.")

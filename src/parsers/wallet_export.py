@@ -51,6 +51,13 @@ def local_time(value: str, fmt: str, *, label: str, filename: str, line, field: 
     return first
 
 
+def wallet_stem(stem: str) -> str:
+    """Dateiname als Wallet-Name, ohne Steuer- und Bidi-Zeichen (Audit v1.4, R2-N2: brachen sonst
+    Tabellenzeilen in den internen Reports um bzw. drehten die Leserichtung)."""
+    from . import _sanitize
+    return _sanitize(stem).strip() or "wallet"
+
+
 def dst_alternative(date: datetime) -> datetime | None:
     """Andere UTC-Lesart einer als Ortszeit gelesenen Zeit, falls sie in der doppelten Stunde liegt."""
     local = date.astimezone(TZ_DE).replace(tzinfo=None)

@@ -23,7 +23,7 @@ from pathlib import Path
 from ..models import Transaction, sat_to_btc, de_date
 from . import read_rows, parse_amount, LINE_KEY
 from . import dst_candidates
-from .wallet_export import Stats, delta_tx, dst_alternative, emit_stats, local_time, warn_unconfirmed_format
+from .wallet_export import Stats, delta_tx, dst_alternative, emit_stats, local_time, warn_unconfirmed_format, wallet_stem
 
 LABEL = "Electrum"
 
@@ -41,7 +41,7 @@ def matches(header: list[str]) -> bool:
 
 def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
     filename = filepath.name
-    source = f"electrum:{filepath.stem}"
+    source = f"electrum:{wallet_stem(filepath.stem)}"
     rows, header = read_rows(filepath, label=LABEL)
     if not matches(header):
         raise ValueError(f"{LABEL} {filename}: Kopfzeile ist kein Electrum-Export. Gelesen: {', '.join(header[:10])}")
@@ -57,7 +57,8 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
     prev = None
     for row in rows:
         line = row[LINE_KEY]
-        if not row["timestamp"] or row.get("confirmations") == "0":
+        conf = row.get("confirmations", "1")
+        if not row["timestamp"] or conf in ("", "0") or conf.startswith("-"):     # -1: lokal, nie gesendet
             stats.add("unconfirmed", None)
             continue
         date = prev = local_time(row["timestamp"], "%Y-%m-%d %H:%M:%S" if row["timestamp"].count(":") == 2 else "%Y-%m-%d %H:%M",
@@ -77,6 +78,10 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
         tx_id = row[txid_col]
         if set(tx_id) == {"-"}:
             tx_id = ""      # Gruppe ohne eigene Transaktion („----“)
+        elif not tx_id:
+            raise ValueError(f"{LABEL} {filename} Zeile {line}: Transaktions-Hash fehlt bei einem On-Chain-Betrag.")
+        if fee is not None and fee < 0:
+            raise ValueError(f"{LABEL} {filename} Zeile {line}: negative Gebühr '{row[fee_col]}'.")
         tx = delta_tx(date=date, delta=delta, fee=fee, label=row["label"], tx_id=tx_id, source=source,
                       no_kyc=no_kyc, where=f"{LABEL} {filename} Zeile {line}", stats=stats)
         if tx is not None:

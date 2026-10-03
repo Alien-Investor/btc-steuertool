@@ -18,7 +18,7 @@ from src.fifo_engine import FifoEngine
 from src.tax_report import TaxReport
 from src.formal_report import generate_tax_free_proof
 import src.wallet_report as wallet_report
-from src.models import TxType, de_date, ANY_WALLET, own_wallet, wallet_name
+from src.models import TxType, de_date, ANY_WALLET, own_wallet, wallet_name, wallet_label
 import src.fx_rates as fx_rates
 
 
@@ -34,7 +34,7 @@ def is_internal_report(name: str) -> bool:
     return not name.startswith(OFFICIAL_REPORT_PREFIXES)
 
 
-def report_years(transactions) -> list[int]:
+def report_years(transactions, official: bool = False) -> list[int]:
     """Steuerjahre, für die ein Report erzeugt wird (deutsches Kalenderdatum).
 
     Ein Jahr zählt, sobald darin ein Kauf, ein Verkauf, eine unentgeltliche
@@ -42,10 +42,16 @@ def report_years(transactions) -> list[int]:
     (kleine) Veräußerung, ein Jahr nur mit Wallet-Transfers ist es nicht mehr
     zwingend ohne steuerbaren Vorgang. Die GUI ruft dieselbe Funktion auf und
     leitet die Jahresliste nicht selbst her (Prinzip aus H5).
+
+    `official=True`: nur Jahre mit KYC-Vorgängen — nur sie bekommen Steuerreport, Nachweis und
+    CSV. Ein Jahr allein mit noKYC-Vorgängen erzeugte sonst ein leeres offizielles Dokument, das
+    schon durch seine Existenz noKYC-Aktivität verriet (Audit v1.4, R2-B6; mit den Wallet-Parsern
+    trägt jeder Abgang eine Gebühr, der Fall wurde häufig). Solche Jahre bekommen nur die internen Dateien.
     """
     return sorted(set(
         de_date(t.date).year for t in transactions
-        if t.type in (TxType.BUY, TxType.SELL, TxType.GIFT_OUT) or t.fee_btc > 0
+        if (t.type in (TxType.BUY, TxType.SELL, TxType.GIFT_OUT) or t.fee_btc > 0)
+        and not (official and t.no_kyc)
     ))
 
 
@@ -88,6 +94,8 @@ def _find_dir(parent: Path, name: str) -> Path | None:
 
 
 def _dedup_files(per_file: list[tuple[str, list]], label: str, internal: bool = False, by_source: bool = False) -> list:
+    # Klasse immer im Schlüssel (Audit v1.4, R2): ein noKYC-Duplikat verdrängte sonst einen
+    # KYC-Kauf aus dem offiziellen Report (Sammelimport mit KYC- und noKYC-Datei)
     """Erkennt identische Transaktionen über mehrere Export-Dateien desselben
     Brokers (überlappende Exporte, z.B. Jahres- + Gesamtexport) und zählt sie
     nur einmal. Innerhalb EINER Datei wird nicht dedupliziert — dort sind
@@ -96,16 +104,18 @@ def _dedup_files(per_file: list[tuple[str, list]], label: str, internal: bool = 
     result = []
     for fname, txs in per_file:
         dropped = 0
+        dropped_nokyc = False
         file_keys = []
         for tx in txs:
             # Mengen numerisch vergleichen: 0.01 und 0.01000000 sind dieselbe Transaktion
-            key = (tx.tx_id, tx.date, tx.type, str(tx.btc_amount.normalize()), str(tx.eur_amount.normalize()))
+            key = (tx.tx_id, tx.date, tx.type, str(tx.btc_amount.normalize()), str(tx.eur_amount.normalize()), tx.no_kyc)
             if by_source:
                 # Wallet-Exporte (Audit v1.4): eine Batch-TX mit gleichen Beträgen an zwei eigene
                 # Wallets ist kein überlappender Export — nur innerhalb derselben Wallet abgleichen
                 key += (tx.source,)
             if key in seen:
                 dropped += 1
+                dropped_nokyc = dropped_nokyc or tx.no_kyc
             else:
                 result.append(tx)
             file_keys.append(key)
@@ -118,7 +128,7 @@ def _dedup_files(per_file: list[tuple[str, list]], label: str, internal: bool = 
                 "{label}: {n} Transaktion(en) aus {file} übersprungen — "
                 "identisch mit einer bereits geladenen Datei (überlappende Exporte?). "
                 "Bitte pro Broker nur einen lückenlosen Export verwenden.",
-                internal=internal, label=label, n=dropped,
+                internal=internal or dropped_nokyc, label=label, n=dropped,
                 file=parsers.FileRef(fname, "einer weiteren Datei desselben Brokers"),
             )
     return result
@@ -223,8 +233,9 @@ def _warn_double_loaded_wallets(sammel_txs: list, all_txs: list) -> None:
     # Nur innerhalb derselben Klasse vergleichen (Audit v1.4, B3): eine KYC-Warnung, die auf
     # eine noKYC-Quelle zeigt, verriete deren Existenz im offiziellen Dokument
     others: dict[tuple[str, TxType, bool], str] = {}
+    sammel_sources = {s.source for s in sammel_txs}     # einmal bilden (Audit v1.4: war quadratisch)
     for t in all_txs:
-        if t.tx_id and t.source not in {s.source for s in sammel_txs}:
+        if t.tx_id and t.source not in sammel_sources:
             others.setdefault((t.tx_id.lower(), t.type, t.no_kyc), t.source)
     seen: set[tuple[str, str]] = set()
     for t in sammel_txs:
@@ -268,29 +279,96 @@ def _resolve_dst(transactions) -> None:
         prev[t.source] = t.date if p is None else max(p, t.date)
 
 
-def _check_wallet_identity(transactions) -> None:
-    """Gleich benannte Konten aus verschiedenen Dateien (Audit v1.4, Robustheit B1).
+def _number_ledger_accounts(txs) -> None:
+    """Ledger-Konten über ALLE Dateien gemeinsam benennen (Audit v1.4, R2-F2/F3, N4).
 
-    Ledger: derselbe Kontoname mit verschiedenem xpub = zwei Geräte mit Standardnamen („Bitcoin 1“)
-    → harter Abbruch, sie liefen sonst in einem gemeinsamen FiFo-Topf. Trezor hat keinen xpub in
-    der Datei: zwei Dateien mit gleichem Namen (nach Abstreifen des Exportzeitpunkts) sind entweder
-    zwei Exporte desselben Kontos oder zwei Geräte → Hinweis, entscheiden kann nur der Nutzer."""
-    no_kyc = {t.source: t.no_kyc for t in transactions}
-    for source, entries in sorted(parsers.wallet_files.items()):
-        keys = {k for _, k in entries if k}
-        if source.startswith("ledger:") and len(keys) > 1:
+    Gleichnamige Konten mit verschiedenem xpub („Bitcoin 1“ auf zwei Geräten) werden nach xpub
+    sortiert durchnummeriert: „Bitcoin 1“, „Bitcoin 1 (2)“ — gleich in jeder Datei, egal welche
+    Konten ein Export enthält. Derselbe xpub unter zwei Namen = Konto umbenannt und der alte Export
+    liegt noch dabei → Abbruch, der Bestand zählte sonst doppelt."""
+    keyed = [(t, parsers.ledger_keys[id(t)]) for t in txs if id(t) in parsers.ledger_keys]
+    if not keyed:
+        return
+    names_of: dict[str, set[str]] = {}
+    keys_of: dict[str, set[str]] = {}
+    for _, (name, key) in keyed:
+        names_of.setdefault(key, set()).add(name)
+        keys_of.setdefault(name, set()).add(key)
+    renamed = sorted(n for k, ns in names_of.items() if len(ns) > 1 for n in ns)
+    if renamed:
+        raise ValueError(
+            f"Ledger: dasselbe Konto (xpub) steht unter mehreren Namen in den Exporten: {', '.join(renamed)}. "
+            f"Vermutlich umbenannt — bitte nur den aktuellen Export verwenden, sonst zählt der Bestand doppelt. "
+            f"Berechnung abgebrochen."
+        )
+    taken = set(keys_of)
+    final: dict[str, str] = {}
+    for name in sorted(keys_of):
+        for i, key in enumerate(sorted(keys_of[name]), 1):
+            label, n = name, i
+            while i > 1 and (label == name or label in taken):
+                label = f"{name} ({n})"
+                n += 1
+            taken.add(label)
+            final[key] = label
+    for t, (_, key) in keyed:
+        t.source = t.wallet = f"ledger:{final[key]}"
+
+
+def _check_same_wallet_twice(txs) -> None:
+    """Dieselbe Wallet unter zwei Dateinamen (Jahres- und Gesamtexport, dieselbe Seed in Sparrow
+    UND Electrum, eine Datei zweimal im ZIP): der Dedup arbeitet je Wallet, also zählte der Bestand
+    doppelt (Audit v1.4, R2-F3/M1).
+
+    - Gleicher Abgang (TX-ID, Betrag, Gebühr) in zwei Wallets derselben Klasse → Abbruch: eine
+      Ausgabe gehört genau einer Wallet.
+    - Nur gleiche Eingänge, und die kleinere Wallet steckt vollständig in der anderen → Hinweis:
+      eine reine Empfangs-Wallet, zweimal exportiert, sieht genauso aus wie wiederholte Batch-
+      Auszahlungen mit gleichen Beträgen an zwei eigene Wallets (Zufallstest fuzz3)."""
+    keys_of: dict[str, set] = {}
+    out_of: dict[tuple, set[str]] = {}
+    nokyc: dict[str, bool] = {}
+    for t in txs:
+        if not t.tx_id or t.type not in (TxType.TRANSFER_IN, TxType.TRANSFER_OUT, TxType.GIFT_OUT):
+            continue
+        key = (t.no_kyc, t.tx_id.lower(), t.type, t.btc_amount.normalize(), t.fee_btc.normalize())
+        keys_of.setdefault(t.source, set()).add(key)
+        nokyc[t.source] = t.no_kyc
+        if t.type != TxType.TRANSFER_IN:
+            out_of.setdefault(key, set()).add(t.source)
+    for key, sources in sorted(out_of.items(), key=lambda kv: str(kv[0])):
+        if len(sources) > 1:
+            a, b = sorted(sources)[:2]
             raise ValueError(
-                f"Ledger: das Konto '{wallet_name(source)}' kommt in {len({f for f, _ in entries})} Dateien mit "
-                f"verschiedenen Konten (xpub) vor — vermutlich zwei Geräte mit demselben Standardnamen. Bitte die "
-                f"Konten in Ledger Wallet unterschiedlich benennen und neu exportieren. Berechnung abgebrochen."
+                f"Die Wallet-Exporte '{wallet_label(a)}' und '{wallet_label(b)}' enthalten denselben Abgang — "
+                f"vermutlich dieselbe Wallet doppelt geladen (Jahres- und Gesamtexport, umbenannte Datei, dieselbe "
+                f"Wallet aus zwei Programmen oder eine Datei zweimal). Bitte nur einen lückenlosen Export je Wallet "
+                f"verwenden, sonst zählt der Bestand doppelt. Berechnung abgebrochen."
             )
+    sources = sorted(keys_of)
+    for i, a in enumerate(sources):
+        for b in sources[i + 1:]:
+            small, big = sorted((keys_of[a], keys_of[b]), key=len)
+            if len(small) >= 2 and small <= big:
+                parsers.warn_fmt(
+                    "{a} und {b} enthalten dieselben Eingänge ({n}) — dieselbe Wallet doppelt geladen (Jahres- und "
+                    "Gesamtexport, umbenannte Datei)? Dann eine Datei entfernen, sonst zählt der Bestand doppelt. "
+                    "Bei Sammelauszahlungen mit gleichen Beträgen an zwei eigene Wallets ist der Hinweis gegenstandslos.",
+                    internal=nokyc[a], n=len(small), a=wallet_label(a), b=wallet_label(b),
+                )
+
+
+def _check_wallet_identity(transactions) -> None:
+    """Trezor hat keinen xpub in der Datei: zwei Dateien mit gleichem Namen (nach Abstreifen des
+    Exportzeitpunkts) sind zwei Exporte desselben Kontos oder zwei Geräte → Hinweis (Audit v1.4)."""
+    for source, entries in sorted(parsers.wallet_files.items()):
         files = sorted({f for f, _ in entries})
         if source.startswith("trezor:") and len(files) > 1:
             parsers.warn_fmt(
                 "Trezor: {n} Dateien ergeben dieselbe Wallet{wallet} (Name ohne Exportzeitpunkt). Gehören sie zu "
                 "verschiedenen Konten oder Geräten, die Dateien unterschiedlich benennen — sonst rechnet das Tool "
                 "sie als einen Bestand.",
-                internal=no_kyc.get(source, False), n=len(files),
+                internal=any(nk for _, nk in entries), n=len(files),
                 wallet=parsers.FileRef(f" „{wallet_name(source)}“", ""),
             )
 
@@ -331,20 +409,29 @@ def load_all_transactions(data_dir: Path):
     wallets_dir = data_dir / "wallets"
     wallets_nokyc = _find_dir(wallets_dir, "nokyc")
     loaded_wallets: set[Path] = set()
+    parsed: list[tuple[bool, list]] = []
     for folder, internal in ((wallets_dir, False), (wallets_nokyc, True)):
-        if folder is None or not folder.exists():
+        if folder is None or not folder.is_dir():
             continue
         per_file = []
         for csv_file in _find(folder, "*.csv"):
+            if csv_file.name.startswith("."):
+                continue    # ._cold.csv (macOS), versteckte Dateien: nie ein Export (wie bei bitbox/)
             txs = _parse_file("Wallet-Export", wallet_export, csv_file, internal=internal)
             per_file.append((csv_file.name, txs))
             loaded_wallets.add(csv_file)
             kinds = sorted({t.source.split(":", 1)[0] for t in txs})
             print(f"  Wallet {'noKYC ' if internal else ''}{csv_file.stem} ({', '.join(kinds) or '–'}): "
                   f"{len(txs)} Transaktionen{_bitbox_extras(txs)}")
-        transactions.extend(_dedup_files(per_file, "Wallet-Export noKYC" if internal else "Wallet-Export",
-                                         internal=internal, by_source=True))
-    _check_wallet_identity(transactions)
+        parsed.append((internal, per_file))
+    # Ledger-Namen erst nach allen Dateien vergeben (über beide Ordner), dann je Wallet abgleichen
+    _number_ledger_accounts([t for _, per_file in parsed for _, txs in per_file for t in txs])
+    wallet_txs: list = []
+    for internal, per_file in parsed:
+        wallet_txs.extend(_dedup_files(per_file, "Wallet-Export noKYC" if internal else "Wallet-Export",
+                                       internal=internal, by_source=True))
+    _check_same_wallet_twice(wallet_txs)
+    transactions.extend(wallet_txs)
 
     broker_dir = data_dir / "Broker"
 
@@ -428,15 +515,20 @@ def load_all_transactions(data_dir: Path):
     # Eigene Wallet mit gleichem Namen in KYC UND noKYC (Audit v1.4, B1): die Übertrags-
     # Zuordnung hielte sie für dieselbe Wallet, ein Übertrag noKYC → KYC würde nicht als
     # Kreuzfall erkannt und stünde mit Datum und Betrag im Nachweis. Harter Abbruch.
+    # Gilt für alle Quellen außer „manual“ (manual_buys trägt beide Klassen): auch Sammelimport-
+    # Konten gleichen Namens in KYC- und noKYC-Datei galten sonst als eine Wallet (Audit v1.4, R2-B3)
     _classes: dict[str, set[bool]] = {}
     for t in transactions:
-        if own_wallet(t.source):
+        if t.source != "manual":
             _classes.setdefault(t.source, set()).add(t.no_kyc)
     _both = sorted(w for w, c in _classes.items() if len(c) == 2)
+    if not _both:
+        _check_wallet_identity(transactions)    # erst nach der Klassenprüfung (deren Meldung ist die genauere)
     if _both:
         raise ValueError(
             f"Wallet-Name kommt im KYC- und im noKYC-Bestand vor: {', '.join(wallet_name(w) for w in _both)}. "
-            f"Bitte eine der beiden Dateien umbenennen (bei Ledger das Konto in Ledger Wallet) — "
+            f"Bitte eine der beiden Dateien umbenennen (bei Ledger das Konto in Ledger Wallet, beim Sammelimport "
+            f"das Konto) — "
             f"sonst lassen sich die Bestände nicht sicher trennen. Berechnung abgebrochen."
         )
 
@@ -557,8 +649,10 @@ def main():
             print("Keine steuerlich relevanten Vorgänge — kein Report erzeugt.")
             for w in parsers.parser_warnings:
                 print(f"  ⚠ {w.full}")
+        official_years = set(report_years(transactions, official=True))
         for year in years:
-            _generate_report(transactions, engine, year, args.csv, args.nachweis, reports_dir)
+            _generate_report(transactions, engine, year, args.csv, args.nachweis, reports_dir,
+                             official=year in official_years)
     else:
         _generate_report(transactions, engine, args.year, args.csv, args.nachweis, reports_dir)
 
@@ -593,7 +687,7 @@ def _lots_at_year_end(transactions, engine, year):
     return engine.lots_at_year_end(year)
 
 
-def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir):
+def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir, official: bool = True):
     # Parser-Warnungen (still verworfene Zeilen wären falsche Reports!) + Engine-Warnungen
     all_warnings = list(parsers.parser_warnings) + list(engine.warnings)
 
@@ -643,17 +737,19 @@ def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir
     )
 
     text = report.print_report()
-    print(text)
+    if official:
+        print(text)
 
     year_label = str(year) if year else "gesamt"
     reports_dir.mkdir(parents=True, exist_ok=True)
 
-    # Text-Report speichern
-    txt_path = reports_dir / f"steuerreport_{year_label}.txt"
-    txt_path.write_text(text, encoding="utf-8")
-    print(f"\n  Report gespeichert: {txt_path}")
+    # Text-Report speichern — nur in Jahren mit KYC-Vorgängen (report_years(official=True))
+    if official:
+        txt_path = reports_dir / f"steuerreport_{year_label}.txt"
+        txt_path.write_text(text, encoding="utf-8")
+        print(f"\n  Report gespeichert: {txt_path}")
 
-    if save_csv:
+    if save_csv and official:
         saved = report.save_csv(reports_dir)
         for p in saved:
             print(f"  CSV gespeichert:    {p}")
@@ -673,7 +769,7 @@ def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir
             wallet_report.internal_report(engine, comparison, transactions, year), encoding="utf-8")
         print(f"  Wallet-Abgleich:    {abgleich_path}  ← NUR INTERN, nicht für Finanzamt")
 
-    if nachweis and year:
+    if nachweis and year and official:
         nachweis_path = reports_dir / f"steuernachweis_{year}.txt"
         generate_tax_free_proof(
             all_transactions=transactions,
@@ -691,4 +787,9 @@ def _generate_report(transactions, engine, year, save_csv, nachweis, reports_dir
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except ValueError as e:
+        # Gewollte Abbrüche (Format, KYC/noKYC-Sperre …) als Meldung, nicht als Traceback (Audit v1.4, R2-N3)
+        print(f"\nFEHLER: {e}", file=sys.stderr)
+        sys.exit(2)

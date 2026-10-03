@@ -265,7 +265,9 @@ def match_transfers(transactions: list[Transaction], manual_rows=()) -> MatchRes
     def window(g):
         """Noch offene Eingänge/Direktverkäufe im weitesten Zeitfenster um g."""
         lo = bisect_left(taker_dates, g.date - WINDOW)
-        hi = bisect_right(taker_dates, g.date + DELIVERY_AFTER)
+        # Lieferfrist nur für Direktkäufe; Überträge und Verkäufe liegen in ±WINDOW (Laufzeit,
+        # Audit v1.4: das 30-Tage-Fenster für jeden Abgang machte große Exporte quadratisch langsam)
+        hi = bisect_right(taker_dates, g.date + (DELIVERY_AFTER if g.type == TxType.BUY else WINDOW))
         return [t for t in takers[lo:hi] if id(t) not in taken]
 
     # ── Stufe 1b: Käufe mit ausdrücklicher Wallet (manual_buys, Spalte wallet) ──
@@ -400,27 +402,41 @@ def match_transfers(transactions: list[Transaction], manual_rows=()) -> MatchRes
     # der KYC-Wallet stünde dort mit Datum und genauem Betrag als „nicht
     # eingelesen“ (Datenschutz-Audit Fund 1). Deshalb harter Abbruch mit
     # Anleitung — der Bestand lässt sich so nicht vorzeigbar dokumentieren.
+    # (1) Gleiche On-Chain-TX-ID ist ein sicherer Kreuzfall — für JEDEN noKYC-Abgang (auch Schenkung,
+    # reine Gebühr, schon teilweise verbunden), unabhängig von Betrag und Wallet-Name. Audit v1.4:
+    # eine Batch-TX mit einem Output in eine zweite noKYC-Wallet (Stufe 1 verbunden) und einem in
+    # die KYC-Wallet umging die Prüfung, ebenso GIFT_OUT und Abgänge mit unbekannter Gebühr.
+    kyc_in = {}
+    for t in takers:
+        if not t.no_kyc and t.type == TxType.TRANSFER_IN and t.tx_id:
+            kyc_in.setdefault(t.tx_id.lower(), t)
+    nokyc_out = [t for t in transactions if t.no_kyc and t.tx_id
+                 and t.type in (TxType.TRANSFER_OUT, TxType.GIFT_OUT)]
+    nk_cross = [(g, kyc_in[g.tx_id.lower()]) for g in nokyc_out if g.tx_id.lower() in kyc_in]
+    # (2) Ohne gemeinsame TX-ID: Betrag im Zeitfenster — exakt, oder bis NEAR_MISS kleiner, wenn die
+    # Gebühr des Abgangs unbekannt ist bzw. ein noKYC-Direktkauf mit Liefergebühr ankommt
     for g in givers:
+        if nk_cross:
+            break
         if not g.no_kyc or id(g) in moved:
             continue
+        loose = g.type == TxType.BUY or g.fee_btc == 0
         hit = [t for t in window(g)
-               if not t.no_kyc and _structurally_possible(g, t) and fits_any(g, t)]
-        # Gleiche On-Chain-TX-ID ist ein sicherer Kreuzfall — unabhängig von Betrag und
-        # Wallet-Name (Audit v1.4: Abgang mit unbekannter Gebühr passte betragsmäßig nicht,
-        # gleich benannte Wallets galten als „dieselbe Wallet“ — beides umging die Sperre)
-        if not hit and g.tx_id and g.type != TxType.BUY:
-            hit = [t for t in takers if not t.no_kyc and t.type == TxType.TRANSFER_IN
-                   and t.tx_id and t.tx_id.lower() == g.tx_id.lower()]
+               if not t.no_kyc and _structurally_possible(g, t)
+               and (fits_any(g, t) or (loose and 0 < t.btc_amount <= transferable(g)
+                                       and (transferable(g) - t.btc_amount) / transferable(g) <= NEAR_MISS))]
         if hit:
-            t = hit[0]
-            raise ValueError(
-                f"Der Vorgang vom {de_date(g.date)} über {g.btc_amount:.8f} BTC aus dem noKYC-Bestand "
-                f"ist offenbar am {de_date(t.date)} ({t.btc_amount:.8f} BTC) in einer KYC-Wallet "
-                f"angekommen. KYC- und noKYC-Bestände bleiben strikt getrennt; die Steuerdokumente "
-                f"würden den Eingang sonst mit Datum und Betrag zeigen. Bitte den Export der "
-                f"empfangenden Wallet nach bitbox/nokyc/ bzw. wallets/nokyc/ verschieben (in der App als "
-                f"„noKYC“ einstufen) oder die Einstufung des Kaufs prüfen. Berechnung abgebrochen."
-            )
+            nk_cross.append((g, hit[0]))
+    if nk_cross:
+        g, t = nk_cross[0]
+        raise ValueError(
+            f"Der Vorgang vom {de_date(g.date)} über {g.btc_amount:.8f} BTC aus dem noKYC-Bestand "
+            f"ist offenbar am {de_date(t.date)} ({t.btc_amount:.8f} BTC) in einer KYC-Wallet "
+            f"angekommen. KYC- und noKYC-Bestände bleiben strikt getrennt; die Steuerdokumente "
+            f"würden den Eingang sonst mit Datum und Betrag zeigen. Bitte den Export der "
+            f"empfangenden Wallet nach bitbox/nokyc/ bzw. wallets/nokyc/ verschieben (in der App als "
+            f"„noKYC“ einstufen) oder die Einstufung des Kaufs prüfen. Berechnung abgebrochen."
+        )
 
     for g in givers:
         if g.type == TxType.BUY:

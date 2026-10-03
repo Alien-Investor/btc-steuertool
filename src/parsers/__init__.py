@@ -153,15 +153,19 @@ manual_links: list = []
 # wie parser_warnings je Lauf gefüllt und in reset_warnings geleert.
 aggregate_sources: dict[str, str] = {}
 
-# Wallet-Exporte (v1.4): Quelle → [(Dateiname, Konto-Schlüssel)]. Ledger trägt den xpub als
-# Schlüssel ein, Trezor einen leeren. Der Loader prüft damit, ob gleich benannte Konten aus
-# verschiedenen Dateien wirklich dieselbe Wallet sind (Audit v1.4, Robustheit B1).
-wallet_files: dict[str, list[tuple[str, str]]] = {}
+# Trezor-Exporte (v1.4): Quelle → [(Dateiname, noKYC)]. Der Loader meldet, wenn zwei Dateien nach
+# Abstreifen des Exportzeitpunkts dieselbe Wallet ergeben (Audit v1.4, Robustheit B1). Die Klasse
+# steht hier, weil eine Datei ohne Transaktionen sonst als KYC gälte (R2-N1).
+wallet_files: dict[str, list[tuple[str, bool]]] = {}
 
 # Ortszeiten in der doppelten Stunde der Winterzeit-Umstellung (Electrum, alte Sparrow-Exporte):
 # (Transaktion, andere Lesart). Der Loader nimmt die andere Lesart, wenn dieselbe TX-ID in einer
 # Quelle mit Zeitzone genau zu ihr passt — beide Seiten tragen die Blockzeit (Audit v1.4).
 dst_candidates: list = []
+
+# Ledger: id(Transaktion) → (Kontoname, xpub). Der Loader nummeriert gleichnamige Konten über alle
+# Dateien gemeinsam (main._number_ledger_accounts).
+ledger_keys: dict[int, tuple[str, str]] = {}
 
 
 def warn(msg: str, *, internal: bool, year: int | None = None) -> None:
@@ -239,6 +243,7 @@ def reset_warnings() -> None:
     aggregate_sources.clear()
     wallet_files.clear()
     dst_candidates.clear()
+    ledger_keys.clear()
     reset_suppressed()
 
 

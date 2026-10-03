@@ -83,6 +83,12 @@ class WarningYear(unittest.TestCase):
                     "2025-01-01T00:30:00+01:00,sent,10000,satoshi,300,mbtc,"
                     "bc1qexampleauditbbbbbbbbbbbbbbbbbbbbbbbbbb,"
                     "cccc00000000000000000000000000000000000000000000000000000000a002,Übertrag")
+            # 2025 braucht einen KYC-Vorgang, sonst gibt es dort keinen offiziellen Report
+            # (Audit v1.4: Jahre nur mit noKYC-Vorgängen bekommen nur die internen Dateien)
+            _append(data / "bitbox" / "wallet1.csv",
+                    "2025-02-01T12:00:00+01:00,sent,10000,satoshi,300,satoshi,"
+                    "bc1qexampleauditbbbbbbbbbbbbbbbbbbbbbbbbbb,"
+                    "cccc00000000000000000000000000000000000000000000000000000000a003,Übertrag")
             docs = _official(_run(data))
         flat = " ".join(docs["steuerreport_2025.txt"].split())
         self.assertIn("unbekannter Einheit", flat)

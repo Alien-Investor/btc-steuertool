@@ -102,6 +102,19 @@ with sync_playwright() as p:
     check(page.evaluate("lastReports === null") and not page.is_visible("#results-card"), "nichts speicherbar")
     check(not page.evaluate("document.getElementById('btn-run').disabled"), "„Berechnen“ danach wieder frei")
 
+    print("Audit v1.4 R2-H1: ein Abbruch der Engine erreicht den Nutzer (nicht „Eingaben geändert“, kein Traceback)")
+    page.goto(URL)
+    bad = (b"Timestamp,Date,Time,Type,Transaction ID,Fee,Fee unit,Address,Label,Amount,Amount unit,Fiat (EUR),Other\n"
+           b"1717243200,,,SENT,ab,0.0001,BTC,x,,-0.08,BTC,,\n")
+    page.set_input_files("#file-input", files=[{"name": "t.csv", "mimeType": "text/csv", "buffer": bad}])
+    page.wait_for_function("!document.getElementById('btn-run').disabled")
+    page.click("#btn-run")
+    page.wait_for_function("window.__GUI_DONE === true", timeout=120000)
+    err = page.evaluate("window.__GUI_ERROR") or ""
+    check("negativer Betrag" in err, f"echte Meldung angezeigt ({err[:80]})")
+    check("während der Berechnung geändert" not in err, "kein falscher Hinweis „Eingaben geändert“")
+    check("Traceback" not in err and "/lib/python" not in err, "kein Python-Traceback")
+
     browser.close()
 
 if failures:

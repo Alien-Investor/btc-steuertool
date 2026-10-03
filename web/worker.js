@@ -65,10 +65,20 @@ self.onmessage = async (e) => {
       return;
     }
   } catch (err) {
+    // Python-Fehler kommen als voller Traceback (Pyodide-Interna, Pfade) — dem Nutzer nur die
+    // Meldung selbst zeigen: ab der letzten Zeile „XyzError: …“ (Audit v1.4, R2-H1b)
+    let text = String((err && err.message) || err);
+    const lines = text.split('\n');
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (/^[A-Za-z_][\w.]*(Error|Exception): /.test(lines[i])) {
+        text = lines.slice(i).join('\n').replace(/^[A-Za-z_][\w.]*(Error|Exception): /, '').trim();
+        break;
+      }
+    }
     self.postMessage({
       type: msg.cmd === 'init' ? 'init-error' : 'error',
       id: msg.id,
-      message: String((err && err.message) || err),
+      message: text,
     });
   }
 };

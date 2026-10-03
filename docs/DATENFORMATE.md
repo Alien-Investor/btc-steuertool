@@ -91,8 +91,16 @@ Ledger    Operation Date,Status,Currency Ticker,Operation Type,Operation Amount,
   unbestätigt, nicht gebucht. Trezor: zwei Dateien mit gleichem Namen → Hinweis; SENT an eine Empfangsadresse desselben Kontos →
   Hinweis; Einheit sat/mBTC → Abbruch. Negative Beträge (Trezor, Ledger), fehlende TX-ID/Hash, Beträge über 21 Mio. BTC → Abbruch.
   Electrum `confirmations` 0 → unbestätigt. Doppelte Stunde der Winterzeit (Ortszeit-Formate): gleiche TX-ID mit Zeitzone in einer
-  anderen Quelle entscheidet, sonst die aufsteigende Reihenfolge der Datei (`main._resolve_dst`). Ohne Report gibt das CLI die
-  Warnungen aus.
+  anderen Quelle entscheidet, sonst die aufsteigende Reihenfolge der Datei (`main._resolve_dst`; Grenze: ein rückläufiger
+  Blockzeitstempel innerhalb dieser Stunde kann eine Zeile um 1 h verschieben, ohne Folgen für Tag oder Jahr). Ohne Report gibt
+  das CLI die Warnungen aus.
+- **Runde 2:** noKYC-Sperre über die TX-ID für JEDEN noKYC-Abgang (auch Schenkung, nur Gebühr, schon teilweise verbunden) und bei
+  unbekannter Gebühr bzw. noKYC-Direktkauf auch für einen bis 1 % kleineren KYC-Eingang im Zeitfenster. Gleicher Name in KYC und
+  noKYC gilt für alle Quellen außer `manual` (auch Sammelimport-Konten). Ledger-Konten werden über ALLE Dateien gemeinsam nach xpub
+  nummeriert (`main._number_ledger_accounts`), derselbe xpub unter zwei Namen (umbenannt, alter Export liegt dabei) → Abbruch.
+  Dieselbe Wallet doppelt geladen: gleicher Abgang in zwei Wallets → Abbruch, nur gleiche Eingänge und vollständig enthalten →
+  Hinweis (`main._check_same_wallet_twice`). Jahre allein mit noKYC-Vorgängen bekommen keine offiziellen Dokumente
+  (`report_years(official=True)`). Dateinamen werden als Wallet-Name von Steuer-/Bidi-Zeichen bereinigt.
 - Fixtures: `tests/fixtures/{sparrow,sparrow_alt,electrum,electrum_46,electrum_45,trezor,trezor_semikolon,ledger}.csv`
   (eigene Werte), Tests `tests/test_wallet_exporte.py`, GUI `web/test_gui.py` (Erkennung + Rechenlauf gegen CLI).
   Bewusst **nicht** in `examples/`, solange die Formate unbestätigt sind.

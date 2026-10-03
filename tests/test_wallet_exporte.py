@@ -232,7 +232,13 @@ class Trezor(unittest.TestCase):
 class Ledger(unittest.TestCase):
     def test_accounts_are_wallets_and_eth_skipped(self):
         txs, warns = parse("ledger.csv")
-        self.assertEqual(sorted({t.source for t in txs}), ["ledger:Bitcoin 1", "ledger:Bitcoin 1 (2)", "ledger:Bitcoin 2"])
+        self.assertEqual(len(set(parsers.ledger_keys.values())), 3)       # zwei „Bitcoin 1“ (xpub) + „Bitcoin 2“
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "wallets").mkdir()
+            shutil.copy(FX / "ledger.csv", Path(tmp) / "wallets")
+            with contextlib.redirect_stdout(io.StringIO()):
+                loaded = _load(Path(tmp))
+        self.assertEqual(sorted({t.source for t in loaded}), ["ledger:Bitcoin 1", "ledger:Bitcoin 1 (2)", "ledger:Bitcoin 2"])
         self.assertTrue(any("anderer Kryptowährungen" in w.full and w.internal for w in warns))
         self.assertFalse(any("xpub" in t.source or "xpub" in t.note for t in txs))
 
@@ -423,11 +429,35 @@ class AuditRobust(unittest.TestCase):
             (d / "wallets" / n).write_text(t)
         return d
 
-    def test_ledger_same_name_two_devices_aborts(self):
+    def test_ledger_same_name_two_devices_are_two_wallets(self):
+        """Runde 2 (F2): Nummerierung über alle Dateien nach xpub — zwei Geräte mit „Bitcoin 1“ sind
+        zwei Wallets, gleich benannt in jeder Datei, kein Abbruch mehr."""
         a = self.LEDGER_HEAD + "2024-01-10T12:00:00.000Z,Confirmed,BTC,IN,0.5,,aa,Bitcoin 1,xpubDEVICE1,,,\n"
         b = self.LEDGER_HEAD + "2024-03-10T12:00:00.000Z,Confirmed,BTC,IN,0.2,,bb,Bitcoin 1,xpubDEVICE2,,,\n"
         with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaisesRegex(ValueError, "zwei Geräte"):
+            with contextlib.redirect_stdout(io.StringIO()):
+                txs = _load(self._two_files(tmp, ["ledger_a.csv", "ledger_b.csv"], [a, b]))
+        self.assertEqual({(t.tx_id, t.source) for t in txs}, {("aa", "ledger:Bitcoin 1"), ("bb", "ledger:Bitcoin 1 (2)")})
+
+    def test_ledger_numbering_stable_when_new_account_appears(self):
+        """Runde 2 (F2): alter Export nur mit X, neuer mit X und später angelegtem Y (gleicher Name,
+        xpub sortiert vor X) — X behält über beide Dateien EINEN Namen."""
+        old = self.LEDGER_HEAD + "2023-01-10T12:00:00.000Z,Confirmed,BTC,IN,0.5,,aa,Bitcoin 1,xpubZZZ,,,\n"
+        new = self.LEDGER_HEAD + ("2023-01-10T12:00:00.000Z,Confirmed,BTC,IN,0.5,,aa,Bitcoin 1,xpubZZZ,,,\n"
+                                  "2024-04-10T12:00:00.000Z,Confirmed,BTC,IN,0.3,,bb,Bitcoin 1,xpubAAA,,,\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            with contextlib.redirect_stdout(io.StringIO()):
+                txs = _load(self._two_files(tmp, ["ledger_2023.csv", "ledger_2024.csv"], [old, new]))
+        x = {t.source for t in txs if t.tx_id == "aa"}
+        self.assertEqual(len(x), 1)
+        self.assertEqual(len(txs), 2)          # aa dedupliziert
+
+    def test_ledger_renamed_account_with_old_export_aborts(self):
+        """Runde 2 (F3): derselbe xpub unter zwei Namen = umbenannt, alter Export liegt dabei."""
+        a = self.LEDGER_HEAD + "2024-01-10T12:00:00.000Z,Confirmed,BTC,IN,0.5,,aa,Bitcoin 1,xpubX,,,\n"
+        b = self.LEDGER_HEAD + "2024-01-10T12:00:00.000Z,Confirmed,BTC,IN,0.5,,aa,Cold,xpubX,,,\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError, "umbenannt"):
                 with contextlib.redirect_stdout(io.StringIO()):
                     _load(self._two_files(tmp, ["ledger_a.csv", "ledger_b.csv"], [a, b]))
 
@@ -516,6 +546,137 @@ class AuditCalc(unittest.TestCase):
         out = next(t for t in txs if t.source == "electrum:el" and t.tx_id == "a3")
         self.assertEqual(inn.date, datetime(2024, 10, 27, 1, 10, tzinfo=UTC))
         self.assertEqual(out.date, datetime(2024, 10, 27, 1, 30, tzinfo=UTC))      # Reihenfolge: zweite Lesart
+
+
+class AuditRound2(unittest.TestCase):
+    """Release-Audit v1.4, Runde 2 (frische Prüfer, gezielt auf die Fixes aus Runde 1)."""
+
+    BTC21 = ("id,exchange_name,depot_name,transaction_date,buy_asset,buy_amount,sell_asset,sell_amount,fee_asset,"
+             "fee_amount,transaction_type,note,linked_transaction\n"
+             "1,21bitcoin,depot,01.05.2024 14:00:00,BTC,0.01000000,EUR,600.00,EUR,3.00,trade,BTC Kauf,\n"
+             "2,21bitcoin,depot,02.05.2024 15:30:00,,,BTC,0.01000000,BTC,0,withdrawal,Auszahlung,1\n")
+    BB = "Time,Type,Amount,Unit,Fee,Fee Unit,Address,Transaction ID,Note\n"
+    BB_KYC = BB + "2024-05-02T16:00:00+02:00,received,1000000,satoshi,,,bc1qkyc,aaaa01,Kauf\n"
+    SP = "Date (UTC),Label,Value (BTC),Balance (BTC),Fee (BTC),Txid\n"
+    NK_BUY = "date,btc_amount,eur_amount,note,kyc\n2024-03-10,0.02000000,1100.00,Bargeld,\n"
+    NK_IN = "2024-03-11 10:00:00,Treffen,0.02000000,0.02000000,,cccc01\n"
+
+    def _run(self, files):
+        from src.main import run_engine
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            for rel, text in files.items():
+                (d / rel).parent.mkdir(parents=True, exist_ok=True)
+                (d / rel).write_text(text)
+            with contextlib.redirect_stdout(io.StringIO()):
+                txs = _load(d)
+                run_engine(txs)
+            return txs
+
+    def _base(self, **extra):
+        files = {"Broker/21bitcoin-gesamt.csv": self.BTC21, "manual_buys.csv": self.NK_BUY}
+        files.update(extra)
+        return files
+
+    def test_batch_tx_partly_to_second_nokyc_wallet_aborts(self):
+        """B1/F1: ein Output in eine zweite noKYC-Wallet (Stufe 1 verbunden), einer in die KYC-Wallet."""
+        files = self._base(**{
+            "bitbox/kyc1.csv": self.BB_KYC + "2024-06-10T12:10:00+02:00,received,500000,satoshi,,,bc1q,ffff01,\n",
+            "wallets/nokyc/nk.csv": self.SP + self.NK_IN + "2024-06-10 10:00:00,,-0.01501000,0.00499000,0.00001000,ffff01\n",
+            "bitbox/nokyc/nk2.csv": self.BB + "2024-06-10T12:10:00+02:00,received,1000000,satoshi,,,bc1q,ffff01,\n"})
+        with self.assertRaisesRegex(ValueError, "noKYC-Bestand"):
+            self._run(files)
+
+    def test_gift_from_nokyc_to_own_kyc_wallet_aborts(self):
+        """B2: Schenkungswort im Label machte den Abgang zu GIFT_OUT — kein Giver, keine Sperre."""
+        files = self._base(**{
+            "bitbox/kyc1.csv": self.BB_KYC + "2024-06-10T12:10:00+02:00,received,500000,satoshi,,,bc1q,ffff01,\n",
+            "wallets/nokyc/nk.csv": self.SP + self.NK_IN + "2024-06-10 10:00:00,Geschenk,-0.00501000,0.01499000,0.00001000,ffff01\n"})
+        with self.assertRaisesRegex(ValueError, "noKYC-Bestand"):
+            self._run(files)
+
+    def test_unknown_fee_amount_near_kyc_deposit_without_txid_aborts(self):
+        """B5: Abgang mit unbekannter Gebühr (−0,00501) an ein KYC-Konto ohne TX-ID (0,005)."""
+        bison = ("Transaction ID; Transaction type; Currency; Asset; Eur (amount); Asset (amount); Asset (market price); "
+                 "Fee; Date (UTC - Coordinated Universal Time)\n"
+                 "TX-9; Deposit; ; Btc; 0.00; 0.00500000; 0.00; 0; 2024-06-10 11:00:00\n")
+        files = self._base(**{
+            "Broker/Bison-CSV-Gesamt.csv": bison,
+            "wallets/nokyc/nk.csv": self.SP + self.NK_IN + "2024-06-10 10:00:00,,-0.00501000,0.01499000,,ffff01\n"})
+        with self.assertRaisesRegex(ValueError, "noKYC-Bestand"):
+            self._run(files)
+
+    def test_aggregate_account_in_both_classes_aborts(self):
+        """B3: Sammelimport-Konto „Hardware“ in KYC- und noKYC-Datei galt als eine Wallet."""
+        head = '"Type","Buy Amount","Buy Currency","Sell Amount","Sell Currency","Fee","Fee Currency","Exchange","Trade-Group","Comment","Date"\n'
+        files = self._base(**{
+            "Broker/cointracking_nokyc.csv": head + '"Trade","0.01000000","BTC","500","EUR","","","Hardware","","","01.04.2024 10:00:00"\n',
+            "Broker/cointracking.csv": head + '"Deposit","0.00500000","BTC","","","","","Hardware","","","10.06.2024 11:00:00"\n'})
+        with self.assertRaisesRegex(ValueError, "KYC- und im noKYC-Bestand"):
+            self._run(files)
+
+    def test_nokyc_only_year_gets_no_official_documents(self):
+        """B6: ein Jahr nur mit noKYC-Gebühr erzeugte einen leeren Steuerreport/Nachweis."""
+        from src.main import report_years
+        files = self._base(**{
+            "bitbox/kyc1.csv": self.BB_KYC,
+            "wallets/nokyc/nk.csv": self.SP + self.NK_IN + "2025-03-01 10:00:00,Konsolidierung,-0.00001000,0.01999000,0.00001000,dd01\n"})
+        txs = self._run(files)
+        self.assertIn(2025, report_years(txs))
+        self.assertNotIn(2025, report_years(txs, official=True))
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            for rel, text in files.items():
+                (d / rel).parent.mkdir(parents=True, exist_ok=True)
+                (d / rel).write_text(text)
+            names = {p.name for p in _run(d).iterdir()}
+        self.assertNotIn("steuerreport_2025.txt", names)
+        self.assertNotIn("steuernachweis_2025.txt", names)
+        self.assertIn("nokyc_intern_2025.txt", names)
+
+    def test_same_wallet_loaded_twice_aborts(self):
+        """M1/F3: Jahres- und Gesamtexport derselben Sparrow-Wallet zählten doppelt."""
+        body = self.SP + ("2024-05-02 14:00:00,,0.01000000,0.01000000,,aaaa01\n"
+                          "2024-08-03 06:45:10,,-0.00502100,0.00497900,0.00002100,bbbb01\n")
+        files = {"Broker/21bitcoin-gesamt.csv": self.BTC21, "wallets/cold_2024.csv": body, "wallets/cold_full.csv": body}
+        with self.assertRaisesRegex(ValueError, "doppelt geladen"):
+            self._run(files)
+
+    def test_receive_only_wallet_twice_warns_batch_does_not_abort(self):
+        """Nur Eingänge geteilt: Hinweis statt Abbruch (nicht unterscheidbar von gleichen Batch-Outputs)."""
+        body = self.SP + ("2024-05-02 14:00:00,,0.01000000,0.01000000,,aaaa01\n"
+                          "2024-06-02 14:00:00,,0.02000000,0.03000000,,aaaa02\n")
+        self._run({"wallets/a.csv": body, "wallets/b.csv": body})
+        self.assertTrue(any("dieselben Eingänge" in w.full for w in parsers.parser_warnings))
+
+    def test_trezor_hint_of_nokyc_files_stays_internal_without_transactions(self):
+        """N1: die Klasse kam aus den Transaktionen — leere noKYC-Dateien galten als KYC."""
+        th = AuditRobust.TREZOR_HEAD
+        files = {"wallets/nokyc/geheim_20250101T120000.csv": th, "wallets/nokyc/geheim_20250102T120000.csv": th}
+        self._run(files)
+        w = [w for w in parsers.parser_warnings if "Trezor: 2 Dateien" in w.full]
+        self.assertTrue(w and all(x.internal for x in w))
+
+    def test_control_characters_in_file_name_are_removed(self):
+        """N2: Steuer-/Bidi-Zeichen im Dateinamen brachen Tabellenzeilen der internen Reports um."""
+        txs = self._run({"wallets/a\x1b[31mb\u202ec.csv": self.SP + "2024-05-02 14:00:00,,0.01000000,0.01000000,,aaaa01\n"})
+        self.assertTrue(all(c.isprintable() and c not in "\u202e" for c in txs[0].source))
+
+    def test_more_strict_checks(self):
+        """N5: leere Txid (Sparrow), Trezor-Zeit vor 2009, Einheit msat, Electrum confirmations −1."""
+        with self.assertRaisesRegex(ValueError, "Txid fehlt"):
+            AuditRobust()._parse_text("s.csv", self.SP + "2024-05-02 14:00:00,,0.01000000,0.01000000,,\n")
+        with self.assertRaisesRegex(ValueError, "vor dem ersten Bitcoin-Block"):
+            AuditRobust()._parse_text("t.csv", AuditRobust.TREZOR_HEAD + "0,,,RECV,ab,,,x,,0.1,BTC,,\n")
+        with self.assertRaisesRegex(ValueError, "statt BTC"):
+            AuditRobust()._parse_text("t.csv", AuditRobust.TREZOR_HEAD + "1717243200,,,RECV,ab,,,x,,100,msat,,\n")
+        txs, _ = AuditRobust()._parse_text("e.csv", AuditCalc.EL + "ab,,,-1,0.1,0.,,0.,,2024-06-01 10:00:00\n")
+        self.assertEqual(txs, [])
+
+    def test_trezor_stamp_with_counter_suffix(self):
+        from src.parsers.wallet_trezor import _EXPORT_STAMP
+        for n in ("cold_20240101T120000_2", "cold_20240101T120000 (2)", "cold_20240101T120000"):
+            self.assertEqual(_EXPORT_STAMP.sub("", n), "cold")
 
 
 if __name__ == "__main__":

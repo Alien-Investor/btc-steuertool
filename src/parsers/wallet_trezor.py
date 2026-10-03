@@ -24,12 +24,14 @@ from pathlib import Path
 
 from ..models import Transaction, de_date
 from . import read_rows, parse_amount, warn_fmt, FileRef, LINE_KEY, wallet_files
-from .wallet_export import Stats, delta_tx, emit_stats, warn_unconfirmed_format
+from .wallet_export import Stats, delta_tx, emit_stats, warn_unconfirmed_format, wallet_stem
 
 LABEL = "Trezor Suite"
 # Die Suite schlägt „<Konto>_JJJJMMTTTHHMMSS.csv“ vor — der Exportzeitpunkt gehört nicht zum
 # Wallet-Namen, sonst wären zwei Exporte desselben Kontos zwei Wallets (doppelter Bestand)
-_EXPORT_STAMP = re.compile(r"_\d{8}T\d{6}$")
+# Auch mit Zählerendung, die Downloads/GUI bei Namensgleichheit anhängen („…_2“, „… (2)“)
+_EXPORT_STAMP = re.compile(r"_\d{8}T\d{6}(?:_\d+| \(\d+\))?$")
+_GENESIS = datetime(2009, 1, 3, tzinfo=timezone.utc)
 REQUIRED = ("Timestamp", "Type", "Transaction ID", "Fee", "Fee unit", "Label", "Amount", "Amount unit")
 
 
@@ -44,7 +46,7 @@ def _delimiter(filepath: Path) -> str:
 
 def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
     filename = filepath.name
-    source = f"trezor:{_EXPORT_STAMP.sub('', filepath.stem) or filepath.stem}"
+    source = f"trezor:{wallet_stem(_EXPORT_STAMP.sub('', filepath.stem) or filepath.stem)}"
     rows, header = read_rows(filepath, label=LABEL, required=REQUIRED, delimiter=_delimiter(filepath))
 
     stats = Stats()
@@ -62,9 +64,11 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
             date = datetime.fromtimestamp(int(row["Timestamp"]), tz=timezone.utc)
         except (ValueError, OverflowError, OSError):
             raise ValueError(f"{LABEL} {filename} Zeile {line}, Spalte 'Timestamp': '{row['Timestamp']}' ist keine Unix-Zeit.") from None
+        if date < _GENESIS:
+            raise ValueError(f"{LABEL} {filename} Zeile {line}: Zeitpunkt {row['Timestamp']} liegt vor dem ersten Bitcoin-Block.")
         typ = row["Type"].upper()
         unit = row["Amount unit"].upper()
-        if unit in ("SAT", "SATS", "SATOSHI", "MBTC", "UBTC", "BITS"):
+        if unit != "BTC" and ("SAT" in unit or "BTC" in unit or unit == "BITS"):
             # Die Suite schreibt immer BTC (Netzwerk-Konfiguration) — eine Bitcoin-Untereinheit hieße
             # geändertes Exportformat; überspringen wäre ein stiller Bestandsverlust (Audit v1.4, B3)
             raise ValueError(f"{LABEL} {filename} Zeile {line}: Einheit '{row['Amount unit']}' statt BTC — "
@@ -110,7 +114,7 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
         if label and label not in g["labels"]:
             g["labels"].append(label)
 
-    wallet_files.setdefault(source, []).append((filename, ""))
+    wallet_files.setdefault(source, []).append((filename, no_kyc))
     txs: list[Transaction] = []
     for txid in order:
         g = groups[txid]

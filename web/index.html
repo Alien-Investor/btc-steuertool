@@ -1186,8 +1186,10 @@ with redirect_stdout(buf):
     # Jahresliste kommt aus dem Kern (report_years), nicht aus einer Kopie hier —
     # seit H8 zaehlt auch ein Jahr mit Gebuehren-Abgang oder Schenkung (Prinzip H5)
     years = report_years(transactions)
+    # Offizielle Dokumente nur in Jahren mit KYC-Vorgängen (Audit v1.4, R2-B6)
+    official_years = set(report_years(transactions, official=True))
     for year in years:
-        _generate_report(transactions, engine, year, True, True, data_dir / "reports")
+        _generate_report(transactions, engine, year, True, True, data_dir / "reports", official=year in official_years)
 
 reports = {}
 for p in sorted((data_dir / "reports").glob("*")):
@@ -1641,6 +1643,9 @@ json.dumps({
         window.__GUI_RESULT = result;   // Test-Hook
         window.__GUI_DONE = true;
       } catch (err) {
+        // VOR invalidateResults() festhalten: das zählt inputVersion hoch, danach galt jeder
+        // Fehler als „Eingaben geändert“ — kein Abbruch erreichte je den Nutzer (Audit v1.4, R2-H1)
+        const changed = inputVersion !== myVersion;
         // Ergebnisse des VORHERIGEN Laufs vollständig verwerfen (SA2-15). Vorher
         // blieben lastReports/lastYears/activeDoc und die Ergebniskarte stehen:
         // beide Download-Knöpfe lieferten weiter die alten Reports, und weil die
@@ -1651,8 +1656,7 @@ json.dumps({
         // Eingaben während des Laufs geändert: dann ist auch ein FEHLER dieses
         // Laufs nicht aussagekräftig (er kann aus der halb übernommenen Änderung
         // stammen, z.B. der KYC/noKYC-Sperre) — der Hinweis „erneut berechnen“ gilt
-        const msg = inputVersion !== myVersion
-          ? i18n[currentLang].errInputsChanged : String(err.message || err);
+        const msg = changed ? i18n[currentLang].errInputsChanged : String(err.message || err);
         log(i18n[currentLang].errPrefix + msg, 'err');
         console.error(err);
         window.__GUI_RESULT = null;

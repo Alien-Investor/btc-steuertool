@@ -247,8 +247,12 @@ Vergleichslauf `mode="global"` an (alte Rechnung, nur für `wallet_abgleich_inte
 - **Datenschutz:** offizielle Dokumente nennen Wallets in Selbstverwahrung nur nach Art, „BitBox-Wallet (n)“, „Sparrow-Wallet (n)“
   (`models.WALLET_KINDS`/`own_wallet`, nur KYC gezählt; neue Wallet-Software dort eintragen, nie `startswith("bitbox:")` prüfen),
   Echtnamen nur in `wallet_abgleich_intern`. Fehlermeldungen nennen nur Wallets derselben Klasse.
-- **KYC/noKYC-Sperre (Release-Audit v1.4):** gleiche TX-ID zwischen noKYC-Abgang und KYC-Eingang bricht immer ab (Betrag egal);
-  eine eigene Wallet-Quelle in beiden Klassen bricht ab (`load_all_transactions`). Dedup bei Wallet-Exporten nur je Quelle.
+- **KYC/noKYC-Sperre (Release-Audit v1.4, zwei Runden):** gleiche TX-ID zwischen JEDEM noKYC-Abgang (auch GIFT_OUT, nur Gebühr,
+  teilweise verbunden) und einem KYC-Eingang bricht ab; ohne TX-ID auch ein bis 1 % kleinerer Eingang bei unbekannter Gebühr.
+  Eine Quelle (außer `manual`) in beiden Klassen bricht ab. Dedup je Quelle und Klasse. Offizielle Dokumente nur für
+  `report_years(official=True)` — ein Jahr allein mit noKYC-Vorgängen verriete sich sonst durch einen leeren Report.
+- **GUI-Fehler:** im `catch` von `runCalc` den Vergleich `inputVersion !== myVersion` VOR `invalidateResults()` (das zählt hoch);
+  sonst erreicht kein Abbruch den Nutzer (R2-H1, bestand seit v1.0). Der Worker kürzt Python-Tracebacks auf die Meldung.
 - **`mode="global"` muss die alte Rechnung exakt reproduzieren** — Änderungen an der walletbezogenen
   Logik nie in den globalen Zweig tragen (Audit-Fund: Bisq-Gebühr-Fix wirkte sonst auch dort).
 - **Git:** `git add` und `git commit` immer getrennt ausführen (kombiniert sieht der OpSec-Hook ein

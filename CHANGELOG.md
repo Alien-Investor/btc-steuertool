@@ -16,6 +16,12 @@ Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die dens
   dann im Steuernachweis); eine Transaktion mit gleichem Betrag an zwei eigene Wallets galt fälschlich als doppelter Export; gleich benannte
   Ledger-Konten zweier Geräte, negative Beträge, Satoshi-Einheit bei Trezor und unbestätigte Ledger-Vorgänge brechen ab oder werden gemeldet
   statt still falsch gebucht; Zeiten in der doppelten Stunde der Winterzeit-Umstellung werden richtig zugeordnet.
+- Zweite Audit-Runde (frische Prüfer auf die Fixes): **In der App erreichte seit v1.0 keine Fehlermeldung den Nutzer** — bei jedem
+  Abbruch stand nur „Dateien wurden während der Berechnung geändert“. Jetzt erscheint die eigentliche Meldung (ohne Python-Details).
+  Weitere Lücken der noKYC-Trennung geschlossen (Sammelauszahlung, Schenkung an die eigene KYC-Wallet, gleichnamige Sammelimport-Konten,
+  abweichender Betrag ohne Transaktions-ID). Ein Jahr allein mit noKYC-Vorgängen erzeugt keinen leeren Steuerreport/Nachweis mehr
+  (betraf auch die Beispieldaten: 2025). Dieselbe Wallet doppelt geladen wird erkannt; Ledger-Konten gleichen Namens werden über alle
+  Dateien einheitlich nummeriert; die Kommandozeile zeigt Abbrüche als Meldung statt als Python-Traceback.
 - Bisq: der englische Export ist jetzt an einem echten Export des Autors bestätigt (gleiche Trades auf Deutsch und Englisch exportiert,
   Ergebnis feldgleich). Der Hinweis „bitte Ergebnis prüfen“ aus v1.3 gilt für Bisq damit nicht mehr.
 

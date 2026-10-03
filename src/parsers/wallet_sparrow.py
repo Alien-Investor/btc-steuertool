@@ -26,7 +26,7 @@ from pathlib import Path
 from ..models import Transaction, sat_to_btc
 from . import read_rows, parse_amount, LINE_KEY
 from . import dst_candidates
-from .wallet_export import Stats, delta_tx, dst_alternative, emit_stats, local_time, warn_unconfirmed_format
+from .wallet_export import Stats, delta_tx, dst_alternative, emit_stats, local_time, warn_unconfirmed_format, wallet_stem
 
 LABEL = "Sparrow"
 _VALUE = re.compile(r"^Value(?: \((BTC|sats)\))?$")
@@ -40,7 +40,7 @@ def matches(header: list[str]) -> bool:
 
 def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
     filename = filepath.name
-    source = f"sparrow:{filepath.stem}"
+    source = f"sparrow:{wallet_stem(filepath.stem)}"
     rows, header = read_rows(filepath, label=LABEL, comment="#")
     if not matches(header):
         raise ValueError(f"{LABEL} {filename}: Kopfzeile ist kein Sparrow-Export. Gelesen: {', '.join(header[:8])}")
@@ -75,6 +75,10 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
             date = prev = local_time(raw_date, fmt, label=LABEL, filename=filename, line=line, field=date_col, after=prev)
         delta = _btc(row, value_col, unit, filename)
         fee = _btc(row, fee_col, unit, filename) if fee_col and row[fee_col] else None
+        if fee is not None and fee < 0:
+            raise ValueError(f"{LABEL} {filename} Zeile {line}: negative Gebühr '{row[fee_col]}'.")
+        if not row["Txid"]:
+            raise ValueError(f"{LABEL} {filename} Zeile {line}: Txid fehlt — ohne sie ist kein Übertrag zuordenbar.")
         tx = delta_tx(date=date, delta=delta, fee=fee, label=row["Label"], tx_id=row["Txid"], source=source,
                       no_kyc=no_kyc, where=f"{LABEL} {filename} Zeile {line}", stats=stats)
         if tx is not None:

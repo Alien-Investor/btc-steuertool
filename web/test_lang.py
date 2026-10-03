@@ -68,6 +68,9 @@ with sync_playwright() as p:
     page.wait_for_function("window.__GUI_DONE === true", timeout=180_000)
     err = page.evaluate("window.__GUI_ERROR || null")
     check("Lauf ohne Fehler", err is None, str(err))
+    # ältestes Jahr wählen: das neueste (2025) hat in den Beispieldaten nur noKYC-Vorgänge und damit
+    # nur interne Dateien (Audit v1.4: keine leeren offiziellen Dokumente mehr)
+    page.click("#year-tabs .tab-btn:first-child")
     tabs = page.eval_on_selector_all("#doc-tabs .tab-btn", "els => els.map(e => e.textContent)")
     check("Doc-Tabs englisch", "Tax report" in tabs and "Tax evidence" in tabs, str(tabs))
     log_text = page.inner_text("#log")
