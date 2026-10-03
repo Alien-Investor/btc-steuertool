@@ -3,6 +3,10 @@
 Das CLI und die Web-Version haben keine eigenen Versionen; sie laufen immer auf dem Stand von `main`.
 Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die denselben Rechenkern enthalten.
 
+## Unveröffentlicht (main)
+- Bisq: der englische Export ist jetzt an einem echten Export des Autors bestätigt (gleiche Trades auf Deutsch und Englisch exportiert,
+  Ergebnis feldgleich). Der Hinweis „bitte Ergebnis prüfen“ aus v1.3 gilt für Bisq damit nicht mehr.
+
 ## v1.3 — 2026-10-03
 - Bisq: auch der **englische Export** wird gelesen (Spaltenköpfe „Trade ID, Date/Time, …“, Werte „Buy BTC“/„Completed“); die
   Zeitstempel der belegten englischen Länder-Einstellungen (GB, US, CA, AU, IN, NZ, DK/FI u. a.) werden erkannt, eine unbekannte
