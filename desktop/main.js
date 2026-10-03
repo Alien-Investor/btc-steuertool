@@ -57,7 +57,16 @@ function linkOk(u){
   if(u.startsWith('mailto:')) return mailOk(u);
   try{ return LINKS.has(new URL(u).href); }catch(_){ return false; }
 }
-function openOutside(u){ if(linkOk(u)) shell.openExternal(u).catch(()=>{}); }
+// Höchstens ein Link je Sekunde (Electron hat keinen Popup-Blocker: 500 × window.open = 500 Browserfenster) und die
+// GEPRÜFTE kanonische URL hinaus, nicht der Rohstring — Querfund Alien Notes run-4 A-B1/A-B2 (03.10.2026).
+// mailto bleibt der geprüfte Rohstring: new URL(...).href könnte die %-Kodierung von subject/body verändern.
+let lastOut=0;
+function openOutside(u){
+  const t=Date.now();
+  if(!linkOk(u)||t-lastOut<1000) return;
+  lastOut=t;
+  shell.openExternal(u.startsWith('mailto:')?u:new URL(u).href).catch(()=>{});
+}
 
 if(!app.requestSingleInstanceLock()){ app.quit(); }
 else {

@@ -36,9 +36,9 @@ async function fresh(){
   // Handbuch („?“) offline in der App; Links darin gehen nur über die feste Liste
   await js(`document.getElementById('app-help').click()`);
   R('Handbuch öffnet offline', await js(`!document.getElementById('help-overlay').classList.contains('hidden')&&document.getElementById('help-de').textContent.includes('Erkennung prüfen')`));
-  { opened.length=0; await js(`document.querySelector('#help-de a[href^="https://"]').click()`); await sleep(300);
+  { await sleep(1100); opened.length=0; await js(`document.querySelector('#help-de a[href^="https://"]').click()`); await sleep(300);
     R('Handbuch-Link extern über die Liste', opened.length===1&&opened[0]==='https://alien-investor.org/steuertool-guide.html'&&win.webContents.getURL()==='app://steuertool/index.html', opened.slice()); }
-  { opened.length=0; await js(`document.querySelector('#help-de a[href^="mailto:"]').click()`); await sleep(300);
+  { await sleep(1100); opened.length=0; await js(`document.querySelector('#help-de a[href^="mailto:"]').click()`); await sleep(300);
     R('Handbuch-mailto über die Liste', opened.length===1&&opened[0]==='mailto:kontakt@alien-investor.org', opened.slice()); }
   await js(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))`);
   R('Escape schließt das Handbuch', await js(`document.getElementById('help-overlay').classList.contains('hidden')`));
@@ -73,26 +73,35 @@ async function fresh(){
   R('.desktop StartupWMClass = package.json name', (()=>{ try{ const d=fs.readFileSync(path.join(__dirname,'..','..','flatpak','org.alieninvestor.steuertool.desktop'),'utf8'); return /^StartupWMClass=btc-steuertool$/m.test(d); }catch(_){ return 'n/a'; } })());
 
   // Links: nur die feste Liste geht an den System-Browser, alles andere verpufft
-  const tryOpen=async(u,how)=>{ opened.length=0;
+  // openOutside lässt höchstens einen Link je Sekunde durch → vor jedem Versuch 1,1 s Abstand
+  const tryOpen=async(u,how)=>{ await sleep(1100); opened.length=0;
     if(how==='open') await js(`window.open(${JSON.stringify(u)})`); else await js(`location.href=${JSON.stringify(u)}`).catch(()=>{});
     await sleep(300); return opened.slice(); };
   const ok=['https://github.com/Alien-Investor/btc-steuertool','https://alien-investor.org/en/steuertool-guide.html','https://alien-investor.org/steuertool-rechtliches.html#datenschutz'];
   for(const u of ok){ const o=await tryOpen(u,'open'); R('Link extern geöffnet: '+u, o.length===1&&o[0]===u, o); }
   const navOk=await tryOpen('https://alien-investor.org/steuertool-guide.html','nav');
   R('Link per Navigation extern, Seite bleibt', navOk.length===1&&win.webContents.getURL()==='app://steuertool/index.html', navOk);
+  { const o=await tryOpen('HTTPS://ALIEN-INVESTOR.ORG:443/steuertool-guide.html','open');
+    R('nicht-kanonische Schreibweise geht als kanonischer href hinaus', o.length===1&&o[0]==='https://alien-investor.org/steuertool-guide.html', o); }
+  { await sleep(1100); opened.length=0; await js(`for(let i=0;i<20;i++) window.open('https://alien-investor.org/steuertool-guide.html')`); await sleep(400);
+    R('Fensterflut gedrosselt (20 × window.open → 1)', opened.length===1, opened.length); }
   // Spenden-Blitz im Fuß (v1.1): Klick öffnet genau die Spendenseite der eingestellten Sprache im System-Browser
-  { opened.length=0; await js(`document.getElementById('donate-link').click()`); await sleep(300);
+  { await sleep(1100); opened.length=0; await js(`document.getElementById('donate-link').click()`); await sleep(300);
     const want=await js(`document.getElementById('donate-link').href`);
     R('Spenden-Blitz extern geöffnet', opened.length===1&&opened[0]===want&&/^https:\/\/alien-investor\.org\/(en\/)?spenden\.html$/.test(want)&&win.webContents.getURL()==='app://steuertool/index.html', opened.slice()); }
-  for(const u of ['https://example.org/','https://alien-investor.org/anderes.html','https://github.com/Alien-Investor/btc-steuertool/evil','http://alien-investor.org/','https://alien-investor.org.evil.com/','file:///etc/passwd','javascript:alert(1)'])
-    { const o=await tryOpen(u,'open'); R('Link verweigert: '+u, o.length===0, o); }
+  const onApp=()=>win.webContents.getURL()==='app://steuertool/index.html';
+  for(const u of ['https://example.org/','https://alien-investor.org/anderes.html','https://github.com/Alien-Investor/btc-steuertool/evil','http://alien-investor.org/','https://alien-investor.org.evil.com/','file:///etc/passwd','javascript:alert(1)',
+      'https://alien-investor.org/steuertool-guide.html?ref=x','https://alien-investor.org/steuertool-guide.html#x','https://user:pw@alien-investor.org/steuertool-guide.html',
+      'https://alien-investor.org:8443/steuertool-guide.html','https://www.alien-investor.org/steuertool-guide.html','https://alien-investor.org/steuertool-guide.html/'])
+    for(const how of (u.startsWith('javascript:')?['open']:['open','nav']))   // javascript: per location.href liefe im Renderer (alert blockiert)
+      { const o=await tryOpen(u,how); R('Link verweigert ('+how+'): '+u, o.length===0&&onApp(), {o,url:win.webContents.getURL()}); }
   const mail='mailto:kontakt@alien-investor.org?subject=%5BBTC%20Steuertool%5D%20Bug&body=Version%3A%20BTC%20Steuertool%20Desktop';
   { const o=await tryOpen(mail,'nav'); R('Bug-Report-mailto erlaubt', o.length===1&&o[0]===mail, o); }
   for(const u of ['mailto:andere@example.org','mailto:kontakt@alien-investor.org?cc=x@example.org','mailto:kontakt@alien-investor.org,x@example.org','mailto:kontakt@alien-investor.org?body='+'a'.repeat(9000)])
     { const o=await tryOpen(u,'nav'); R('mailto verweigert: '+u.slice(0,70), o.length===0, o); }
   // Bug-Report: Menü mit Kästchen (Vorauswahl = erkannte Typen) + freies Feld, Senden öffnet das Mailprogramm, Text bleibt kopierbar
   await js(`openBugReport()`);
-  R('Bug-Menü hat alle 11 Typen (seit v1.3 mit Sammelimport)', await js(`document.querySelectorAll('#bug-menu input[type=checkbox]').length`)===11);
+  R('Bug-Menü hat alle 12 Typen (seit v1.4 mit Wallet-Exporten)', await js(`document.querySelectorAll('#bug-menu input[type=checkbox]').length`)===12);
   const pre=await js(`bugPicked().join(',')`);
   // noKYC-Typen bewusst NICHT vorausgewählt (Klartext-Mail verriete sonst noKYC-Bestände, Audit run-1)
   R('Vorauswahl = erkannte KYC-Typen der Beispieldaten', pre.includes('btc21')&&pre.includes('bitbox')&&!pre.includes('fxcache')
@@ -104,7 +113,7 @@ async function fresh(){
   await js(`document.querySelector('#bug-title').click()`);
   R('Klick daneben schließt das Menü', await js(`document.getElementById('bug-menu').classList.contains('hidden')`));
   await js(`document.getElementById('bug-broker').value='Kraken'; document.getElementById('bug-desc').value='x'.repeat(9000)`);
-  opened.length=0; await js(`sendBugReport()`); await sleep(400);
+  await sleep(1100); opened.length=0; await js(`sendBugReport()`); await sleep(400);
   R('Senden öffnet mailto trotz langem Text (gekürzt)', opened.length===1&&opened[0].startsWith('mailto:kontakt@alien-investor.org?subject=')&&decodeURIComponent(opened[0]).includes('Swissquote, Kraken'), opened.map(u=>u.length));
   R('voller Text bleibt zum Kopieren sichtbar', await js(`!document.getElementById('bug-sent').classList.contains('hidden')&&document.getElementById('bug-sent-body').value.length>9000`));
   await js(`closeBugReport()`);
