@@ -242,6 +242,12 @@ class AuditRound5(unittest.TestCase):
         self.assertNotIn("Erbe", text)
         self.assertNotIn("Oma", text)
 
+    def test_version_only_from_fixed_forms(self):
+        base = {"platform": "Android", "lang": "de", "files": []}
+        self.assertIn("Version: v1.4 ·", diagnose.build({**base, "version": "v1.4"}))
+        self.assertIn("Version: Stand 03.10.2026 ·", diagnose.build({**base, "version": "Stand 03.10.2026"}))
+        self.assertIn("Version: ? ·", diagnose.build({**base, "version": "Erbe Oma 1.4"}))
+
     def test_21bitcoin_stays_readable(self):
         self.assertIn("21bitcoin", diagnose.redact("21bitcoin: 2 Transaktion(en) übersprungen"))
 

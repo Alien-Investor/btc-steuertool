@@ -3,6 +3,10 @@
 Das CLI und die Web-Version haben keine eigenen Versionen; sie laufen immer auf dem Stand von `main`.
 Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die denselben Rechenkern enthalten.
 
+## Unveröffentlicht (main)
+- **Versionsnummer in der App:** klein im Fuß („v1.4“; die Web-Version zeigt „Web · Stand <Datum>“, weil sie immer den aktuellen
+  Stand ausliefert). Die Version steht auch im Bug-Report und in der Diagnose.
+
 ## v1.4 — 2026-10-03
 - **Neu: Wallet-Exporte aus Sparrow, Electrum, Trezor Suite und Ledger Wallet (früher Ledger Live).** Das Programm wird an
   der Kopfzeile erkannt, auch bei älteren Versionen. Jede Wallet ist ein eigener Bestand, bei Ledger jedes Konto. Überträge

@@ -7,7 +7,12 @@ cd "$(dirname "$0")"
 rm -rf dist
 mkdir -p dist
 
-cp index.html dist/
+# Versionsanzeige: App-Version aus VERSION, für die Web-Version das Datum des letzten Commits
+VERSION_NAME=$(sed -n 's/^VERSION_NAME=//p' ../VERSION)
+WEB_STAND=$(git -C .. log -1 --format=%cd --date=format:%d.%m.%Y 2>/dev/null || date +%d.%m.%Y)
+[[ "$VERSION_NAME" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]] || { echo "FEHLER: VERSION_NAME '$VERSION_NAME' ungültig" >&2; exit 1; }
+sed -e "s/__APP_VERSION__/$VERSION_NAME/" -e "s/__WEB_STAND__/$WEB_STAND/" index.html > dist/index.html
+grep -q "__APP_VERSION__\|__WEB_STAND__" dist/index.html && { echo "FEHLER: Versions-Platzhalter nicht ersetzt" >&2; exit 1; }
 cp worker.js dist/        # Pyodide-Worker (gleich-origin, kein blob: → keine CSP-Änderung)
 cp -rL ../src dist/src
 cp -rL ../examples dist/examples

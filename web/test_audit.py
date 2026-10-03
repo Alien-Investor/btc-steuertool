@@ -144,7 +144,9 @@ with sync_playwright() as p:
     check("ohne Abbruch" in diag and "nicht aufgeschlüsselt" in diag, "Diagnose der Beispieldaten erstellt")
     for bad in ("nokyc", "wallet1", "Bisq", "P2P", "gesamt"):
         check(bad.lower() not in diag.lower(), f"„{bad}“ nicht in der Diagnose")
-    check(not _re.search(r"\d+[.,]\d{2,}|\b\d{4}-\d{2}-\d{2}\b|\b[0-9a-f]{16,}\b", diag), "keine Beträge, Daten, IDs")
+    # Die Kopfzeile nennt den Stand der Web-Version (ein gewolltes Datum) — nur den Rest prüfen
+    body = "\n".join(l for l in diag.splitlines() if not l.startswith("Plattform:"))
+    check(not _re.search(r"\d+[.,]\d{2,}|\b\d{4}-\d{2}-\d{2}\b|\b[0-9a-f]{16,}\b", body), "keine Beträge, Daten, IDs")
     page.click("#bug-cancel")
     with page.expect_download() as dl:
         page.click("#btn-log-save")
@@ -152,6 +154,14 @@ with sync_playwright() as p:
     content = open(path, encoding="utf-8").read()
     check(dl.value.suggested_filename == "steuertool-log-INTERN.txt" and content.startswith("!! INTERN"),
           "Log speichern: Datei als intern gekennzeichnet")
+
+    print("Versionsanzeige: Fuß und Diagnose")
+    import re as _re2
+    foot = page.inner_text("#app-version")
+    check(bool(_re2.fullmatch(r"Web · Stand \d{2}\.\d{2}\.\d{4}", foot)), f"Fuß zeigt den Stand der Web-Version ({foot})")
+    page.click("#lang-toggle")
+    check(page.inner_text("#app-version").startswith("Web · as of "), "Fuß englisch")
+    page.click("#lang-toggle")
 
     print("Audit v1.4 R3: Abbruch aus einer noKYC-Datei — Nutzer sieht die Meldung, Diagnose nur den allgemeinen Satz")
     page.goto(URL)
@@ -167,6 +177,7 @@ with sync_playwright() as p:
     page.click("#bug-diag-create")
     page.wait_for_function("document.getElementById('bug-diag').value.length > 0", timeout=120000)
     diag = page.evaluate("document.getElementById('bug-diag').value")
+    check("Version: Stand " in diag, "Diagnose nennt den Stand")
     check("private Angaben" in diag and "Txid" not in diag and "geheim" not in diag.lower(),
           "Diagnose: nur der allgemeine Satz")
     check("weitere Dateien (nicht aufgeschlüsselt): 1" in diag, "noKYC-Datei nur gezählt")

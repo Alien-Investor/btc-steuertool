@@ -129,6 +129,8 @@ Brücke nur `saveFile`, Weiche `DESK` in `web/index.html`. **Vor jeder Änderung
 - Bauen: `desktop/build-desktop.sh` (Electron-Hash, Fuses, Rechte-Endkontrolle vor + nach Installation, Bundle + `SHA256SUMS`).
 - Testen: `node desktop/verify-desktop.mjs` (echte Hülle, Reports byte-gleich zur CLI) — braucht einmal den Build (Electron-Cache).
 - Version: `VERSION` (`VERSION_NAME`, `DESKTOP_REV` nur für reinen Electron-Neubau). Kurstabellen-Update im Januar = neues Release.
+  `web/build.sh` schreibt `VERSION_NAME` und das Datum des letzten Commits in `dist/index.html` (Platzhalter `__APP_VERSION__`/`__WEB_STAND__`,
+  Anzeige im Fuß: Apps „v1.4“, Web „Web · Stand …“) — nie von Hand in index.html eintragen.
 - Handbuch („?“) liegt offline in `web/index.html` (`help-de`/`help-en`) — eine Quelle für Web, Desktop und APK. Inhaltliche
   Änderungen dort brauchen einen Faktencheck (öffentlich).
 

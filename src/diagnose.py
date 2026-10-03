@@ -246,7 +246,10 @@ def build(info: dict) -> str:
     # Plattform und Sprache aus festen Listen (redact kannte „Android“ nicht — Gerätetest v1.4)
     platform = info.get("platform") if info.get("platform") in ("Web", "Desktop", "Android") else "?"
     lang = info.get("lang") if info.get("lang") in ("de", "en") else "?"
-    out.append(f"Plattform: {platform} · Sprache: {lang}")
+    version = str(info.get("version") or "")
+    if not re.fullmatch(r"v\d+(?:\.\d+){1,2}|vdev|Stand \d{2}\.\d{2}\.\d{4}|Stand dev", version):
+        version = "?"
+    out.append(f"Plattform: {platform} · Version: {version} · Sprache: {lang}")
     files = info.get("files", [])
     shown = [f for f in files if not f.get("hidden")]
     hidden = len(files) - len(shown)

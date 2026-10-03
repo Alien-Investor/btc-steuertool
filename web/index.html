@@ -284,6 +284,7 @@
 
     footer { text-align:center; margin-top:50px; font-size:.78rem; color:var(--text-dim); letter-spacing:2px; line-height:2; word-break:break-word; overflow-wrap:break-word; }
     footer a { color:var(--neon); text-decoration:none; opacity:.7; }
+    footer .app-version { font-size:.68rem; letter-spacing:2px; color:var(--text-dim); opacity:.75; }
 
     .hidden { display:none; }
 
@@ -634,6 +635,7 @@
       <a href="https://alien-investor.org">alien-investor.org</a> ·
       <span id="legal-links"></span> ·
       <a href="#" id="bug-link" onclick="openBugReport(); return false;" style="color:var(--text-dim); opacity:.8;">🐛 Bug melden</a><br>
+      <span class="app-version" id="app-version"></span><br>
       <span style="color:rgba(74,122,109,.7)" id="footer-disclaimer">Keine Steuerberatung – reine Berechnungshilfe. Denke selbst. Vertraue niemandem.</span><br>
       <!-- Spenden-Blitz wie in Alien Pass / Notes / Tresor. In den App-Hüllen öffnet er den System-Browser (Ziel muss in LINKS von desktop/main.js stehen). -->
       <a id="donate-link" href="https://alien-investor.org/spenden.html" target="_blank" rel="noopener noreferrer" style="color:var(--neon);opacity:1;display:inline-block;margin-top:10px;letter-spacing:2px;"><svg viewBox="0 0 24 24" aria-hidden="true" style="width:1.4em;height:1.4em;vertical-align:-0.32em;margin-right:.2em;fill:currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg><span id="donate-text">Energie aufladen · Spenden</span></a>
@@ -646,6 +648,13 @@
     'use strict';
     // Desktop-Hülle (desktop/preload.js), sonst null. Alles Desktop-Spezifische hängt an DESK — ohne Hülle bleibt die Web-Version unverändert.
     const DESK = window.AlienDesktop || null;
+    // Versionsanzeige: web/build.sh ersetzt die Platzhalter aus VERSION bzw. dem Datum des letzten Commits.
+    // Apps (Flatpak/APK) zeigen die App-Version, die Web-Version hat keine eigene (läuft auf dem Stand von main).
+    const APP_VERSION = '__APP_VERSION__';
+    const WEB_STAND = '__WEB_STAND__';
+    const versionLabel = (lang) => (window.AlienDesktop || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()))
+      ? 'v' + (APP_VERSION.startsWith('__') ? 'dev' : APP_VERSION)
+      : (lang === 'en' ? 'Web · as of ' : 'Web · Stand ') + (WEB_STAND.startsWith('__') ? 'dev' : WEB_STAND);
     // Android-Hülle (mobile/, Capacitor-Plugin „SaveFile“ aus mobile/patch-hardening.mjs), sonst null. Gleiche Schnittstelle wie DESK:
     // saveFile(name, bytes) → Promise<Name oder null (abgebrochen)>. Speichern läuft über den Android-Speichern-Dialog (SAF).
     const DROID = (() => {
@@ -817,7 +826,7 @@
         bugCancel: 'Abbrechen',
         bugLink: '🐛 Bug melden',
         bugBody: (broker, desc) =>
-          'Version: BTC Steuertool ' + (DESK ? 'Desktop' : DROID ? 'Android' : 'Web') + '\n' +
+          'Version: BTC Steuertool ' + (DESK ? 'Desktop' : DROID ? 'Android' : 'Web') + ' ' + versionLabel('de').replace(/^Web · /, '') + '\n' +
           'Broker / Dateityp: ' + broker + '\n\nBeschreibung:\n' + desc,
         bugDiagIntro: 'Optional: eine Diagnose ohne Dateinamen, Beträge, Tagesdaten, Adressen und Wallet-Namen anhängen (Jahreszahlen und Zeilennummern bleiben). Du siehst sie vor dem Senden vollständig; sie geht mit in die Mail oder lässt sich als Datei speichern.',
         bugDiagCreate: 'Diagnose erstellen',
@@ -964,7 +973,7 @@
         bugCancel: 'Cancel',
         bugLink: '🐛 Report a bug',
         bugBody: (broker, desc) =>
-          'Version: BTC Steuertool ' + (DESK ? 'Desktop' : DROID ? 'Android' : 'Web') + '\n' +
+          'Version: BTC Steuertool ' + (DESK ? 'Desktop' : DROID ? 'Android' : 'Web') + ' ' + versionLabel('de').replace(/^Web · /, '') + '\n' +
           'Broker / file type: ' + broker + '\n\nDescription:\n' + desc,
         bugDiagIntro: 'Optional: attach a diagnosis without file names, amounts, exact dates, addresses or wallet names (years and line numbers remain). You see all of it before sending; it goes into the email or can be saved as a file.',
         bugDiagCreate: 'Create diagnosis',
@@ -1021,6 +1030,7 @@
       setText('hint-label', t.hintLabel);
       setHtml('disclaimer-text', t.disclaimer);
       setText('footer-disclaimer', t.footerDisclaimer);
+      setText('app-version', versionLabel(currentLang));
       setText('donate-text', t.donateText);
       document.getElementById('donate-link').href = t.donateHref;
       const legalEl = document.getElementById('legal-links');
@@ -2019,6 +2029,7 @@ _result
       try {
         const info = {
           platform: DESK ? 'Desktop' : DROID ? 'Android' : 'Web',
+          version: versionLabel('de').replace(/^Web · Stand /, 'Stand '),
           lang: currentLang,
           files: files.map(f => {
             const b = f.bytes;
