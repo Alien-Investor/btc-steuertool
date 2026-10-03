@@ -12,13 +12,13 @@ ROOT = Path(__file__).parent.parent
 
 sys.path.insert(0, str(ROOT))
 
-from src.parsers import bitbox, broker_21bitcoin, broker_bison, broker_swissquote, broker_strike, broker_pocket, manual_sales, manual_buys, bisq, transfer_zuordnung, sammelimport
+from src.parsers import bitbox, broker_21bitcoin, broker_bison, broker_swissquote, broker_strike, broker_pocket, manual_sales, manual_buys, bisq, transfer_zuordnung, sammelimport, wallet_export
 import src.parsers as parsers
 from src.fifo_engine import FifoEngine
 from src.tax_report import TaxReport
 from src.formal_report import generate_tax_free_proof
 import src.wallet_report as wallet_report
-from src.models import TxType, de_date, ANY_WALLET
+from src.models import TxType, de_date, ANY_WALLET, own_wallet, wallet_name
 import src.fx_rates as fx_rates
 
 
@@ -153,10 +153,10 @@ def _resolve_manual_wallets(transactions) -> None:
         if wallet is None:
             # Nur Wallets derselben Klasse aufzählen: die Meldung kann in einer
             # Bug-Mail landen, und ein KYC-Vorgang soll keine noKYC-Wallet nennen
-            same = sorted(w.replace("bitbox:", "") for w in known if cls.get(w) == {t.no_kyc})
+            same = sorted(wallet_name(w) for w in known if cls.get(w) == {t.no_kyc})
             raise ValueError(
                 f"{datei}: Wallet '{t.wallet}' ({de_date(t.date)}, {t.btc_amount} BTC) gehört zu "
-                f"keiner eingelesenen Datei. Erlaubt: Dateiname des BitBox-Exports ohne .csv "
+                f"keiner eingelesenen Datei. Erlaubt: Dateiname des Wallet-Exports (BitBox, Sparrow …) ohne .csv "
                 f"oder ein Broker" + (f" — passend: {', '.join(same)}." if same else ".")
             )
         if cls.get(wallet) and t.no_kyc not in cls[wallet]:
@@ -230,7 +230,7 @@ def _warn_double_loaded_wallets(sammel_txs: list, all_txs: list) -> None:
                 "ist diese Wallet doppelt geladen (Sammelimport UND eigener Export)? Dann eine der "
                 "Quellen entfernen, sonst zählt der Bestand doppelt.",
                 internal=t.no_kyc, a=t.source,
-                b=parsers.FileRef(others[key], "eine andere eingelesene Quelle") if others[key].startswith("bitbox:") else others[key],
+                b=parsers.FileRef(others[key], "eine andere eingelesene Quelle") if own_wallet(others[key]) else others[key],
             )
 
 
@@ -264,6 +264,24 @@ def load_all_transactions(data_dir: Path):
         if nokyc_txs:
             transactions.extend(nokyc_txs)
             print(f"  → {len(nokyc_txs)} noKYC-Wallet-Transaktionen (intern, nicht für Finanzamt)")
+
+    # Weitere Wallet-Software (v1.4): Sparrow, Electrum, Trezor Suite, Ledger Live —
+    # wallets/*.csv (KYC) und wallets/nokyc/*.csv, Programm wird an der Kopfzeile erkannt
+    wallets_dir = data_dir / "wallets"
+    wallets_nokyc = _find_dir(wallets_dir, "nokyc")
+    loaded_wallets: set[Path] = set()
+    for folder, internal in ((wallets_dir, False), (wallets_nokyc, True)):
+        if folder is None or not folder.exists():
+            continue
+        per_file = []
+        for csv_file in _find(folder, "*.csv"):
+            txs = _parse_file("Wallet-Export", wallet_export, csv_file, internal=internal)
+            per_file.append((csv_file.name, txs))
+            loaded_wallets.add(csv_file)
+            kinds = sorted({t.source.split(":", 1)[0] for t in txs})
+            print(f"  Wallet {'noKYC ' if internal else ''}{csv_file.stem} ({', '.join(kinds) or '–'}): "
+                  f"{len(txs)} Transaktionen{_bitbox_extras(txs)}")
+        transactions.extend(_dedup_files(per_file, "Wallet-Export noKYC" if internal else "Wallet-Export", internal=internal))
 
     broker_dir = data_dir / "Broker"
 
@@ -396,6 +414,21 @@ def load_all_transactions(data_dir: Path):
                 "Bitte prüfen, ob hier ein Wallet-Export fehlt.",
                 internal=in_nokyc,
                 file=parsers.FileRef(f"bitbox/{rel}", "Eine Datei im Ordner bitbox/"),
+            )
+
+    if wallets_dir.exists():
+        for p in sorted(wallets_dir.rglob("*"), key=lambda p: str(p)):
+            if not p.is_file() or p in loaded_wallets:
+                continue
+            rel = p.relative_to(wallets_dir)
+            if any(part.startswith(".") for part in rel.parts):
+                continue
+            parsers.warn_fmt(
+                "{file}: NICHT geladen — keine Wallet-CSV am erwarteten Ort. "
+                "Erwartet werden CSV-Dateien direkt in wallets/ bzw. wallets/nokyc/. "
+                "Bitte prüfen, ob hier ein Wallet-Export fehlt.",
+                internal=wallets_nokyc is not None and wallets_nokyc in p.parents,
+                file=parsers.FileRef(f"wallets/{rel}", "Eine Datei im Ordner wallets/"),
             )
 
     for p in _find(broker_dir, "*.csv"):

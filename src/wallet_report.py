@@ -2,8 +2,8 @@
 
 Rn. 103 verlangt, die Methode je Wallet und die Umschichtungen zu dokumentieren.
 Wallet-Namen sind aber private Labels aus der Dateiablage (SA-016) und gehen
-nicht ans Finanzamt. Offizielle Dokumente nennen BitBox-Wallets deshalb neutral
-durchnummeriert („BitBox-Wallet 1“), gezählt werden nur KYC-Wallets — die Zahl
+nicht ans Finanzamt. Offizielle Dokumente nennen Wallets in Selbstverwahrung deshalb
+neutral je Art durchnummeriert („BitBox-Wallet 1“, „Sparrow-Wallet“), gezählt werden nur KYC-Wallets — die Zahl
 verrät keine noKYC-Wallet. Echte Namen stehen nur in der internen Datei
 wallet_abgleich_intern_JJJJ.txt, zusammen mit dem Vergleich zur früheren
 gemeinsamen FiFo-Rechnung und allen offenen Zuordnungen.
@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 
-from .models import Transaction, TxType, Lot, ANY_WALLET, EXTERN_WALLET, de_date
+from .models import Transaction, TxType, Lot, ANY_WALLET, EXTERN_WALLET, WALLET_KINDS, de_date, own_wallet
 from .transfer_matching import LinkKind
 
 ZERO = Decimal("0")
@@ -30,24 +30,32 @@ _KIND = {LinkKind.TRANSFER: "Übertrag", LinkKind.LIEFERUNG: "Lieferung", None: 
 
 
 def official_labels(transactions: list[Transaction]) -> dict[str, str]:
-    """Neutrale Bezeichnungen der KYC-BitBox-Wallets, stabil über alle Jahre."""
-    names = sorted({t.wallet for t in transactions
-                    if t.wallet.startswith("bitbox:") and not t.no_kyc})
-    if len(names) == 1:
-        return {names[0]: "BitBox-Wallet"}
-    return {w: f"BitBox-Wallet {i}" for i, w in enumerate(names, 1)}
+    """Neutrale Bezeichnungen der KYC-Wallets in Selbstverwahrung, stabil über alle
+    Jahre, je Art durchnummeriert („BitBox-Wallet 1“, „Sparrow-Wallet“)."""
+    out: dict[str, str] = {}
+    for kind, art in WALLET_KINDS.items():
+        names = sorted({t.wallet for t in transactions
+                        if not t.no_kyc and (own_wallet(t.wallet) or ("",))[0] == kind})
+        if len(names) == 1:
+            out[names[0]] = f"{art}-Wallet"
+        else:
+            out.update({w: f"{art}-Wallet {i}" for i, w in enumerate(names, 1)})
+    return out
 
 
 def label(wallet: str, labels: dict[str, str] | None) -> str:
     """Bezeichnung fürs offizielle Dokument (labels=None: echter Name, intern)."""
+    own = own_wallet(wallet)
     if labels is None:
-        if wallet.startswith("bitbox:"):
-            return wallet[len("bitbox:"):]
+        if own:
+            # BitBox wie bisher nur mit Namen; andere Arten mit Art, damit „cold“
+            # aus Sparrow und „cold“ aus der BitBox intern unterscheidbar bleiben
+            return own[1] if own[0] == "bitbox" else f"{own[1]} ({WALLET_KINDS[own[0]]})"
         return _PSEUDO.get(wallet, wallet)
     if wallet in labels:
         return labels[wallet]
-    if wallet.startswith("bitbox:"):
-        return "BitBox-Wallet"      # fail closed: nie den Namen
+    if own:
+        return f"{WALLET_KINDS[own[0]]}-Wallet"      # fail closed: nie den Namen
     return _PSEUDO.get(wallet, wallet)
 
 

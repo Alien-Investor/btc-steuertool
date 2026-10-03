@@ -25,6 +25,69 @@ Time,Type,Amount,Unit,Fee,Fee Unit,Address,Transaction ID,Note
 - `Note`-Feld ist beschreibend (z.B. "Übertrag an Wallet 2", "Verkauf an Börse Bison")
 - Dateien: beliebige Namen möglich, z.B. `wallet1.csv`, `wallet2.csv` — alle `*.csv` im `bitbox/`-Ordner werden eingelesen
 
+### Weitere Wallet-Software: Sparrow, Electrum, Trezor Suite, Ledger Wallet/Live (`wallets/`, `wallets/nokyc/`) — seit v1.4
+
+Einstieg `src/parsers/wallet_export.py` (Erkennung an der Kopfzeile, gemeinsame Netto-Logik), je Programm
+`wallet_sparrow.py`, `wallet_electrum.py`, `wallet_trezor.py`, `wallet_ledger.py`. **Aus dem Quellcode der Programme
+abgeleitet (Versionen über die Git-Historie, Stand 10/2026), noch nicht an einem echten Export bestätigt** — jede Datei
+erzeugt eine sichtbare Warnung im Steuerreport (Dateiname im offiziellen Kanal redigiert). BittyTax kennt weder Sparrow
+noch Electrum ab 4.6; es diente nur als Zweitquelle. Kein fremder Code.
+
+- **Wallet = Datei** (Quelle `sparrow:<Dateiname>`, `electrum:…`, `trezor:…` — bei Trezor ohne den Zeitstempel `_JJJJMMTTTHHMMSS`,
+  den die Suite an den vorgeschlagenen Namen hängt), bei Ledger **Wallet = Konto**
+  (`ledger:<Account Name>`, gleiche Namen mit verschiedenem xpub → „Bitcoin 1 (2)“; der xpub geht in kein Dokument).
+  Offizielle Dokumente nennen nur die Art: „Sparrow-Wallet“, bei mehreren „Sparrow-Wallet 1“, … (nur KYC gezählt,
+  `wallet_report.official_labels`), „Datenquellen“ nennt die Anzahl je Programm. Spalte `wallet` in manual_*.csv und
+  `transfer_zuordnung.csv`: Dateiname ohne `.csv` (Ledger: Kontoname); heißen zwei Wallets verschiedener Programme gleich,
+  mit Präfix schreiben (`sparrow:cold`).
+- **noKYC:** Ordner `wallets/nokyc/` (GUI: „… (noKYC)“ bzw. `nokyc` im Dateinamen). Bei Ledger gilt die Einstufung für alle
+  Konten der Datei — KYC- und noKYC-Konten getrennt exportieren.
+- **Netto-Formate (Sparrow, Electrum, Ledger):** der Betrag ist die Netto-Änderung der Wallet, bei Ausgängen **inklusive**
+  Gebühr → `btc_amount = |Betrag| − Gebühr`, `fee_btc = Gebühr`; `|Betrag| = Gebühr` → an sich selbst (Menge 0, nur Gebühr,
+  wie BitBox `sent_to_yourself`). Gebühr leer/0 bei einem Ausgang (fremde Inputs: CoinJoin/Payjoin) → ganzer Betrag als
+  Übertrag, laute Warnung „ohne bekannte Gebühr“. Eingänge: eine eingetragene Gebühr gehört dem Absender → ignoriert.
+  Schenkungswort im Label → GIFT_OUT (`bitbox.is_gift_note`).
+
+```
+Sparrow   ab 2.5.5     Date (UTC),Label,Value (BTC|sats),Balance (…),Fee (…)[,Value (EUR)],Txid
+          1.8.6–2.5.4  Date (UTC),Label,Value,Balance,Fee[,Value (EUR)],Txid
+          1.8.1–1.8.5  Date,Label,Value,Balance,Fee[,Value (EUR)],Txid            (Ortszeit ohne Zeitzone)
+          1.7.2–1.8.0  ohne Fiat-Spalte;  1.5.1–1.7.1  Date,Label,Value,Balance,Txid (ohne Gebühr)
+          älter        ohne Txid — nicht unterstützt
+Electrum  ab 4.8       oc_transaction_hash,ln_payment_hash,label,confirmations,amount_chain_bc,amount_lightning_bc,
+                       fiat_value,network_fee_bc,fiat_fee,timestamp
+          4.6–4.7      … network_fee_satoshi …                                     (Gebühr in Satoshi)
+          3.3–4.5      transaction_hash,label,confirmations,value,fiat_value,fee,fiat_fee,timestamp
+          älter        transaction_hash,label,[confirmations,]value,timestamp       (ohne Gebühr)
+Trezor    Timestamp,Date,Time,Type,Transaction ID,Fee,Fee unit,Address,Label,Amount,Amount unit,Fiat (<Basiswährung>),Other
+          (Komma ab Suite 25.9.1, davor Semikolon)
+Ledger    Operation Date,Status,Currency Ticker,Operation Type,Operation Amount,Operation Fees,Operation Hash,
+          Account Name,Account xpub,Countervalue Ticker,Countervalue at Operation Date,Countervalue at CSV Export
+          (älter: ohne Status, ohne Countervalue-Spalten, „Account id“ statt „Account xpub“)
+```
+
+- **Sparrow:** Einheit BTC (immer 8 Nachkommastellen) oder sats (Ganzzahl) — Einstellung bzw. „Auto“ (BTC, sobald die Wallet
+  je einen Output ≥ 1 BTC hatte); ohne Einheit im Kopf (vor 2.5.5) aus der Schreibweise abgeleitet, mit Hinweis. Dezimalkomma
+  (Einstellung „Comma“) steht in Anführungszeichen. `Unconfirmed` statt Datum → nicht gebucht, Warnung. Mit Fiat-Spalte folgt
+  am Ende eine Kommentarzeile `# Historical …` (übersprungen, `read_rows(comment="#")`).
+- **Electrum:** Beträge in BTC mit Punkt, Nullen am Ende abgeschnitten (`1.`, `0.`), unabhängig von der Anzeigeeinheit.
+  `timestamp` ist die Ortszeit des Exportrechners **ohne Zeitzone** → als Europe/Berlin gelesen (Hinweis in der Warnung).
+  Leerer timestamp (unbestätigt, bis 4.7) → nicht gebucht. Lightning (`ln_payment_hash`, `amount_lightning_bc`) wird nicht
+  erfasst, sondern gemeldet; der On-Chain-Teil einer Kanal-Öffnung/-Schließung bleibt als Abgang/Eingang ohne Gegenstück.
+- **Trezor Suite:** ein Konto je Datei, **eine Zeile je Output** → Beträge je TX-ID summiert, Gebühr steht nur in der ersten
+  Zeile. Amount ohne Vorzeichen, **ohne** Gebühr; `RECV` → Eingang, `SENT` → Abgang + `fee_btc`, `SELF` → nur Gebühr.
+  Zeit nur aus `Timestamp` (Unix, UTC) — Date/Time sind nach Sprache und Zeitzone des Rechners formatiert. Formelschutz-`'`
+  vor Labels (ab 26.5.2) wird entfernt. Grenzen: CoinJoin/Payjoin (Typ `JOINT`) und unbestätigte TX exportiert die Suite
+  nicht, ein aktiver Suchfilter kürzt den Export (Hinweis in der Warnung).
+- **Ledger Wallet (bis Desktop 2.131 „Ledger Live“):** alle Konten und Coins in einer Datei, nur `Currency Ticker` BTC zählt (andere → interne Zählwarnung).
+  `OUT` = gesendet + Gebühr, `IN` = empfangen (Fees-Spalte = Absendergebühr, ignoriert). Je (Konto, Hash) netto gerechnet:
+  Selbstüberweisung im selben Konto (OUT + IN, gleicher Hash) → nur Gebühr. Hash kleingeschrieben. `Status` Failed → übersprungen.
+  Konten werden über den Namen zusammengeführt, auch über mehrere Dateien (überlappende Exporte werden so dedupliziert) —
+  zwei Ledger-Geräte mit gleich benannten Konten („Bitcoin 1“) in Ledger Wallet vor dem Export umbenennen, sonst gelten sie als eine Wallet.
+- Fixtures: `tests/fixtures/{sparrow,sparrow_alt,electrum,electrum_46,electrum_45,trezor,trezor_semikolon,ledger}.csv`
+  (eigene Werte), Tests `tests/test_wallet_exporte.py`, GUI `web/test_gui.py` (Erkennung + Rechenlauf gegen CLI).
+  Bewusst **nicht** in `examples/`, solange die Formate unbestätigt sind.
+
 ### Broker: 21bitcoin (`Broker/21bitcoin*.csv`)
 CSV, Komma-getrennt, UTF-8:
 

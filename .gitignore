@@ -12,9 +12,10 @@ build/
 /fx_cache.json
 
 # Persönliche Transaktionsdaten — NIE committen
-# /bitbox/ und /Broker/ nur im Root ignorieren (nicht in examples/)
+# /bitbox/, /Broker/ und /wallets/ nur im Root ignorieren (nicht in examples/)
 /bitbox/
 /Broker/
+/wallets/
 /manual_sales.csv
 /manual_buys.csv
 

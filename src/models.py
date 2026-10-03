@@ -44,13 +44,42 @@ ANY_WALLET = "*"
 EXTERN_WALLET = "extern"
 
 
+# Selbstverwahrte Wallets: Quelle „<art>:<name>“. Der Name stammt aus der Ablage
+# des Nutzers (Dateiname, bei Ledger Live der Kontoname) und ist ein privates Label
+# (SA-016) — offizielle Dokumente nennen nur die Art („Sparrow-Wallet 1“).
+# Reihenfolge = Reihenfolge in Datenquellen-Listen.
+WALLET_KINDS = {
+    "bitbox": "BitBox",
+    "sparrow": "Sparrow",
+    "electrum": "Electrum",
+    "trezor": "Trezor",
+    "ledger": "Ledger",
+}
+
+
+def own_wallet(wallet: str) -> tuple[str, str] | None:
+    """(Art, privater Name) einer selbstverwahrten Wallet, sonst None (Broker, extern, manual)."""
+    kind, sep, name = wallet.partition(":")
+    if sep and kind in WALLET_KINDS:
+        return kind, name
+    return None
+
+
+def wallet_name(wallet: str) -> str:
+    """Privater Name ohne Art-Präfix (nur interne Kanäle); sonst unverändert."""
+    own = own_wallet(wallet)
+    return own[1] if own else wallet
+
+
 def wallet_label(wallet: str):
-    """Bezeichnung einer Wallet für Meldungen. BitBox-Namen sind private Labels
+    """Bezeichnung einer Wallet für Meldungen. Wallet-Namen sind private Labels
     (SA-016) und gehen nur in den internen Kanal — im offiziellen steht ein
     neutraler Platzhalter. Broker-Konten dürfen beim Namen genannt werden."""
     from .parsers import FileRef
-    if wallet.startswith("bitbox:"):
-        return FileRef(f"BitBox-Wallet „{wallet[len('bitbox:'):]}“", placeholder="einer BitBox-Wallet")
+    own = own_wallet(wallet)
+    if own:
+        art = WALLET_KINDS[own[0]]
+        return FileRef(f"{art}-Wallet „{own[1]}“", placeholder=f"einer {art}-Wallet")
     return wallet
 
 
@@ -69,7 +98,7 @@ class Transaction:
     eur_amount: Decimal     # Kaufpreis oder Verkaufserlös vor Gebühren; 0 bei Transfer
     eur_price_per_btc: Decimal  # 0 bei Transfer
     fee_eur: Decimal        # Gebühren in EUR; 0 wenn nicht bekannt
-    source: str             # z.B. "21bitcoin", "bison", "bitbox:wallet1"
+    source: str             # z.B. "21bitcoin", "bison", "bitbox:wallet1", "sparrow:cold" (WALLET_KINDS)
     tx_id: str
     note: str
     no_kyc: bool = False    # True = P2P-Kauf (Bisq/Robosats/manual) — nicht im Finanzamt-Report

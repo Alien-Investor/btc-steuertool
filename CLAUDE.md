@@ -42,7 +42,9 @@ mehrere Broker. Die BitBox-CSVs dokumentieren die Überträge zwischen Wallets u
 Spalten, Datumsformate, Encoding und relevante Transaktionstypen je Quelle: **`docs/DATENFORMATE.md`** — vor jeder
 Parser-Arbeit lesen (dort auch das Beispiel des Text-Reports). Quellen: BitBox (`bitbox/*.csv`, `bitbox/nokyc/`), 21bitcoin,
 Bison, Swissquote (Windows-1252, USD/CHF), Bisq (noKYC, Export DE oder EN), Strike, Pocket (CHF/USD), Sammelimport
-CoinTracking/Blockpit (`sammelimport.py`, Konto = Wallet, Format unbestätigt → Warnung im Report), `manual_buys.csv`, `manual_sales.csv`.
+CoinTracking/Blockpit (`sammelimport.py`, Konto = Wallet, Format unbestätigt → Warnung im Report), Wallet-Software Sparrow/Electrum/
+Trezor Suite/Ledger Wallet (`wallets/`, `wallets/nokyc/`, `wallet_export.py` erkennt das Programm an der Kopfzeile, Format aus dem Quellcode
+unbestätigt → Warnung; Quelle `<art>:<Dateiname>`, Ledger je Konto), `manual_buys.csv`, `manual_sales.csv`.
 Neuer Parser = `src/parsers/` + Erkennung in der GUI (Broker-Sniffing, `BLOCKING_TYPES`) + Beispieldaten in `examples/` + Golden-Test.
 Jeder Parser liest über `parsers.read_rows(..., required=...)`, Zahlen über `parsers.amount`/`parse_amount`, ISO-Zeiten über
 `parse_iso_datetime` (Audit 03.10.2026: `row.get(...)` ohne Pflichtspaltenprüfung verlor ganze Dateien still). Harte Fehler nennen
@@ -82,6 +84,7 @@ Datei und Zeile; `main._parse_file` setzt den Dateibezug nach.
 `python -m unittest discover tests` — Golden-Snapshot (`tests/golden/`, examples mit
 `--all --nachweis --csv`, byte-genau bis auf „Erstellt am") + FX-Regeln + „kein Netzcode in src/"
 + `tests/test_audit_run1.py` (offizielle Dokumente ohne „noKYC"/„P2P", Schenkungs-Erkennung, Warnjahr, fx_cache-Prüfung)
++ `tests/test_wallet_exporte.py` (Sparrow/Electrum/Trezor/Ledger, Fixtures `tests/fixtures/`)
 + `tests/test_wallet_fifo.py` (Zuordnung, Engine, Reports-Datenschutz, Audit-Regressionen, **Mengenbilanz** auf
 examples + 300 Zufallsabläufen: gekauft = Bestand + verbraucht je Klasse).
 Gewollte Report-Änderung: `python tests/test_golden.py --update`, Diff im Commit begründen.
@@ -157,11 +160,11 @@ danach `cmp` der Live-Dateien gegen `web/dist`. Auch nach reinen Engine- oder GU
 btc-steuertool-public/
 ├── CLAUDE.md, README.md, ANLEITUNG.md, VERSION   # VERSION: App-Version für Flatpak + APK
 ├── docs/DATENFORMATE.md       # Formate aller Quellen + Report-Beispiel
-├── bitbox/, Broker/           # Original-CSVs (unveränderlich, in .gitignore)
+├── bitbox/, wallets/, Broker/ # Original-CSVs (unveränderlich, in .gitignore)
 ├── examples/                  # Fiktive Testdaten (Golden-Test, Beispieldaten der GUI)
 ├── src/
 │   ├── models.py              # Transaction Dataclass + Enums
-│   ├── parsers/               # bitbox, broker_21bitcoin/_bison/_swissquote/_strike/_pocket, bisq, manual_buys/_sales, transfer_zuordnung
+│   ├── parsers/               # bitbox, wallet_export (+ _sparrow/_electrum/_trezor/_ledger), broker_21bitcoin/_bison/_swissquote/_strike/_pocket, bisq, sammelimport, manual_buys/_sales, transfer_zuordnung
 │   ├── fx_rates.py            # EZB-Wechselkurse aus src/data/ (offline)
 │   ├── btc_prices.py          # BTC-Tagesschlusskurse aus src/data/ (Gebühren in BTC)
 │   ├── transfer_matching.py   # Zuordnung Abgang ↔ Eingang (walletbezogenes FiFo)
@@ -241,7 +244,8 @@ Vergleichslauf `mode="global"` an (alte Rechnung, nur für `wallet_abgleich_inte
   nur aus Beständen ohne bekannten Verwahrort (extern, nicht gelieferte Direktkäufe).
 - **Datumslose manual-Zeilen** (12:00 UTC): verbundener Verkauf frühestens beim Abgang, Kauf zur früheren
   Lieferung — nur innerhalb des Kalendertags.
-- **Datenschutz:** offizielle Dokumente nennen BitBox-Wallets nur „BitBox-Wallet (n)“ (nur KYC gezählt),
+- **Datenschutz:** offizielle Dokumente nennen Wallets in Selbstverwahrung nur nach Art, „BitBox-Wallet (n)“, „Sparrow-Wallet (n)“
+  (`models.WALLET_KINDS`/`own_wallet`, nur KYC gezählt; neue Wallet-Software dort eintragen, nie `startswith("bitbox:")` prüfen),
   Echtnamen nur in `wallet_abgleich_intern`. Fehlermeldungen nennen nur Wallets derselben Klasse.
 - **`mode="global"` muss die alte Rechnung exakt reproduzieren** — Änderungen an der walletbezogenen
   Logik nie in den globalen Zweig tragen (Audit-Fund: Bisq-Gebühr-Fix wirkte sonst auch dort).

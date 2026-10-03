@@ -398,6 +398,7 @@
         <p>Nur deine CSV-Exporte. Einmal pro Jahr herunterladen reicht:</p>
         <ul>
           <li><strong>BitBox:</strong> BitBoxApp → Konto-Informationen → Transaktionshistorie exportieren (pro Wallet eine CSV)</li>
+          <li><strong>Sparrow, Electrum, Trezor Suite, Ledger Wallet:</strong> Sparrow → links „Transactions“ → Symbol neben „Transactions:“ (Tooltip „Export transactions as CSV“), alternativ File → Export Wallet… → Transactions; Electrum → Reiter „History“ → „Tools“ → „Export“ → CSV (bis Version 4.3: Menü Wallet → History → Export); Trezor Suite → Konto → Übersicht → Symbol „In Datei exportieren“ → „Exportieren als .csv“ (vorher die Suche leeren, sie filtert den Export); Ledger Wallet (früher Ledger Live) → Einstellungen → Konten → Historie der Kontobewegungen → Speichern. Benenne jede Datei nach ihrer Wallet um (z. B. <code>cold.csv</code>): Der Dateiname wird zum Namen der Wallet. Bei Ledger ist jedes Konto in der Datei eine eigene Wallet. Andere Hardware-Wallets (z. B. Coldcard, Jade, SeedSigner) bindest du in Sparrow ein und exportierst dort; Coldcard und Jade gehen auch mit Electrum. Den eigenen Export der Blockstream App liest das Tool nicht. Diese Formate sind aus dem Quellcode der Programme abgeleitet und noch nicht an echten Exporten bestätigt: Der Report zeigt dazu eine Warnung, bitte Beträge, Gebühren und Zeiten prüfen. Lightning-Zahlungen (Electrum) erfasst die App nicht.</li>
           <li><strong>21bitcoin:</strong> App → Aktivität → Report exportieren</li>
           <li><strong>Bison:</strong> App → Konto → Reports → Transaktionshistorie (CSV kommt per E-Mail)</li>
           <li><strong>Swissquote:</strong> Web → Konto → Transaktionen → CSV-Export</li>
@@ -413,7 +414,7 @@
 
         <h2>3 · Erkennung prüfen</h2>
         <p>Die Tabelle zeigt jede Datei mit dem erkannten Typ. Orange markierte Einträge sind noKYC-Quellen, sie bleiben strikt vom Finanzamt-Report getrennt.</p>
-        <div class="warn"><p><strong style="color:var(--orange)">Der eine Handgriff:</strong> Eine BitBox-CSV verrät nicht, ob die Wallet KYC- oder noKYC-Coins enthält. Führst du eine eigene noKYC-Wallet, stelle sie im Auswahlfeld auf „BitBox-Wallet (noKYC)“. Sonst erscheint sie im Finanzamt-Report.</p></div>
+        <div class="warn"><p><strong style="color:var(--orange)">Der eine Handgriff:</strong> Ein Wallet-Export (BitBox, Sparrow, Electrum, Trezor, Ledger) verrät nicht, ob die Wallet KYC- oder noKYC-Coins enthält. Führst du eine eigene noKYC-Wallet, stelle sie im Auswahlfeld auf „… (noKYC)“. Sonst erscheint sie im Finanzamt-Report.</p></div>
         <p>Wird eine Datei nicht erkannt, bleibt die Berechnung gesperrt, bis du den Typ selbst wählst oder die Datei auf „Ignorieren“ stellst. So entsteht nie unbemerkt ein unvollständiger Report.</p>
 
         <h2>4 · Report berechnen</h2>
@@ -436,7 +437,7 @@
 
         <h2>Häufige Fragen</h2>
         <p><strong>Käufe in CHF oder USD (Swissquote, Pocket)?</strong><br>Die App rechnet sie mit dem EZB-Referenzkurs des Kauftags in EUR um (Wochenende/Feiertag: letzter Kurs davor). Die Kurstabelle liegt in der App, es wird kein Kursdienst angefragt. Liegt ein Kauf nach dem Datenstand der Tabelle, bricht die App mit einer Erklärung ab, statt einen alten Kurs zu nehmen.</p>
-        <p><strong>Mehrere Wallets und Konten?</strong><br>Die App rechnet FiFo je Wallet (BMF-Schreiben vom 06.03.2025, Rn. 62) und behandelt dabei auch jedes Börsenkonto als eigene Wallet: Jede BitBox-Wallet und jedes Konto ist ein eigener Bestand. Bei einem Übertrag zwischen deinen Wallets gibt die abgebende Wallet ihre ältesten Einheiten ab; Kaufdatum und Einstand wandern mit in die empfangende Wallet. Überträge erkennt die App an der Transaktions-ID, sonst an Betrag und Zeitpunkt (48 Stunden). Ein Abgang ohne passenden Eingang gilt als Übertrag in eine nicht eingelesene eigene Wallet und wird im Log gemeldet, nie still als Verkauf gebucht. Lade deshalb die Exporte aller Wallets. Sonderfälle wie eine Sammelauszahlung löst die optionale Datei <code>transfer_zuordnung.csv</code> (Format im Repository, <code>docs/DATENFORMATE.md</code>). In den Finanzamt-Dokumenten heißt deine Wallet nur „BitBox-Wallet“, bei mehreren „BitBox-Wallet 1“, „BitBox-Wallet 2“ und so weiter; die echten Namen stehen allein in der internen Datei „Wallet-Abgleich“.</p>
+        <p><strong>Mehrere Wallets und Konten?</strong><br>Die App rechnet FiFo je Wallet (BMF-Schreiben vom 06.03.2025, Rn. 62) und behandelt dabei auch jedes Börsenkonto als eigene Wallet: Jede BitBox-Wallet und jedes Konto ist ein eigener Bestand. Bei einem Übertrag zwischen deinen Wallets gibt die abgebende Wallet ihre ältesten Einheiten ab; Kaufdatum und Einstand wandern mit in die empfangende Wallet. Überträge erkennt die App an der Transaktions-ID, sonst an Betrag und Zeitpunkt (48 Stunden). Ein Abgang ohne passenden Eingang gilt als Übertrag in eine nicht eingelesene eigene Wallet und wird im Log gemeldet, nie still als Verkauf gebucht. Lade deshalb die Exporte aller Wallets. Sonderfälle wie eine Sammelauszahlung löst die optionale Datei <code>transfer_zuordnung.csv</code> (Format im Repository, <code>docs/DATENFORMATE.md</code>). In den Finanzamt-Dokumenten heißt deine Wallet nur „BitBox-Wallet“ (bzw. „Sparrow-Wallet“, „Trezor-Wallet“ …), bei mehreren „BitBox-Wallet 1“, „BitBox-Wallet 2“ und so weiter; die echten Namen stehen allein in der internen Datei „Wallet-Abgleich“.</p>
         <p><strong>Überträge zwischen meinen Wallets und ihre Gebühren?</strong><br>Der übertragene Bestand bleibt steuerneutral und behält sein Kaufdatum (siehe „Mehrere Wallets“). Die Netzwerk- oder Auszahlungsgebühr in Bitcoin bucht die App als kleine Veräußerung des Gebührenanteils: Die Gebühr ist ein Tausch gegen eine Dienstleistung (abgeleitet aus dem BMF-Schreiben vom 06.03.2025, Rn. 33, 54, 60). FiFo-Zuordnung, Bewertung zum Tagesschlusskurs (Rn. 91), eigener Abschnitt „GEBÜHREN IN BITCOIN“ im Report.</p>
         <p><strong>Bitcoin verschenkt oder gespendet?</strong><br>Trag in der BitBoxApp vor dem Export ein Wort wie „Spende“, „Geschenk“ oder „Schenkung“ in die Notiz der Transaktion ein. Die App bucht die Zeile dann als unentgeltliche Übertragung: kein Verkauf, kein Gewinn, aber ein Abgang aus dem Bestand. Der Report nennt je Lot Kaufdatum und Einstand, weil dem Empfänger die Anschaffung zugerechnet wird (§ 23 Abs. 1 Satz 3 EStG). Eine dabei gezahlte Netzwerkgebühr bleibt eine kleine Veräußerung (siehe oben). Notizen mit „Gutschein“ oder „Gift Card“ und verneinte Formen wie „kein Geschenk“ wertet die App nicht als Schenkung.</p>
         <p><strong>Mein Broker fehlt?</strong><br>Käufe in <code>manual_buys.csv</code> eintragen (<code>date,btc_amount,eur_amount,note,kyc,wallet</code>; bei KYC-Brokern wie Coinbase die Spalte <code>kyc</code> auf <code>ja</code>; <code>wallet</code> optional: die eigene Wallet, an die geliefert wurde). Und die CSV-Kopfzeile ohne echte Daten an <a href="mailto:kontakt@alien-investor.org">kontakt@alien-investor.org</a> schicken. Neue Parser kommen mit einem Update.</p>
@@ -453,6 +454,7 @@
         <p>Just your CSV exports. Downloading once a year is enough:</p>
         <ul>
           <li><strong>BitBox:</strong> BitBoxApp → Account info → Export transaction history (one CSV per wallet)</li>
+          <li><strong>Sparrow, Electrum, Trezor Suite, Ledger Wallet:</strong> Sparrow → "Transactions" on the left → icon next to "Transactions:" (tooltip "Export transactions as CSV"), or File → Export Wallet… → Transactions; Electrum → "History" tab → "Tools" → "Export" → CSV (up to version 4.3: menu Wallet → History → Export); Trezor Suite → account → Overview → "Export to file" icon → "Export as .csv" (clear the search first, it filters the export); Ledger Wallet (formerly Ledger Live) → Settings → Accounts → Operation history → Save. Rename each file after its wallet (e.g. <code>cold.csv</code>): the file name becomes the wallet's name. In Ledger, every account in the file is a wallet of its own. Other hardware wallets (e.g. Coldcard, Jade, SeedSigner) are added to Sparrow and exported there; Coldcard and Jade also work with Electrum. The Blockstream App's own export is not supported. These formats are derived from the programs' source code and not yet confirmed against real exports: the report shows a warning, so please check amounts, fees and times. Lightning payments (Electrum) are not covered.</li>
           <li><strong>21bitcoin:</strong> App → Activity → Export report</li>
           <li><strong>Bison:</strong> App → Account → Reports → Transaction history (CSV arrives via email)</li>
           <li><strong>Swissquote:</strong> Web → Account → Transactions → CSV export</li>
@@ -468,7 +470,7 @@
 
         <h2>3 · Check detection</h2>
         <p>The table shows each file with its detected type. Entries marked orange are noKYC sources; they stay strictly separated from the tax office report.</p>
-        <div class="warn"><p><strong style="color:var(--orange)">The one manual step:</strong> A BitBox CSV cannot reveal whether the wallet holds KYC or noKYC coins. If you run a dedicated noKYC wallet, switch it to "BitBox wallet (noKYC)" in the dropdown. Otherwise it will appear in the official report.</p></div>
+        <div class="warn"><p><strong style="color:var(--orange)">The one manual step:</strong> A wallet export (BitBox, Sparrow, Electrum, Trezor, Ledger) cannot reveal whether the wallet holds KYC or noKYC coins. If you run a dedicated noKYC wallet, switch it to "… (noKYC)" in the dropdown. Otherwise it will appear in the official report.</p></div>
         <p>If a file is not recognized, the calculation stays locked until you pick a type yourself or set the file to "Ignore". So an incomplete report can never happen silently.</p>
 
         <h2>4 · Compute the report</h2>
@@ -491,7 +493,7 @@
 
         <h2>Frequently asked</h2>
         <p><strong>Purchases in CHF or USD (Swissquote, Pocket)?</strong><br>The app converts them to EUR at the ECB reference rate of the purchase day (weekend/holiday: last rate before). The rate table ships with the app; no rate service is queried. If a purchase lies after the table's data date, the app stops with an explanation instead of using an old rate.</p>
-        <p><strong>Several wallets and accounts?</strong><br>The app applies FiFo per wallet (German Federal Ministry of Finance letter of 06.03.2025, para. 62) and treats every exchange account as a wallet of its own: every BitBox wallet and every account is a separate holding. On a transfer between your wallets, the sending wallet gives up its oldest units; purchase date and cost travel with them into the receiving wallet. The app matches transfers by transaction ID, otherwise by amount and time (48 hours). An outgoing transfer without a matching incoming one counts as a transfer to one of your wallets that was not loaded and is reported in the log, never silently booked as a sale. So load the exports of all your wallets. Special cases such as a pooled withdrawal are solved with the optional file <code>transfer_zuordnung.csv</code> (format in the repository, <code>docs/DATENFORMATE.md</code>). In the documents for the tax office your wallet is only called "BitBox-Wallet", with several wallets "BitBox-Wallet 1", "BitBox-Wallet 2" and so on; the real names appear solely in the internal file "Wallet check".</p>
+        <p><strong>Several wallets and accounts?</strong><br>The app applies FiFo per wallet (German Federal Ministry of Finance letter of 06.03.2025, para. 62) and treats every exchange account as a wallet of its own: every BitBox wallet and every account is a separate holding. On a transfer between your wallets, the sending wallet gives up its oldest units; purchase date and cost travel with them into the receiving wallet. The app matches transfers by transaction ID, otherwise by amount and time (48 hours). An outgoing transfer without a matching incoming one counts as a transfer to one of your wallets that was not loaded and is reported in the log, never silently booked as a sale. So load the exports of all your wallets. Special cases such as a pooled withdrawal are solved with the optional file <code>transfer_zuordnung.csv</code> (format in the repository, <code>docs/DATENFORMATE.md</code>). In the documents for the tax office your wallet is only called "BitBox-Wallet" (or "Sparrow-Wallet", "Trezor-Wallet" …), with several wallets "BitBox-Wallet 1", "BitBox-Wallet 2" and so on; the real names appear solely in the internal file "Wallet check".</p>
         <p><strong>Transfers between my wallets and their fees?</strong><br>The transferred holding stays tax-neutral and keeps its purchase date (see "Several wallets"). The network or withdrawal fee paid in bitcoin is booked as a small disposal of the fee share: the fee is an exchange for a service (derived from the German Federal Ministry of Finance letter of 06.03.2025, paras. 33, 54, 60). FiFo matching, valued at the daily closing price (para. 91), own section "GEBÜHREN IN BITCOIN" in the report.</p>
         <p><strong>Gave bitcoin away or donated it?</strong><br>Before exporting, put a word like "gift", "donation", "Spende", "Geschenk" or "Schenkung" into the transaction note in the BitBoxApp. The app then books the line as a gratuitous transfer: no sale, no gain, but the coins leave your holdings. The report lists purchase date and cost per lot, because the acquisition is attributed to the recipient (§ 23 (1) sentence 3 EStG). A network fee paid along the way is still a small disposal (see above). Notes containing "gift card" or "Gutschein" (voucher) and negations such as "not a gift" are not treated as gifts.</p>
         <p><strong>My broker is missing?</strong><br>Enter purchases in <code>manual_buys.csv</code> (<code>date,btc_amount,eur_amount,note,kyc,wallet</code>; for KYC brokers like Coinbase set <code>kyc</code> to <code>ja</code>; <code>wallet</code> is optional: your own wallet the coins were delivered to). And send the CSV header line without real data to <a href="mailto:kontakt@alien-investor.org">kontakt@alien-investor.org</a>. New parsers arrive with an update.</p>
@@ -539,7 +541,7 @@
       <div class="dropzone" id="dropzone">
         <span class="dz-icon">⬡</span>
         CSV-Exporte hierher ziehen oder <strong>klicken zum Auswählen</strong><br>
-        <span style="font-size:.72rem">BitBox · 21bitcoin · Bison · Swissquote · Strike · Pocket · Bisq · CoinTracking/Blockpit-Export · manuelle Käufe/Verkäufe</span><br>
+        <span style="font-size:.72rem">BitBox · Sparrow · Electrum · Trezor Suite · Ledger Wallet · 21bitcoin · Bison · Swissquote · Strike · Pocket · Bisq · CoinTracking/Blockpit-Export · manuelle Käufe/Verkäufe</span><br>
         <span style="font-size:.72rem; color:var(--orange)">noKYC bleibt getrennt: Bisq automatisch, manuelle Käufe per kyc-Spalte — noKYC-Wallets nach dem Laden im Dropdown markieren</span><br>
         <span style="font-size:.72rem">Zum Ausprobieren: <a href="examples/beispieldaten.zip" download onclick="event.stopPropagation()" style="color:var(--neon)">Beispieldaten (ZIP)</a> herunterladen und hierher ziehen — oder unten „Mit Beispieldaten testen“</span>
       </div>
@@ -702,12 +704,12 @@
         card01: '// 01 — CSV-Dateien laden',
         dropzoneFull: '<span class="dz-icon">⬡</span>' +
           'CSV-Exporte hierher ziehen oder <strong>klicken zum Auswählen</strong><br>' +
-          '<span style="font-size:.72rem">BitBox · 21bitcoin · Bison · Swissquote · Strike · Pocket · Bisq · CoinTracking/Blockpit-Export · manuelle Käufe/Verkäufe</span><br>' +
+          '<span style="font-size:.72rem">BitBox · Sparrow · Electrum · Trezor Suite · Ledger Wallet · 21bitcoin · Bison · Swissquote · Strike · Pocket · Bisq · CoinTracking/Blockpit-Export · manuelle Käufe/Verkäufe</span><br>' +
           '<span style="font-size:.72rem; color:var(--orange)">noKYC bleibt getrennt: Bisq automatisch, manuelle Käufe per kyc-Spalte — noKYC-Wallets nach dem Laden im Dropdown markieren</span><br>' +
           '<span style="font-size:.72rem">Zum Ausprobieren: <a href="examples/beispieldaten.zip" download onclick="event.stopPropagation()" style="color:var(--neon)">Beispieldaten (ZIP)</a> herunterladen und hierher ziehen — oder unten „Mit Beispieldaten testen“</span>',
-        nokycHint: '⚠ <strong>noKYC-Wallet dabei?</strong> BitBox-Wallets werden zunächst als KYC eingestuft. ' +
+        nokycHint: '⚠ <strong>noKYC-Wallet dabei?</strong> Wallet-Exporte (BitBox, Sparrow, Electrum, Trezor, Ledger) werden zunächst als KYC eingestuft. ' +
           'Eine dedizierte noKYC-Wallet (z.B. für Bisq-, Robosats- oder Bargeld-Käufe) im Dropdown auf ' +
-          '„BitBox-Wallet (noKYC)" umstellen — sonst erscheint sie im Finanzamt-Report.',
+          '„… (noKYC)" umstellen — sonst erscheint sie im Finanzamt-Report.',
         unknownHint: '✗ <strong>Nicht erkannte Datei(en) in der Liste.</strong> Damit kein unvollständiger Report entsteht, ' +
           'ist die Berechnung gesperrt: Bitte den richtigen Typ im Dropdown wählen — oder bewusst auf ' +
           '„Ignorieren" stellen. Broker fehlt? CSV-Kopfzeile (ohne echte Daten) an ' +
@@ -739,6 +741,8 @@
         types: {
           bitbox:       'BitBox-Wallet (KYC)',
           bitbox_nokyc: 'BitBox-Wallet (noKYC)',
+          wallet:       'Sparrow/Electrum/Trezor/Ledger (KYC)',
+          wallet_nokyc: 'Sparrow/Electrum/Trezor/Ledger (noKYC)',
           btc21:        '21bitcoin',
           bison:        'Bison',
           swissquote:   'Swissquote',
@@ -835,12 +839,12 @@
         card01: '// 01 — Load CSV files',
         dropzoneFull: '<span class="dz-icon">⬡</span>' +
           'Drag your CSV exports here or <strong>click to select</strong><br>' +
-          '<span style="font-size:.72rem">BitBox · 21bitcoin · Bison · Swissquote · Strike · Pocket · Bisq · CoinTracking/Blockpit export · manual buys/sells</span><br>' +
+          '<span style="font-size:.72rem">BitBox · Sparrow · Electrum · Trezor Suite · Ledger Wallet · 21bitcoin · Bison · Swissquote · Strike · Pocket · Bisq · CoinTracking/Blockpit export · manual buys/sells</span><br>' +
           '<span style="font-size:.72rem; color:var(--orange)">noKYC stays separate: Bisq automatically, manual buys via kyc column — mark noKYC wallets in the dropdown after loading</span><br>' +
           '<span style="font-size:.72rem">To try it out: download the <a href="examples/beispieldaten.zip" download onclick="event.stopPropagation()" style="color:var(--neon)">sample data (ZIP)</a> and drop it here — or click "Try with sample data" below</span>',
-        nokycHint: '⚠ <strong>Got a noKYC wallet?</strong> BitBox wallets are initially classified as KYC. ' +
+        nokycHint: '⚠ <strong>Got a noKYC wallet?</strong> Wallet exports (BitBox, Sparrow, Electrum, Trezor, Ledger) are initially classified as KYC. ' +
           'Switch a dedicated noKYC wallet (e.g. for Bisq, Robosats or cash buys) to ' +
-          '"BitBox wallet (noKYC)" in the dropdown — otherwise it ends up in the tax-office report.',
+          '"… (noKYC)" in the dropdown — otherwise it ends up in the tax-office report.',
         unknownHint: '✗ <strong>Unrecognized file(s) in the list.</strong> To prevent an incomplete report, ' +
           'calculation is locked: please pick the correct type in the dropdown — or deliberately set it to ' +
           '"Ignore". Broker missing? Send the CSV header line (without real data) to ' +
@@ -873,6 +877,8 @@
         types: {
           bitbox:       'BitBox wallet (KYC)',
           bitbox_nokyc: 'BitBox wallet (noKYC)',
+          wallet:       'Sparrow/Electrum/Trezor/Ledger (KYC)',
+          wallet_nokyc: 'Sparrow/Electrum/Trezor/Ledger (noKYC)',
           btc21:        '21bitcoin',
           bison:        'Bison',
           swissquote:   'Swissquote',
@@ -1027,6 +1033,10 @@
     const TYPES = {
       bitbox:       { target: (n,i) => `bitbox/${baseName(n)}`,       max: 99 },
       bitbox_nokyc: { target: (n,i) => `bitbox/nokyc/${baseName(n)}`, max: 99, nokyc: true },
+      // Weitere Wallet-Software (v1.4): der Parser erkennt das Programm an der Kopfzeile,
+      // der Dateiname ist das private Label der Wallet (wie bei BitBox) und bleibt erhalten
+      wallet:       { target: (n,i) => `wallets/${baseName(n)}`,       max: 99 },
+      wallet_nokyc: { target: (n,i) => `wallets/nokyc/${baseName(n)}`, max: 99, nokyc: true },
       btc21:        { target: (n,i) => `Broker/21bitcoin-${i}.csv`, max: 99 },
       bison:        { target: ()    => 'Broker/Bison-CSV-Gesamt.csv', max: 1 },
       swissquote:   { target: ()    => 'Broker/Swissquote_CSV-Gesamt.csv', max: 1 },
@@ -1064,6 +1074,12 @@
       const hLatin = latin.split(/\r?\n/)[0].trim();
 
       if (h.startsWith('Time,Type,Amount,Unit'))        return lower.includes('nokyc') ? 'bitbox_nokyc' : 'bitbox';
+      // Sparrow, Electrum (alle Kopfzeilen-Generationen), Trezor Suite (bis 25.8 mit Semikolon), Ledger Wallet/Live
+      const hw = h.replace(/"/g, '').replace(/;/g, ',');
+      if ((/^Date( \(UTC\))?,Label,Value/.test(hw) && hw.endsWith(',Txid')) ||
+          hw.startsWith('oc_transaction_hash,ln_payment_hash,') || hw.startsWith('transaction_hash,label,') ||
+          hw.startsWith('Timestamp,Date,Time,Type,Transaction ID,') || hw.startsWith('Operation Date,'))
+        return lower.includes('nokyc') ? 'wallet_nokyc' : 'wallet';
       if (h.startsWith('id,exchange_name'))             return 'btc21';
       if (h.startsWith('Transaction ID;'))              return 'bison';
       if (hLatin.startsWith('Datum;Auftrag'))           return 'swissquote';
@@ -1128,6 +1144,8 @@
       'src/parsers/broker_strike.py', 'src/parsers/broker_pocket.py',
       'src/parsers/bisq.py', 'src/parsers/manual_buys.py', 'src/parsers/manual_sales.py',
       'src/parsers/transfer_zuordnung.py', 'src/parsers/sammelimport.py',
+      'src/parsers/wallet_export.py', 'src/parsers/wallet_sparrow.py', 'src/parsers/wallet_electrum.py',
+      'src/parsers/wallet_trezor.py', 'src/parsers/wallet_ledger.py',
     ];
     const DEMO_FILES = [
       'examples/bitbox/wallet1.csv', 'examples/bitbox/nokyc/nokyc_wallet.csv',
@@ -1371,8 +1389,8 @@ json.dumps({
       const hasUnknown = files.some(f => BLOCKING_TYPES.includes(f.type));
       btnRun.disabled = running || usable.length === 0 || demoLoading || hasUnknown;
       document.getElementById('unknown-hint').classList.toggle('hidden', !hasUnknown);
-      // Hinweis, solange mindestens eine BitBox-Wallet als KYC eingestuft ist
-      const hasKycBitbox = files.some(f => f.type === 'bitbox');
+      // Hinweis, solange mindestens eine Wallet (BitBox, Sparrow …) als KYC eingestuft ist
+      const hasKycBitbox = files.some(f => f.type === 'bitbox' || f.type === 'wallet');
       document.getElementById('nokyc-hint').classList.toggle('hidden', !hasKycBitbox);
     }
 
@@ -1831,7 +1849,7 @@ json.dumps({
 
     /* ───────────────────────── Bug-Report (Muster alien-analyzer-v2) ───────────────────────── */
     // Auswahlliste: alle Typen, die die Erkennung kennt, plus „Anderer Broker“ — Reihenfolge wie im Datei-Dropdown
-    const BUG_TYPES = ['bitbox', 'bitbox_nokyc', 'btc21', 'bison', 'swissquote', 'strike', 'pocket', 'bisq', 'sammel', 'manual_buys', 'manual_sales'];
+    const BUG_TYPES = ['bitbox', 'bitbox_nokyc', 'wallet', 'btc21', 'bison', 'swissquote', 'strike', 'pocket', 'bisq', 'sammel', 'manual_buys', 'manual_sales'];
     function bugPicked() {
       return [...document.querySelectorAll('#bug-menu input:checked')].map(i => i.value);
     }

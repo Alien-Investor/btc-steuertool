@@ -4,6 +4,13 @@ Das CLI und die Web-Version haben keine eigenen Versionen; sie laufen immer auf 
 Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die denselben Rechenkern enthalten.
 
 ## Unveröffentlicht (main)
+- **Wallet-Exporte Sparrow, Electrum, Trezor Suite, Ledger Wallet/Ledger Live (neu, unbestätigt):** Transaktions-CSVs dieser Programme werden gelesen
+  (das Tool erkennt das Programm an der Kopfzeile, auch ältere Exportformate). Jede Wallet ist ein eigener Bestand, bei Ledger jedes
+  Konto; Überträge werden über die Transaktions-ID mit Börsen und anderen Wallets verbunden. In den Finanzamt-Dokumenten heißen sie nur
+  „Sparrow-Wallet“, „Trezor-Wallet 1“ usw. Ausgänge mit Netzwerkgebühr, Überweisungen an sich selbst (nur Gebühr) und Schenkungen
+  (Wort im Label) werden wie bei der BitBox gebucht. Die Formate stammen aus dem Quellcode der Programme, nicht aus echten Exporten:
+  Der Steuerreport zeigt je Datei eine Warnung „Format noch nicht bestätigt“. Electrum schreibt Zeiten ohne Zeitzone (gelesen als deutsche
+  Ortszeit), Lightning-Zahlungen werden gemeldet, nicht erfasst. In der App: Typ „Sparrow/Electrum/Trezor/Ledger (KYC/noKYC)“.
 - Bisq: der englische Export ist jetzt an einem echten Export des Autors bestätigt (gleiche Trades auf Deutsch und Englisch exportiert,
   Ergebnis feldgleich). Der Hinweis „bitte Ergebnis prüfen“ aus v1.3 gilt für Bisq damit nicht mehr.
 

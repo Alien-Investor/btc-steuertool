@@ -123,6 +123,11 @@ with sync_playwright() as p:
     print("\nErkennung Sonderfälle (nur Sniffing):")
     fixture_en = (BASE.parent / "tests" / "fixtures" / "bisq_en.csv").read_bytes()
     bisq_de_bom = b"\xef\xbb\xbf" + (EXAMPLES / "Broker/bisq.csv").read_bytes()
+    # Wallet-Software (v1.4): alle Kopfzeilen-Generationen, Dateiname mit „nokyc" → noKYC
+    wallets = {f"wallet-{n}": (BASE.parent / "tests" / "fixtures" / n).read_bytes() for n in (
+        "sparrow.csv", "sparrow_alt.csv", "electrum.csv", "electrum_46.csv", "electrum_45.csv",
+        "trezor.csv", "trezor_semikolon.csv", "ledger.csv")}
+    wallets["wallet-ledger-nokyc.csv"] = wallets["wallet-ledger.csv"]
     page2 = browser.new_page()
     page2.goto("http://localhost:8741/index.html")
     sammel = {f"sammel-{n}": (BASE.parent / "tests" / "fixtures" / n).read_bytes() for n in (
@@ -130,18 +135,67 @@ with sync_playwright() as p:
     page2.set_input_files("#file-input", files=[
         {"name": "tradeHistory.csv", "mimeType": "text/csv", "buffer": fixture_en},
         {"name": "bisq-bom.csv", "mimeType": "text/csv", "buffer": bisq_de_bom},
-    ] + [{"name": n, "mimeType": "text/csv", "buffer": b} for n, b in sammel.items()])
+    ] + [{"name": n, "mimeType": "text/csv", "buffer": b} for n, b in sammel.items()]
+      + [{"name": n, "mimeType": "text/csv", "buffer": b} for n, b in wallets.items()])
     page2.wait_for_selector("#file-table:not(.hidden)")
+    page2.wait_for_function(f"document.querySelectorAll('#file-tbody tr').length === {2 + len(sammel) + len(wallets)}")
     rows2 = page2.evaluate("""
         Array.from(document.querySelectorAll('#file-tbody tr')).map(tr => ({
             name: tr.cells[0].textContent, type: tr.querySelector('select').value }))
     """)
     for row in rows2:
         expected = "sammel" if row["name"].startswith("sammel-") else "bisq"
+        if row["name"].startswith("wallet-"):
+            expected = "wallet_nokyc" if "nokyc" in row["name"] else "wallet"
         ok = row["type"] == expected
         print(f"  {'✓' if ok else '✗'} {row['name']}: {row['type']}" + ("" if ok else f" (erwartet: {expected})"))
         if not ok:
             failures.append(f"Sniffing {row['name']}: {row['type']} != {expected}")
+
+    # 7) Rechenlauf mit Wallet-Exporten (Sparrow, Trezor, Ledger + Broker, eine Datei noKYC):
+    #    Reports byte-gleich zur CLI auf denselben Daten — prüft Platzierung (wallets/, wallets/nokyc/)
+    #    und dass die neuen Module in SRC_FILES stehen
+    print("\nRechenlauf mit Wallet-Exporten gegen CLI:")
+    import shutil, subprocess, tempfile
+    fx = BASE.parent / "tests" / "fixtures"
+    sparrow_cold = ("Date (UTC),Label,Value (BTC),Balance (BTC),Fee (BTC),Txid\n"
+                    "2022-05-02 14:00:00,,0.01000000,0.01000000,,c0c0000000000000000000000000000000000000000000000000000000000001\n"
+                    "2023-06-01 10:00:00,Konsolidierung,-0.00001000,0.00999000,0.00001000,c0c0000000000000000000000000000000000000000000000000000000000002\n").encode()
+    upload = {"21bitcoin-gesamt.csv": (EXAMPLES / "Broker/21bitcoin-gesamt.csv").read_bytes(),
+              "cold.csv": sparrow_cold, "tresor.csv": (fx / "trezor.csv").read_bytes(),
+              "ledger_nokyc.csv": (fx / "ledger.csv").read_bytes()}
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        (d / "Broker").mkdir(); (d / "wallets" / "nokyc").mkdir(parents=True)
+        (d / "Broker/21bitcoin-gesamt.csv").write_bytes(upload["21bitcoin-gesamt.csv"])
+        (d / "wallets/cold.csv").write_bytes(upload["cold.csv"])
+        (d / "wallets/tresor.csv").write_bytes(upload["tresor.csv"])
+        (d / "wallets/nokyc/ledger_nokyc.csv").write_bytes(upload["ledger_nokyc.csv"])
+        subprocess.run([sys.executable, "-m", "src.main", "--all", "--nachweis", "--csv", "--data-dir", str(d)],
+                       cwd=BASE.parent, check=True, capture_output=True)
+        cli = {f.name: f.read_bytes() for f in (d / "reports").iterdir()}
+    page3 = browser.new_page()
+    page3.goto("http://localhost:8741/index.html")
+    page3.set_input_files("#file-input", files=[{"name": n, "mimeType": "text/csv", "buffer": b} for n, b in upload.items()])
+    page3.wait_for_function(f"document.querySelectorAll('#file-tbody tr').length === {len(upload)}")
+    page3.click("#btn-run")
+    page3.wait_for_function("window.__GUI_DONE === true", timeout=180_000)
+    err3 = page3.evaluate("window.__GUI_ERROR || null")
+    if err3:
+        failures.append(f"Wallet-Lauf: Browser-Fehler {err3}")
+        print(f"  ✗ Browser-Fehler: {err3}")
+    else:
+        got = page3.evaluate("window.__GUI_RESULT")["reports"]
+        for name in sorted(set(cli) | set(got)):
+            if name not in got or name not in cli:
+                failures.append(f"Wallet-Lauf: {name} nur in {'CLI' if name in cli else 'Browser'}")
+                print(f"  ✗ {name}: nur in {'CLI' if name in cli else 'Browser'}")
+                continue
+            norm = lambda b: b"\n".join(l for l in b.replace(b"\r\n", b"\n").split(b"\n") if b"Erstellt am" not in l)
+            ok = norm(cli[name]).rstrip(b"\n") == norm(got[name].encode("utf-8")).rstrip(b"\n")
+            print(f"  {'✓' if ok else '✗'} {name}")
+            if not ok:
+                failures.append(f"Wallet-Lauf: {name} weicht von der CLI ab")
     browser.close()
 
 print()

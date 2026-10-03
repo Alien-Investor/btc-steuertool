@@ -315,11 +315,14 @@ def _append_warning(w: ParserWarning) -> None:
 
 
 def read_rows(filepath: Path, *, label: str, required: tuple[str, ...] | list[str] = (),
-              delimiter: str = ",", encodings: tuple[str, ...] = ("utf-8-sig",)) -> tuple[list[dict], list[str]]:
+              delimiter: str = ",", encodings: tuple[str, ...] = ("utf-8-sig",),
+              comment: str | None = None) -> tuple[list[dict], list[str]]:
     """Liest eine CSV vollständig als Liste von Zeilen-Dicts (Schlüssel und Werte
     getrimmt, zusätzlich LINE_KEY = Zeilennummer) und gibt die Kopfzeile zurück.
 
     `encodings` werden der Reihe nach probiert (Swissquote: UTF-8, sonst Windows-1252).
+    `comment`: einspaltige Zeilen, die damit beginnen, werden übersprungen (Sparrow hängt
+    „# Historical EUR values …“ ans Dateiende). Leere Zeilen überspringt csv ohnehin.
     Jeder Fehler ist ein ValueError, der Datei und Zeile nennt — der Dateiname ist
     hier richtig: Fehler brechen den Lauf ab, bevor ein Dokument entsteht, und
     erreichen nur den Nutzer (CLI, GUI-Fehlerkarte; der Bug-Report übernimmt die
@@ -374,9 +377,14 @@ def read_rows(filepath: Path, *, label: str, required: tuple[str, ...] | list[st
 
     rows: list[dict] = []
     n_cols = len(fieldnames)
+    key0 = reader.fieldnames[0]
     try:
         for raw in reader:
             line = reader.line_num
+            first = raw.get(key0)
+            if (comment and first is not None and first.lstrip().startswith(comment)
+                    and None not in raw and all(v is None for k, v in raw.items() if k != key0)):
+                continue
             if None in raw:
                 extra = raw.pop(None)
                 raise ValueError(

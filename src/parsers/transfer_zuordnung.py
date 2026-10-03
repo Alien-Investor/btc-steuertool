@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from ..models import WALLET_KINDS
 
 FILENAME = "transfer_zuordnung.csv"
 _REQUIRED = ("datum_abgang", "von", "menge_abgang", "datum_eingang", "nach", "menge_eingang")
@@ -93,11 +94,18 @@ def parse(filepath: Path) -> list[ManualLinkRow]:
 
 def resolve_wallet(raw: str, known: set[str]) -> str | None:
     """Ordnet einen geschriebenen Wallet-Namen einer bekannten Wallet zu:
-    exakt, als BitBox-Dateiname (ohne „bitbox:“) oder ohne Groß-/Kleinschreibung.
+    exakt, als Dateiname eines Wallet-Exports (ohne „bitbox:“, „sparrow:“ …) oder ohne Groß-/Kleinschreibung.
     None = nicht eindeutig auffindbar."""
     name = _ALIASES.get(raw.strip().lower(), raw.strip())
-    for cand in (name, f"bitbox:{name}"):
-        if cand in known:
-            return cand
-    lower = [w for w in known if w.lower() in (name.lower(), f"bitbox:{name}".lower())]
+    if name in known:
+        return name
+    # Dateiname ohne Art-Präfix („wallet1“ → „bitbox:wallet1“, „cold“ → „sparrow:cold“) —
+    # nur eindeutig: heißen eine BitBox- und eine Sparrow-Wallet gleich, gilt keine
+    exact = [f"{k}:{name}" for k in WALLET_KINDS if f"{k}:{name}" in known]
+    if len(exact) == 1:
+        return exact[0]
+    if exact:
+        return None
+    cands = {name.lower()} | {f"{k}:{name}".lower() for k in WALLET_KINDS}
+    lower = [w for w in known if w.lower() in cands]
     return lower[0] if len(lower) == 1 else None

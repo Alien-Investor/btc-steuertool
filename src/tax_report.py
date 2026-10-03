@@ -6,7 +6,7 @@ import csv
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
-from .models import Transaction, TxType, SellResult, Lot, DisposalKind, de_date
+from .models import Transaction, TxType, SellResult, Lot, DisposalKind, de_date, own_wallet, WALLET_KINDS
 from . import btc_prices
 from .parsers import _sanitize as _note   # Notizen im internen Report: keine Zeilenumbrüche/Trennlinien (Audit C2)
 from .wallet_report import label as wallet_label, move_table, lots_by_wallet
@@ -52,7 +52,8 @@ def _src_label(source: str) -> str:
     Labels aus der Dateiablage des Nutzers und gehören nicht in ein Dokument, das
     unter Klarnamen ans Finanzamt geht (vgl. Datenquellen im Nachweis) — Broker
     bleiben Broker."""
-    return "BitBox-Wallet" if source.startswith("bitbox:") else source
+    own = own_wallet(source)
+    return f"{WALLET_KINDS[own[0]]}-Wallet" if own else source
 
 
 def _cost_sum(sr: SellResult) -> Decimal:
@@ -206,7 +207,7 @@ class TaxReport:
         self.remaining_lots = [l for l in remaining_lots if not l.no_kyc]
         self.no_kyc_lots = [l for l in remaining_lots if l.no_kyc]
 
-        # noKYC-Wallet-Bewegungen (TRANSFER_IN/OUT und Schenkungen aus bitbox/nokyc/)
+        # noKYC-Wallet-Bewegungen (TRANSFER_IN/OUT und Schenkungen aus bitbox/nokyc/, wallets/nokyc/)
         transfer_types = (TxType.TRANSFER_IN, TxType.TRANSFER_OUT, TxType.GIFT_OUT)
         if year:
             all_transfers = [t for t in all_transactions if t.type in transfer_types and de_date(t.date).year == year]
@@ -557,7 +558,9 @@ class TaxReport:
 
         if self.no_kyc_transfers:
             lines.append("")
-            lines.append("  noKYC-WALLET-AKTIVITÄT (bitbox/nokyc/)")
+            folders = ["bitbox/nokyc/"] + (["wallets/nokyc/"] if any(
+                (own_wallet(t.source) or ("bitbox",))[0] != "bitbox" for t in self.no_kyc_transfers) else [])
+            lines.append(f"  noKYC-WALLET-AKTIVITÄT ({', '.join(folders)})")
             lines.append(f"  {'Datum':<12} {'Wallet':<20} {'Typ':<12} {'BTC-Betrag':>14} {'Gebühr BTC':>12}  {'Note'}")
             lines.append(f"  {'-'*12} {'-'*20} {'-'*12} {'-'*14} {'-'*12}  {'-'*20}")
             total_in = Decimal("0")
@@ -566,7 +569,7 @@ class TaxReport:
             _TYP = {TxType.TRANSFER_IN: "empfangen", TxType.TRANSFER_OUT: "gesendet", TxType.GIFT_OUT: "geschenkt"}
             for tx in sorted(self.no_kyc_transfers, key=lambda t: t.date):
                 typ = _TYP.get(tx.type, tx.type.value)
-                wallet = tx.source.replace("bitbox:", "")
+                wallet = wallet_label(tx.source, None)
                 fee = f"{tx.fee_btc:.8f}" if tx.fee_btc else ""
                 lines.append(
                     f"  {de_date(tx.date)!s:<12} {wallet:<20} {typ:<12} {tx.btc_amount:>14.8f} {fee:>12}  {_note(tx.note)}"

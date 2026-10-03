@@ -9,10 +9,18 @@ from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from .models import Transaction, TxType, SellResult, Lot, de_date
+from .models import Transaction, TxType, SellResult, Lot, de_date, own_wallet
 from .tax_report import _freigrenze
 from .wallet_report import label as wallet_label, move_table
 from . import btc_prices, fx_rates, parsers
+
+# Produktnamen für „Datenquellen" (BitBox hat eine eigene, ältere Zeile)
+_WALLET_PRODUCTS = {
+    "sparrow": "Sparrow Wallet",
+    "electrum": "Electrum",
+    "trezor": "Trezor Suite",
+    "ledger": "Ledger Wallet (Ledger Live)",
+}
 
 CENT = Decimal("0.01")
 
@@ -573,7 +581,7 @@ def generate_tax_free_proof(
     blank()
     lines.append("  Datenquellen:")
     sources = set(t.source for t in kyc_transactions)
-    bitbox_wallets = sorted(s.replace("bitbox:", "") for s in sources if s.startswith("bitbox:"))
+    bitbox_wallets = sorted(s for s in sources if (own_wallet(s) or ("",))[0] == "bitbox")
     if bitbox_wallets:
         # Nur die ANZAHL, nie die Wallet-Namen: die Namen sind private Labels aus
         # der lokalen Dateiablage des Nutzers und haben in einem Dokument, das
@@ -584,6 +592,11 @@ def generate_tax_free_proof(
         # ohnehin in keinem erzeugten Dokument auftauchen).
         count = len(bitbox_wallets)
         lines.append(f"    - BitBox Hardware Wallet CSV-Exporte ({count} {'Wallet' if count == 1 else 'Wallets'})")
+    # Weitere Wallet-Software (v1.4): ebenfalls nur die Anzahl je Programm
+    for kind, product in _WALLET_PRODUCTS.items():
+        count = sum(1 for s in sources if (own_wallet(s) or ("",))[0] == kind)
+        if count:
+            lines.append(f"    - {product} CSV-Export ({count} {'Wallet' if count == 1 else 'Wallets'})")
     _BROKER_DISPLAY = {
         "21bitcoin": "21bitcoin", "bison": "Bison", "swissquote": "Swissquote",
         "strike": "Strike", "pocket": "Pocket", "manual": "Manuell erfasste Transaktionen (CSV)",
@@ -634,8 +647,10 @@ def generate_tax_free_proof(
         lines.append(f"    Unentgeltl. Übertr.:{type_counts.get(TxType.GIFT_OUT, 0):>5}")
     lines.append(f"    Gesamt:             {len(kyc_transactions):>5}")
     blank()
+    kinds = {own[0] for own in map(own_wallet, sources) if own}
+    pair = "BitBox ↔ Broker" if kinds <= {"bitbox"} else "Wallet ↔ Broker"
     para(
-        "Hinweis: Überträge zwischen eigenen Wallets und Konten (BitBox ↔ Broker) "
+        f"Hinweis: Überträge zwischen eigenen Wallets und Konten ({pair}) "
         "stellen hinsichtlich des übertragenen Bestands keine steuerpflichtigen "
         "Vorgänge dar und lösen keinen Gewinn aus. Sie übertragen bei walletbezogener "
         "Betrachtung die Anschaffungsdaten der abgegebenen Einheiten in die "

@@ -36,7 +36,7 @@ from datetime import timedelta
 from decimal import Decimal
 from enum import Enum
 
-from .models import Transaction, TxType, ANY_WALLET, de_date, wallet_label
+from .models import Transaction, TxType, ANY_WALLET, de_date, wallet_label, wallet_name
 from .parsers import ParserWarning, make_warning_fmt
 from .parsers.transfer_zuordnung import FILENAME as ZUORDNUNG, resolve_wallet
 
@@ -154,7 +154,7 @@ def _find(pool: list[Transaction], day, wallet: str, amount: Decimal, line: int,
     if len(hits) != 1:
         raise ValueError(
             f"{ZUORDNUNG} Zeile {line}: {side} am {day} über {amount} BTC in "
-            f"'{wallet.replace('bitbox:', '')}' "
+            f"'{wallet_name(wallet)}' "
             + ("nicht gefunden." if not hits else f"nicht eindeutig ({len(hits)} Treffer).")
             + " Datum (deutsches Kalenderdatum), Wallet und Menge wie in der Warnung angeben."
         )
@@ -412,8 +412,8 @@ def match_transfers(transactions: list[Transaction], manual_rows=()) -> MatchRes
                 f"ist offenbar am {de_date(t.date)} ({t.btc_amount:.8f} BTC) in einer KYC-Wallet "
                 f"angekommen. KYC- und noKYC-Bestände bleiben strikt getrennt; die Steuerdokumente "
                 f"würden den Eingang sonst mit Datum und Betrag zeigen. Bitte den Export der "
-                f"empfangenden Wallet nach bitbox/nokyc/ verschieben (bzw. in der App als „BitBox noKYC“ "
-                f"einstufen) oder die Einstufung des Kaufs prüfen. Berechnung abgebrochen."
+                f"empfangenden Wallet nach bitbox/nokyc/ bzw. wallets/nokyc/ verschieben (in der App als "
+                f"„noKYC“ einstufen) oder die Einstufung des Kaufs prüfen. Berechnung abgebrochen."
             )
 
     for g in givers:

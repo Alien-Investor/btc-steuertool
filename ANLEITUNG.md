@@ -3,7 +3,7 @@
 ## Was macht dieses Tool?
 
 Es liest deine CSV-Dateien von BitBox, 21bitcoin, Bison, Swissquote, Strike, Pocket und Bisq (sowie
-Sammelexporte aus CoinTracking und Blockpit, noch unbestätigt) und berechnet daraus automatisch, welche Bitcoin-Verkäufe steuerpflichtig oder steuerfrei waren.
+Sammelexporte aus CoinTracking und Blockpit sowie Exporte aus Sparrow, Electrum, Trezor Suite und Ledger Wallet (früher Ledger Live), noch unbestätigt) und berechnet daraus automatisch, welche Bitcoin-Verkäufe steuerpflichtig oder steuerfrei waren.
 Die Berechnung folgt der deutschen FiFo-Methode je Wallet (§ 23 EStG, BMF-Schreiben vom
 06.03.2025, Rn. 61 f.): BTC, die länger als ein Jahr gehalten wurden, sind beim Verkauf steuerfrei.
 
@@ -199,6 +199,10 @@ BitBoxApp jederzeit ändern — danach die CSV einfach neu exportieren.
 Einfach die neue CSV-Datei in den richtigen Ordner legen:
 
 - BitBox-Export → `bitbox/`
+- Sparrow-, Electrum-, Trezor-Suite- oder Ledger-Wallet-Export → `wallets/` (noKYC-Wallets → `wallets/nokyc/`). Das Programm
+  wird am Inhalt erkannt, der Dateiname ist der Name der Wallet (Datei am besten nach der Wallet benennen, z. B. `cold.csv`;
+  den Zeitstempel im Trezor-Dateinamen entfernt das Tool selbst). Bei Ledger ist jedes Konto in der Datei eine eigene
+  Wallet. Diese Formate sind noch nicht an echten Exporten bestätigt — der Report zeigt eine Warnung, bitte prüfen.
 - 21bitcoin-Export → `Broker/` (Dateiname muss mit `21bitcoin` beginnen)
 - Bison-Export → `Broker/Bison-CSV-Gesamt.csv`
 - Swissquote-Export → `Broker/Swissquote_CSV-Gesamt.csv`
