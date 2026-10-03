@@ -53,15 +53,17 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
         # Nur abgeschlossene Vorgänge zählen — aber nicht stillschweigend
         # verwerfen: Purchase/Send/Receive sind steuerlich relevant.
         if tx_type_raw in ("Purchase", "Send", "Receive"):
-            year = None
+            year, tag = None, "?"
             try:
-                year = de_date(_parse_date(date_str, filename, line)).year
+                tag = de_date(_parse_date(date_str, filename, line))
+                year = tag.year
             except ValueError:
                 pass
+            # Datum als deutsches Kalenderdatum, nicht die Rohzelle (Audit v1.4, R3-B7)
             warn_fmt(
                 "{file}: {typ} vom {zeit} mit Status '{status}' nicht verarbeitet.",
                 internal=False, file=FileRef(filename), year=year,
-                typ=tx_type_raw, zeit=date_str or "?", status=status,
+                typ=tx_type_raw, zeit=tag, status=status,
             )
         return None
 

@@ -37,7 +37,7 @@ from decimal import Decimal
 from enum import Enum
 
 from .models import Transaction, TxType, ANY_WALLET, de_date, wallet_label, wallet_name
-from .parsers import ParserWarning, make_warning_fmt
+from .parsers import ParserWarning, PrivateError, make_warning_fmt
 from .parsers.transfer_zuordnung import FILENAME as ZUORDNUNG, resolve_wallet
 
 # Zeitfenster Abgang ↔ Eingang, in BEIDE Richtungen: die Quellen stempeln in
@@ -152,8 +152,8 @@ def _find(pool: list[Transaction], day, wallet: str, amount: Decimal, line: int,
             and (t.wallet == wallet or (t.wallet == ANY_WALLET and t.source == wallet))
             and amount in (t.btc_amount, t.btc_amount + t.fee_btc)]
     if len(hits) != 1:
-        raise ValueError(
-            f"{ZUORDNUNG} Zeile {line}: {side} am {day} über {amount} BTC in "
+        raise PrivateError(
+            f"{ZUORDNUNG} Zeile {line}: {side} am {day} über {amount:.8f} BTC in "
             f"'{wallet_name(wallet)}' "
             + ("nicht gefunden." if not hits else f"nicht eindeutig ({len(hits)} Treffer).")
             + " Datum (deutsches Kalenderdatum), Wallet und Menge wie in der Warnung angeben."
@@ -195,7 +195,7 @@ def match_transfers(transactions: list[Transaction], manual_rows=()) -> MatchRes
             for raw in (row.giver_wallet, row.taker_wallet):
                 w = resolve_wallet(raw, known)
                 if w is None:
-                    raise ValueError(f"{ZUORDNUNG} Zeile {row.line}: Wallet '{raw}' gehört zu keiner "
+                    raise PrivateError(f"{ZUORDNUNG} Zeile {row.line}: Wallet '{raw}' gehört zu keiner "
                                      f"eingelesenen Datei.")
                 wallets.append(w)
             g = _find(givers, row.giver_date, wallets[0], row.giver_amount, row.line, "Abgang/Kauf")
@@ -213,17 +213,17 @@ def match_transfers(transactions: list[Transaction], manual_rows=()) -> MatchRes
         for row, g, t in resolved:
             kind = _kind(g, t)
             if kind is None:
-                raise ValueError(f"{ZUORDNUNG} Zeile {row.line}: ein Kauf kann nicht direkt mit einem "
+                raise PrivateError(f"{ZUORDNUNG} Zeile {row.line}: ein Kauf kann nicht direkt mit einem "
                                  f"Verkauf verbunden werden.")
             if g.no_kyc != t.no_kyc:
                 # Wortlaut ohne „noKYC“: Fehlermeldung, kein Dokument — trotzdem neutral
-                raise ValueError(f"{ZUORDNUNG} Zeile {row.line}: Abgang und Eingang gehören zu "
+                raise PrivateError(f"{ZUORDNUNG} Zeile {row.line}: Abgang und Eingang gehören zu "
                                  f"getrennten Beständen (KYC/noKYC) — nicht verbindbar.")
             avail = transferable(g) - (g.fee_btc if id(t) in net_takers else Decimal("0"))
             amount = min(avail - moved.get(id(g), Decimal("0")),
                          t.btc_amount - filled.get(id(t), Decimal("0")))
             if amount <= 0:
-                raise ValueError(f"{ZUORDNUNG} Zeile {row.line}: Abgang oder Eingang ist durch "
+                raise PrivateError(f"{ZUORDNUNG} Zeile {row.line}: Abgang oder Eingang ist durch "
                                  f"vorherige Zeilen schon vollständig zugeordnet.")
             link(kind, g, t, "manuell", amount)
             filled[id(t)] = filled.get(id(t), Decimal("0")) + amount
@@ -429,7 +429,7 @@ def match_transfers(transactions: list[Transaction], manual_rows=()) -> MatchRes
             nk_cross.append((g, hit[0]))
     if nk_cross:
         g, t = nk_cross[0]
-        raise ValueError(
+        raise PrivateError(
             f"Der Vorgang vom {de_date(g.date)} über {g.btc_amount:.8f} BTC aus dem noKYC-Bestand "
             f"ist offenbar am {de_date(t.date)} ({t.btc_amount:.8f} BTC) in einer KYC-Wallet "
             f"angekommen. KYC- und noKYC-Bestände bleiben strikt getrennt; die Steuerdokumente "

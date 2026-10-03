@@ -153,6 +153,40 @@ with sync_playwright() as p:
     check(dl.value.suggested_filename == "steuertool-log-INTERN.txt" and content.startswith("!! INTERN"),
           "Log speichern: Datei als intern gekennzeichnet")
 
+    print("Audit v1.4 R3: Abbruch aus einer noKYC-Datei — Nutzer sieht die Meldung, Diagnose nur den allgemeinen Satz")
+    page.goto(URL)
+    nk = (b"Date (UTC),Label,Value (BTC),Balance (BTC),Fee (BTC),Txid\n"
+          b"2024-01-02 03:04:05,Treffen Erbe,0.10000000,0.10000000,,\n")
+    page.set_input_files("#file-input", files=[{"name": "geheim_nokyc.csv", "mimeType": "text/csv", "buffer": nk}])
+    page.wait_for_function("!document.getElementById('btn-run').disabled")
+    page.click("#btn-run")
+    page.wait_for_function("window.__GUI_DONE === true", timeout=120000)
+    err = page.evaluate("window.__GUI_ERROR") or ""
+    check("Txid fehlt" in err, "Nutzer sieht die echte Meldung")
+    page.click("#bug-link")
+    page.click("#bug-diag-create")
+    page.wait_for_function("document.getElementById('bug-diag').value.length > 0", timeout=120000)
+    diag = page.evaluate("document.getElementById('bug-diag').value")
+    check("private Angaben" in diag and "Txid" not in diag and "geheim" not in diag.lower(),
+          "Diagnose: nur der allgemeine Satz")
+    check("weitere Dateien (nicht aufgeschlüsselt): 1" in diag, "noKYC-Datei nur gezählt")
+
+    print("Audit v1.4 R3: Rechenkern lädt nicht — Meldung statt Hängen, zweiter Versuch klappt")
+    page2 = browser.new_page()
+    page2.route("**/pyodide.js", lambda route: route.abort())
+    page2.goto(URL)
+    page2.click("#btn-demo")
+    page2.wait_for_selector("#file-table:not(.hidden)")
+    page2.click("#btn-run")
+    page2.wait_for_function("window.__GUI_DONE === true", timeout=150000)
+    err = page2.evaluate("window.__GUI_ERROR") or ""
+    check("Rechenkern konnte nicht geladen werden" in err, f"verständliche Meldung ({err[:70]})")
+    page2.unroute("**/pyodide.js")
+    page2.evaluate("window.__GUI_DONE = false; window.__GUI_ERROR = null")
+    page2.click("#btn-run")
+    page2.wait_for_function("window.__GUI_DONE === true", timeout=180000)
+    check(not page2.evaluate("window.__GUI_ERROR"), "zweiter Versuch ohne Neuladen erfolgreich")
+
     browser.close()
 
 if failures:

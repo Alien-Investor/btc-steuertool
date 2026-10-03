@@ -23,7 +23,6 @@ ignorieren.
 """
 from __future__ import annotations
 
-import csv
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -50,45 +49,47 @@ class ManualLinkRow:
 
 
 def parse(filepath: Path) -> list[ManualLinkRow]:
+    """Liest über parsers.read_rows (Encoding, BOM, Feldanzahl, Datei und Zeile in jeder Meldung —
+    Audit v1.4, R3-B6: Windows-1252 aus Excel ergab sonst einen rohen UnicodeDecodeError ohne
+    Dateibezug). Alle Fehler als PrivateError: die Datei kann noKYC-Wallets nennen."""
+    from . import read_rows, parse_amount, LINE_KEY, PrivateError
+    try:
+        raw_rows, header = read_rows(filepath, label="Übertrags-Zuordnung", encodings=("utf-8-sig", "cp1252"))
+    except ValueError as e:
+        raise PrivateError(str(e)) from None
+    seen = [h for h in header if h]
+    missing = [c for c in _REQUIRED if c not in seen]
+    unknown = [c for c in seen if c not in _KNOWN]
+    if missing or unknown:
+        raise PrivateError(
+            f"{FILENAME}: Kopfzeile passt nicht"
+            + (f" — fehlend: {', '.join(missing)}" if missing else "")
+            + (f" — unbekannt: {', '.join(unknown)}" if unknown else "")
+            + f". Erwartet: {','.join(_REQUIRED)}[,notiz]."
+        )
     rows: list[ManualLinkRow] = []
-    with open(filepath, encoding="utf-8-sig", newline="") as f:
-        reader = csv.DictReader(f)
-        if reader.fieldnames is None:
-            raise ValueError(f"{FILENAME}: Datei hat keine Kopfzeile.")
-        seen = [h.strip() for h in reader.fieldnames if h and h.strip()]
-        missing = [c for c in _REQUIRED if c not in seen]
-        unknown = [c for c in seen if c not in _KNOWN]
-        if missing or unknown:
-            raise ValueError(
-                f"{FILENAME}: Kopfzeile passt nicht"
-                + (f" — fehlend: {', '.join(missing)}" if missing else "")
-                + (f" — unbekannt: {', '.join(unknown)}" if unknown else "")
-                + f". Erwartet: {','.join(_REQUIRED)}[,notiz]."
+    for row in raw_rows:
+        i = row[LINE_KEY]
+        if not any(row.get(c) for c in _REQUIRED):
+            continue  # Leerzeile
+        empty = [c for c in _REQUIRED if not row.get(c)]
+        if empty:
+            raise PrivateError(f"{FILENAME} Zeile {i}: Pflichtfeld leer ({', '.join(empty)}).")
+        try:
+            r = ManualLinkRow(
+                line=i,
+                giver_date=date.fromisoformat(row["datum_abgang"]),
+                giver_wallet=row["von"],
+                giver_amount=parse_amount(row["menge_abgang"], label="", filename=FILENAME, line=i, field="menge_abgang"),
+                taker_date=date.fromisoformat(row["datum_eingang"]),
+                taker_wallet=row["nach"],
+                taker_amount=parse_amount(row["menge_eingang"], label="", filename=FILENAME, line=i, field="menge_eingang"),
             )
-        for i, raw in enumerate(reader, start=2):
-            row = {(k or "").strip(): (v or "").strip() for k, v in raw.items()}
-            if not any(row.get(c) for c in _REQUIRED):
-                continue  # Leerzeile
-            empty = [c for c in _REQUIRED if not row.get(c)]
-            if empty:
-                raise ValueError(f"{FILENAME} Zeile {i}: Pflichtfeld leer ({', '.join(empty)}).")
-            try:
-                rows.append(ManualLinkRow(
-                    line=i,
-                    giver_date=date.fromisoformat(row["datum_abgang"]),
-                    giver_wallet=row["von"],
-                    giver_amount=Decimal(row["menge_abgang"].replace(",", ".")),
-                    taker_date=date.fromisoformat(row["datum_eingang"]),
-                    taker_wallet=row["nach"],
-                    taker_amount=Decimal(row["menge_eingang"].replace(",", ".")),
-                ))
-            except (ValueError, InvalidOperation) as e:
-                raise ValueError(f"{FILENAME} Zeile {i}: ungültiger Wert — {e}") from e
-            r = rows[-1]
-            # is_finite() VOR dem Vergleich: NaN-Vergleiche werfen InvalidOperation
-            if not (r.giver_amount.is_finite() and r.taker_amount.is_finite()) \
-                    or r.giver_amount <= 0 or r.taker_amount <= 0:
-                raise ValueError(f"{FILENAME} Zeile {i}: Mengen müssen endliche positive Zahlen sein.")
+        except ValueError as e:
+            raise PrivateError(f"{FILENAME} Zeile {i}: ungültiger Wert — {e}") from None
+        if r.giver_amount <= 0 or r.taker_amount <= 0:
+            raise PrivateError(f"{FILENAME} Zeile {i}: Mengen müssen endliche positive Zahlen sein.")
+        rows.append(r)
     return rows
 
 

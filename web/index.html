@@ -824,6 +824,10 @@
         bugDiagRefresh: 'Diagnose neu erstellen',
         bugDiagSave: '⬇ Diagnose speichern',
         bugDiagRemove: 'Entfernen',
+        bugDiagBusy: 'Diagnose wird erstellt … (beim ersten Mal wird der Rechenkern geladen)',
+        bugDiagRunning: 'Bitte warten, bis die Berechnung fertig ist — dann die Diagnose erstellen.',
+        bugDiagFailed: 'Diagnose konnte nicht erstellt werden:',
+        errWorkerLoad: 'Rechenkern konnte nicht geladen werden — Verbindung prüfen und die Seite neu laden.',
         btnLogSave: '⬇ Log speichern (intern)',
         logFileHead: '!! INTERN — enthält Dateinamen (Wallet-Namen) und Beträge. Nur für dich, nicht weitergeben. Für einen Bug-Report die Diagnose verwenden („Bug melden“). !!',
       },
@@ -967,6 +971,10 @@
         bugDiagRefresh: 'Recreate diagnosis',
         bugDiagSave: '⬇ Save diagnosis',
         bugDiagRemove: 'Remove',
+        bugDiagBusy: 'Creating diagnosis … (the first time, the calculation engine is loaded)',
+        bugDiagRunning: 'Please wait until the calculation has finished — then create the diagnosis.',
+        bugDiagFailed: 'Could not create the diagnosis:',
+        errWorkerLoad: 'The calculation engine could not be loaded — check your connection and reload the page.',
         btnLogSave: '⬇ Save log (internal)',
         logFileHead: '!! INTERNAL — contains file names (wallet names) and amounts. For you only, do not share. For a bug report use the diagnosis ("Report a bug"). !!',
       },
@@ -1089,7 +1097,8 @@
       // Kauf- und Verkaufsdatei teilen sich dieselbe Kopfzeile — der Inhalt kann
       // sie nicht unterscheiden. Wenn auch der Dateiname nichts hergibt, sperrt
       // manual_ambig wie 'unknown', statt eine Richtung zu raten (SA2-03).
-      manual_ambig: { target: null,                               max: 999 },
+      // nokyc: Kauf- oder Verkaufsdatei unklar — kann noKYC sein (Diagnose zählt sie nur, R3-B6c)
+      manual_ambig: { target: null,                               max: 999, nokyc: true },
       unknown:      { target: null,                               max: 999 },
     };
     // Typen, die die Berechnung sperren, bis der Nutzer sie auflöst
@@ -1160,7 +1169,7 @@
     // Eingaben sich während des Laufs geändert haben, wird nie angezeigt oder gespeichert.
     let running = false, runSeq = 0, inputVersion = 0;
     // Rohangaben der letzten Berechnung für die Diagnose (geschwärzt wird erst in Python)
-    let lastDiag = { ran: false, error: null, warnings: [] };
+    let lastDiag = { ran: false, error: null, private: false, warnings: [], names: [] };
     let diagText = '';
     // Bis 10/2026 lagen abgerufene Wechselkurse (= Kaufdaten des Nutzers) im localStorage.
     // Kurse sind jetzt gebündelt — den Altbestand einmal wegräumen, nichts mehr speichern.
@@ -1215,45 +1224,68 @@ import src.fx_rates as fx_rates
 data_dir = Path("/work/data")
 fx_rates.init(data_dir)
 
-buf = io.StringIO()
-with redirect_stdout(buf):
-    transactions = load_all_transactions(data_dir)
-    # Engine-Start nur über den Kern (run_engine) — walletbezogen wie die CLI
-    engine = run_engine(transactions)
-    # Jahresliste kommt aus dem Kern (report_years), nicht aus einer Kopie hier —
-    # seit H8 zaehlt auch ein Jahr mit Gebuehren-Abgang oder Schenkung (Prinzip H5)
-    years = report_years(transactions)
-    # Offizielle Dokumente nur in Jahren mit KYC-Vorgängen (Audit v1.4, R2-B6)
-    official_years = set(report_years(transactions, official=True))
-    for year in years:
-        _generate_report(transactions, engine, year, True, True, data_dir / "reports", official=year in official_years)
+from src.models import wallet_name as _wallet_name
 
-reports = {}
-for p in sorted((data_dir / "reports").glob("*")):
-    # newline="": Zeilenenden unverändert lassen — die CSV-Exporte kommen aus der CLI mit CRLF
-    # (Python csv), die GUI lieferte sie bisher mit LF (Merkposten Gerätetest v1.2)
-    # (read_bytes statt read_text(newline=""): das Schluesselwort gibt es erst ab Python 3.13, Pyodide hat 3.12)
-    reports[p.name] = p.read_bytes().decode("utf-8")
+def _private_names(txs):
+    # Wallet-, Konto- und Quellnamen — nur für die Schwärzung der Diagnose, nie angezeigt
+    return sorted({_wallet_name(t.source) for t in txs} | {_wallet_name(t.wallet) for t in txs})
 
-# Einstufung kommt von der Python-Seite, wo die Reports benannt werden (H5).
-# Fail closed: was nicht ausdruecklich offiziell ist, gilt als intern.
-internal_reports = [n for n in reports if is_internal_report(n)]
-
-json.dumps({
-    "log": buf.getvalue(),
-    "years": years,
-    "reports": reports,
-    "internal_reports": internal_reports,
-    "tx_count": len(transactions),
-    # .full: das GUI-Log sieht nur der Nutzer selbst — hier ist der Dateiname
-    # die eigentlich nuetzliche Angabe (redigiert wird nur Richtung Finanzamt)
-    "warnings": [getattr(w, "full", None) or str(w)
-                 for w in (list(_parsers.parser_warnings) + list(engine.warnings))],
+def _public_warnings(extra=()):
     # Für die Diagnose (Bug-Report): nur offizielle Warnungen in der redigierten Fassung —
-    # src/diagnose.py schwärzt danach noch Beträge, Daten und IDs
-    "warnings_public": [str(w) for w in (list(_parsers.parser_warnings) + list(engine.warnings))
-                        if not getattr(w, "internal", True)],
-})
+    # src/diagnose.py schwärzt danach noch Beträge, Daten, IDs und Namen
+    return [str(w) for w in (list(_parsers.parser_warnings) + list(extra)) if not getattr(w, "internal", True)]
+
+buf = io.StringIO()
+transactions = []
+try:
+    with redirect_stdout(buf):
+        transactions = load_all_transactions(data_dir)
+        # Engine-Start nur über den Kern (run_engine) — walletbezogen wie die CLI
+        engine = run_engine(transactions)
+        # Jahresliste kommt aus dem Kern (report_years), nicht aus einer Kopie hier —
+        # seit H8 zaehlt auch ein Jahr mit Gebuehren-Abgang oder Schenkung (Prinzip H5)
+        years = report_years(transactions)
+        # Offizielle Dokumente nur in Jahren mit KYC-Vorgängen (Audit v1.4, R2-B6)
+        official_years = set(report_years(transactions, official=True))
+        for year in years:
+            _generate_report(transactions, engine, year, True, True, data_dir / "reports", official=year in official_years)
+except Exception as _e:
+    # Abbruch als Daten zurückgeben (Audit v1.4, R3): Meldung ohne Traceback, Kennzeichen „privat“
+    # für die Diagnose, Hinweise bis zum Abbruch. ValueError ist die Meldung selbst, sonst mit Typname.
+    _msg = str(_e) if isinstance(_e, ValueError) else f"Interner Fehler ({type(_e).__name__}): {_e}"
+    _result = json.dumps({
+        "error": _msg,
+        "error_private": isinstance(_e, _parsers.PrivateError),
+        "log": buf.getvalue(),
+        "warnings_public": _public_warnings(),
+        "private_names": _private_names(transactions),
+    })
+else:
+    reports = {}
+    for p in sorted((data_dir / "reports").glob("*")):
+        # newline="": Zeilenenden unverändert lassen — die CSV-Exporte kommen aus der CLI mit CRLF
+        # (Python csv), die GUI lieferte sie bisher mit LF (Merkposten Gerätetest v1.2)
+        # (read_bytes statt read_text(newline=""): das Schluesselwort gibt es erst ab Python 3.13, Pyodide hat 3.12)
+        reports[p.name] = p.read_bytes().decode("utf-8")
+
+    # Einstufung kommt von der Python-Seite, wo die Reports benannt werden (H5).
+    # Fail closed: was nicht ausdruecklich offiziell ist, gilt als intern.
+    internal_reports = [n for n in reports if is_internal_report(n)]
+
+    _result = json.dumps({
+        "log": buf.getvalue(),
+        "years": years,
+        "reports": reports,
+        "internal_reports": internal_reports,
+        "tx_count": len(transactions),
+        # .full: das GUI-Log sieht nur der Nutzer selbst — hier ist der Dateiname
+        # die eigentlich nuetzliche Angabe (redigiert wird nur Richtung Finanzamt)
+        "warnings": [getattr(w, "full", None) or str(w)
+                     for w in (list(_parsers.parser_warnings) + list(engine.warnings))],
+        "warnings_public": _public_warnings(engine.warnings),
+        "private_names": _private_names(transactions),
+    })
+_result
 `;
 
     /* ───────────────────────── Log ───────────────────────── */
@@ -1293,15 +1325,24 @@ json.dumps({
       if (!workerReady) {
         setPyLoading(true);   // Spinner zeigen, bis der Rechenkern im Worker bereit ist
         worker = new Worker('worker.js');
+        // Zeitlimit + Neustart nach Fehler (Audit v1.4, R3-B4/B5): ein abgebrochener WASM-Download ließ
+        // loadPyodide nie zurückkehren — die App hing ohne Meldung; ein Init-Fehler blieb bis zum Neuladen
+        const loadErr = (detail) => new Error(i18n[currentLang].errWorkerLoad + (detail ? ` (${detail})` : ''));
         workerReady = new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(loadErr('Zeitlimit')), 120000);
           const onMsg = (e) => {
-            if (e.data.type === 'ready') { worker.removeEventListener('message', onMsg); resolve(worker); }
-            else if (e.data.type === 'init-error') { worker.removeEventListener('message', onMsg); reject(new Error(e.data.message)); }
+            if (e.data.type === 'ready') { clearTimeout(timer); worker.removeEventListener('message', onMsg); resolve(worker); }
+            else if (e.data.type === 'init-error') { clearTimeout(timer); worker.removeEventListener('message', onMsg); reject(loadErr(e.data.message)); }
           };
           worker.addEventListener('message', onMsg);
-          worker.addEventListener('error', (ev) => reject(new Error(ev.message || 'Worker-Ladefehler')));
+          worker.addEventListener('error', (ev) => { clearTimeout(timer); reject(loadErr(ev.message)); });
         });
-        workerReady.finally(() => setPyLoading(false));
+        workerReady.catch(() => {
+          // nächster Versuch startet einen frischen Worker
+          try { worker.terminate(); } catch (e) {}
+          worker = null; workerReady = null; srcLoaded = false;
+        });
+        workerReady.finally(() => setPyLoading(false)).catch(() => {});
         worker.postMessage({ cmd: 'init' });
       }
       return workerReady;
@@ -1593,6 +1634,7 @@ json.dumps({
     document.getElementById('btn-run').onclick = async () => {
       if (running) return;
       running = true;
+      if (diagText) removeDiagnose();   // eine Diagnose von vorher gilt nach diesem Lauf nicht mehr (R3-B8)
       btnRun.disabled = true;
       invalidateResults();
       const myVersion = inputVersion;   // ändert sich, sobald Dateiliste/Einstufung während des Laufs angefasst wird
@@ -1672,6 +1714,14 @@ json.dumps({
         srcLoaded = true;
         // Eingaben während des Laufs geändert → dieses Ergebnis gilt nicht (nie anzeigen, nie speicherbar machen)
         if (inputVersion !== myVersion) throw new Error(i18n[currentLang].errInputsChanged);
+        if (result.error) {
+          // Abbruch kommt als Daten (Bootstrap, Audit v1.4 R3): Log bis zum Abbruch lokal zeigen,
+          // Kennzeichen „privat“ + Hinweise + Namen für die Diagnose mitnehmen
+          (result.log || '').trim().split('\n').filter(Boolean).forEach(l => log('  ' + l));
+          const e = new Error(result.error);
+          e.diag = { private: !!result.error_private, warnings: result.warnings_public || [], names: result.private_names || [] };
+          throw e;
+        }
 
         result.log.trim().split('\n').forEach(l => log('  ' + l));
         result.warnings.forEach(w => log('⚠ ' + w, 'warn'));
@@ -1679,7 +1729,8 @@ json.dumps({
 
         lastReports = result.reports;
         lastInternal = result.internal_reports || [];
-        lastDiag = { ran: true, error: null, warnings: result.warnings_public || [] };
+        lastDiag = { ran: true, error: null, private: false, warnings: result.warnings_public || [],
+                     names: result.private_names || [] };
         renderResults(result.years, result.reports);
 
         window.__GUI_RESULT = result;   // Test-Hook
@@ -1699,7 +1750,10 @@ json.dumps({
         // Laufs nicht aussagekräftig (er kann aus der halb übernommenen Änderung
         // stammen, z.B. der KYC/noKYC-Sperre) — der Hinweis „erneut berechnen“ gilt
         const msg = changed ? i18n[currentLang].errInputsChanged : String(err.message || err);
-        lastDiag = { ran: true, error: changed ? null : msg, warnings: [] };
+        // Verworfener Lauf (Eingaben geändert): gilt als „keine Berechnung“ (R3-B8)
+        lastDiag = changed ? { ran: false, error: null, private: false, warnings: [], names: [] }
+          : { ran: true, error: msg, private: !!(err.diag && err.diag.private),
+              warnings: (err.diag && err.diag.warnings) || [], names: (err.diag && err.diag.names) || [] };
         log(i18n[currentLang].errPrefix + msg, 'err');
         console.error(err);
         window.__GUI_RESULT = null;
@@ -1952,25 +2006,33 @@ json.dumps({
     async function createDiagnose() {
       const t = i18n[currentLang];
       const btn = document.getElementById('bug-diag-create');
+      const status = document.getElementById('bug-diag-intro');
+      if (running) { status.textContent = t.bugDiagRunning; return; }   // Ergebnis stünde noch aus (R3-B8)
       btn.disabled = true;
+      status.textContent = t.bugDiagBusy;   // Status im Dialog, nicht im verdeckten Log (R3-B10)
       try {
         const info = {
           platform: DESK ? 'Desktop' : DROID ? 'Android' : 'Web',
           lang: currentLang,
           files: files.map(f => {
-            const text = new TextDecoder('utf-8').decode(f.bytes.slice(0, 2_000_000));
+            const b = f.bytes;
+            let lines = 0;   // über die ganze Datei zählen (R3-B9: 2-MB-Ausschnitt ergab falsche Zahlen)
+            for (let i = 0; i < b.length; i++) if (b[i] === 10) lines++;
+            if (b.length && b[b.length - 1] !== 10) lines++;
+            const text = new TextDecoder('utf-8').decode(b.slice(0, 4096));
             return {
               label: typeLabel(f.type),
-              lines: (text.match(/\n/g) || []).length + (text && !text.endsWith('\n') ? 1 : 0),
+              lines,
               kb: f.bytes.length / 1024,
               hidden: !!(TYPES[f.type] && TYPES[f.type].nokyc),
               header: BLOCKING_TYPES.includes(f.type) ? text.split(/\r?\n/)[0].slice(0, 400) : '',
             };
           }),
           error: lastDiag.error,
+          error_private: lastDiag.private,
           ran: lastDiag.ran,
           warnings: lastDiag.warnings,
-          names: files.flatMap(f => [f.name, baseName(f.name)]),
+          names: files.flatMap(f => [f.name, baseName(f.name)]).concat(lastDiag.names),
         };
         await ensureWorker();
         const result = await runInWorker({ srcFiles: SRC_FILES, info }, 'diagnose');
@@ -1981,8 +2043,9 @@ json.dumps({
         document.getElementById('bug-diag-save').classList.remove('hidden');
         document.getElementById('bug-diag-remove').classList.remove('hidden');
         btn.textContent = t.bugDiagRefresh;
+        status.textContent = t.bugDiagIntro;
       } catch (err) {
-        log('✗ ' + t.bugDiagCreate + ': ' + ((err && err.message) || err), 'err');
+        status.textContent = '✗ ' + t.bugDiagFailed + ' ' + ((err && err.message) || err);
       } finally {
         btn.disabled = false;
       }
@@ -1998,6 +2061,7 @@ json.dumps({
       document.getElementById('bug-diag-save').classList.add('hidden');
       document.getElementById('bug-diag-remove').classList.add('hidden');
       setText0('bug-diag-create', i18n[currentLang].bugDiagCreate);
+      setText0('bug-diag-intro', i18n[currentLang].bugDiagIntro);
     }
     // Volles Log nur für den Nutzer selbst: enthält Dateinamen (Wallet-Namen) und Beträge — klar gekennzeichnet,
     // nie zum Senden angeboten

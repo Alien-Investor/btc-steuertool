@@ -72,11 +72,60 @@ class Redact(unittest.TestCase):
     def test_class_messages_become_neutral(self):
         for msg in ("Der Vorgang aus dem noKYC-Bestand ist in einer KYC-Wallet angekommen",
                     "Bisq-Trade auf Altcoin-Markt", "Manuell (P2P)"):
-            self.assertEqual(diagnose.redact(msg), diagnose._CLASS_TEXT)
+            self.assertEqual(diagnose.redact(msg), diagnose.PRIVATE_TEXT)
 
     def test_control_characters_removed(self):
         r = diagnose.redact("a\x1b[31mb‮c\nd")
         self.assertTrue(all(c.isprintable() for c in r))
+
+
+class AuditRound3(unittest.TestCase):
+    """Angriffe der Datenschutz- und Robustheitsprüfer aus Runde 3 (alle vorher durchgelassen)."""
+
+    def test_data_line_as_header_only_structure(self):
+        for h in ("Max Mustermann,DE89 3704 0044 0532 0130 00,max@example.org,+49 170 1234567,Hauptstr. 5",
+                  "Mar 15 2024,Kauf,0.5 BTC,1 BTC,12 345 EUR,2N1dP3x9yW8uYv7tRqSpOnMlKj6iHgF5eD,lnbc2500u1pvjluez",
+                  "15 Mar 2024;Notiz Erbe Oma;1.234,56;mzBc4XEFSdzCDcTxAgf6EZXgsZWpztRhef"):
+            text = diagnose.build({"files": [{"label": "x", "lines": 1, "kb": 1, "header": h}], "names": []})
+            for bad in ("Mustermann", "DE89", "example", "1234567", "Hauptstr", "Mar", "0.5", "345", "2N1d",
+                        "lnbc", "Erbe", "234", "mzBc"):
+                self.assertNotIn(bad, text, f"{bad!r} aus {h!r}")
+            self.assertIn("<feld>", text)
+
+    def test_account_and_file_names_in_any_spelling(self):
+        import unicodedata
+        nfd = unicodedata.normalize("NFD", "Kälte Reserve.csv")
+        cases = [(nfd, nfd), ("Cold Storage.csv", "Cold  Storage.csv"), ("Cold\u200bStorage.csv", "Cold\u200bStorage.csv"),
+                 ("Notgroschen\u202e.csv", "Notgroschen\u202e.csv")]
+        for name, shown in cases:
+            r = diagnose.redact(f"Sparrow {shown} Zeile 2: Txid fehlt", [name])
+            for part in ("Kälte", "Ka", "Cold", "Storage", "Notgroschen"):
+                self.assertNotIn(part.casefold(), r.casefold().replace("<name>", ""), (name, r))
+            self.assertIn("Zeile 2", r)
+
+    def test_short_stem_does_not_break_id_redaction(self):
+        r = diagnose.redact("Trezor Suite ab.csv Zeile 4: Transaktion abcdef0123456789abcdef… hat Zeilen", ["ab.csv", "ab"])
+        self.assertNotIn("cdef0123", r)
+
+    def test_whole_amounts_units_and_dates(self):
+        for msg in ("manual_sales.csv: Wallet (2024, 1 BTC) passend: x", "über 300 satoshi am 15. März 2024 um 14.30",
+                    "Purchase vom Apr 02 2024 10:00 nicht verarbeitet", "Betrag ,5 und 1. und 20240315"):
+            r = diagnose.redact(msg.replace("manual_sales.csv: ", "Datei: "))
+            for bad in ("1 BTC", "300", "15.", "März", "14.30", "Apr 02", ",5", "20240315", "0315"):
+                self.assertNotIn(bad, r, (msg, r))
+
+    def test_private_errors_and_class_words_one_sentence(self):
+        self.assertEqual(diagnose.redact("Sparrow x.csv Zeile 2: Txid fehlt", private=True), diagnose.PRIVATE_TEXT)
+        self.assertEqual(diagnose.redact("manual_buys.csv: Spalte kyc unbekannt"), diagnose.PRIVATE_TEXT)
+
+    def test_many_files_fast_and_grouped(self):
+        import time
+        files = [{"label": "BitBox-Wallet (KYC)", "lines": 10, "kb": 1} for _ in range(400)]
+        names = [f"wallet{i}.csv" for i in range(400)]
+        t = time.perf_counter()
+        text = diagnose.build({"files": files, "names": names, "warnings": [f"Datei wallet{i}.csv Zeile 1: x" for i in range(400)]})
+        self.assertLess(time.perf_counter() - t, 2.0)
+        self.assertIn("400 Dateien", text)
 
 
 class Build(unittest.TestCase):
@@ -91,7 +140,7 @@ class Build(unittest.TestCase):
                 ]}
         text = diagnose.build(info)
         self.assertIn("weitere Dateien (nicht aufgeschlüsselt): 2", text)
-        self.assertIn("Date,Pair,Side,Amount,Fee,TxID", text)
+        self.assertIn("6 Felder, Trennzeichen Komma: Date, Pair, Side, Amount, Fee, <feld>", text)
         self.assertNotIn("Bisq", text)
         assert_clean(self, text, info["names"])
 

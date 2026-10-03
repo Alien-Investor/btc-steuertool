@@ -8,6 +8,12 @@ Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die dens
   erste Zeile nicht erkannter Dateien und die Meldungen der letzten Berechnung enthält, aber keine Dateinamen, Beträge, Daten, Adressen
   oder Wallet-Namen; Dateien, die noKYC sein können, werden nur gezählt. Vor dem Senden vollständig sichtbar, geht mit in die Mail oder
   wird als Datei gespeichert. **„Log speichern“** sichert das volle Log für dich selbst (als intern gekennzeichnet, nicht zum Weitergeben).
+  Nach der dritten Audit-Runde überträgt die Diagnose von einer nicht erkannten Datei nur noch den Aufbau der ersten Zeile (bekannte
+  Spaltennamen, sonst „<feld>“) und Meldungen zu Dateien, die noKYC sein können, nur als allgemeinen Satz.
+- Dritte Audit-Runde: Dieselbe Wallet aus BitBoxApp und Sparrow wird als doppelt erkannt; lädt der Rechenkern nicht (schlechte
+  Verbindung), meldet die App das nach spätestens zwei Minuten, statt zu hängen, und ein neuer Versuch klappt ohne Neuladen;
+  `transfer_zuordnung.csv` aus Excel (Windows-1252) wird gelesen; die Kommandozeile mit `--year` erzeugt für ein Jahr allein mit
+  noKYC-Vorgängen keine offiziellen Dokumente mehr.
 - **Wallet-Exporte Sparrow, Electrum, Trezor Suite, Ledger Wallet/Ledger Live (neu, unbestätigt):** Transaktions-CSVs dieser Programme werden gelesen
   (das Tool erkennt das Programm an der Kopfzeile, auch ältere Exportformate). Jede Wallet ist ein eigener Bestand, bei Ledger jedes
   Konto; Überträge werden über die Transaktions-ID mit Börsen und anderen Wallets verbunden. In den Finanzamt-Dokumenten heißen sie nur

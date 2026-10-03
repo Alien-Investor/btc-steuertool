@@ -83,13 +83,23 @@ self.onmessage = async (e) => {
   } catch (err) {
     // Python-Fehler kommen als voller Traceback (Pyodide-Interna, Pfade) — dem Nutzer nur die
     // Meldung selbst zeigen: ab der letzten Zeile „XyzError: …“ (Audit v1.4, R2-H1b)
+    // Robust (Audit v1.4, R3-B7): letzte Zeile ohne Einrückung, die wie „Typ: Meldung“ oder nur „Typ“
+    // aussieht; ValueError/RuntimeError ohne Typname, sonst mit. Kein Treffer → fester Text statt Traceback.
+    // (Python-Abbrüche der Berechnung kommen seit R3 als Daten aus dem Bootstrap, nicht hierher.)
     let text = String((err && err.message) || err);
-    const lines = text.split('\n');
-    for (let i = lines.length - 1; i >= 0; i--) {
-      if (/^[A-Za-z_][\w.]*(Error|Exception): /.test(lines[i])) {
-        text = lines.slice(i).join('\n').replace(/^[A-Za-z_][\w.]*(Error|Exception): /, '').trim();
-        break;
+    if (/Traceback \(most recent call last\)/.test(text)) {
+      const lines = text.split('\n');
+      let found = null;
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const m = /^([A-Za-z_][\w.]*)(?::\s?(.*))?$/.exec(lines[i]);
+        if (m && !/^\s/.test(lines[i]) && !/^(Traceback|During|The above)/.test(lines[i])) {
+          const rest = [m[2] || ''].concat(lines.slice(i + 1)).join('\n').trim();
+          const name = m[1].split('.').pop();
+          found = ['ValueError', 'RuntimeError'].includes(name) && rest ? rest : (rest ? `${name}: ${rest}` : name);
+          break;
+        }
       }
+      text = found || 'Interner Fehler im Rechenkern';
     }
     self.postMessage({
       type: msg.cmd === 'init' ? 'init-error' : 'error',

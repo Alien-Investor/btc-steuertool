@@ -168,14 +168,14 @@ def _resolve_manual_wallets(transactions) -> None:
             # Nur Wallets derselben Klasse aufzählen: die Meldung kann in einer
             # Bug-Mail landen, und ein KYC-Vorgang soll keine noKYC-Wallet nennen
             same = sorted(wallet_name(w) for w in known if cls.get(w) == {t.no_kyc})
-            raise ValueError(
-                f"{datei}: Wallet '{t.wallet}' ({de_date(t.date)}, {t.btc_amount} BTC) gehört zu "
+            raise parsers.PrivateError(
+                f"{datei}: Wallet '{t.wallet}' ({de_date(t.date)}, {t.btc_amount:.8f} BTC) gehört zu "
                 f"keiner eingelesenen Datei. Erlaubt: Dateiname des Wallet-Exports (BitBox, Sparrow …) ohne .csv "
-                f"oder ein Broker" + (f" — passend: {', '.join(same)}." if same else ".")
+                f"oder ein Broker" + (f" — passend: {', '.join(repr(n) for n in same)}." if same else ".")
             )
         if cls.get(wallet) and t.no_kyc not in cls[wallet]:
-            raise ValueError(
-                f"{datei}: Vorgang vom {de_date(t.date)} ({t.btc_amount} BTC) ist "
+            raise parsers.PrivateError(
+                f"{datei}: Vorgang vom {de_date(t.date)} ({t.btc_amount:.8f} BTC) ist "
                 f"{'noKYC' if t.no_kyc else 'KYC'}, die Wallet '{t.wallet}' aber nicht — "
                 f"KYC- und noKYC-Bestände bleiben strikt getrennt. Bitte Spalte "
                 f"{'kyc' if t.type == TxType.BUY else 'no_kyc'} oder wallet prüfen."
@@ -204,13 +204,15 @@ def _parse_file(label: str, module, path: Path, *, internal: bool = False) -> li
        dies ist das Netz darunter.
     """
     before = len(parsers.parser_warnings)
+    # Dateien, die noKYC sein können, und manuelle Dateien: Meldung als privat kennzeichnen (R3-B6)
+    err = parsers.PrivateError if (internal or label.startswith("manual")) else ValueError
     try:
         txs = module.parse(path)
     except ValueError as e:
         msg = str(e)
-        raise ValueError(msg if path.name in msg else f"{label} {path.name}: {msg}") from None
+        raise err(msg if path.name in msg else f"{label} {path.name}: {msg}") from None
     except (KeyError, AttributeError, TypeError, IndexError, ArithmeticError, UnicodeDecodeError) as e:
-        raise ValueError(
+        raise err(
             f"{label} {path.name}: Datei konnte nicht gelesen werden ({type(e).__name__}: {e}). "
             f"Hat der Anbieter das Exportformat geändert oder ist die Datei beschädigt?"
         ) from e
@@ -286,6 +288,11 @@ def _number_ledger_accounts(txs) -> None:
     sortiert durchnummeriert: „Bitcoin 1“, „Bitcoin 1 (2)“ — gleich in jeder Datei, egal welche
     Konten ein Export enthält. Derselbe xpub unter zwei Namen = Konto umbenannt und der alte Export
     liegt noch dabei → Abbruch, der Bestand zählte sonst doppelt."""
+    if len(parsers.ledger_noxpub) > 1:
+        parsers.warn_fmt(
+            "Ledger: {n} Exporte ohne Spalte „Account xpub“ — gleichnamige Konten verschiedener Geräte lassen "
+            "sich darin nicht unterscheiden und gelten als eine Wallet. Bitte mit einer aktuellen Ledger-Version "
+            "neu exportieren.", internal=any(nk for _, nk in parsers.ledger_noxpub), n=len(parsers.ledger_noxpub))
     keyed = [(t, parsers.ledger_keys[id(t)]) for t in txs if id(t) in parsers.ledger_keys]
     if not keyed:
         return
@@ -296,8 +303,8 @@ def _number_ledger_accounts(txs) -> None:
         keys_of.setdefault(name, set()).add(key)
     renamed = sorted(n for k, ns in names_of.items() if len(ns) > 1 for n in ns)
     if renamed:
-        raise ValueError(
-            f"Ledger: dasselbe Konto (xpub) steht unter mehreren Namen in den Exporten: {', '.join(renamed)}. "
+        raise parsers.PrivateError(
+            f"Ledger: dasselbe Konto (xpub) steht unter mehreren Namen in den Exporten: {', '.join(repr(n) for n in renamed)}. "
             f"Vermutlich umbenannt — bitte nur den aktuellen Export verwenden, sonst zählt der Bestand doppelt. "
             f"Berechnung abgebrochen."
         )
@@ -339,7 +346,7 @@ def _check_same_wallet_twice(txs) -> None:
     for key, sources in sorted(out_of.items(), key=lambda kv: str(kv[0])):
         if len(sources) > 1:
             a, b = sorted(sources)[:2]
-            raise ValueError(
+            raise (parsers.PrivateError if key[0] else ValueError)(
                 f"Die Wallet-Exporte '{wallet_label(a)}' und '{wallet_label(b)}' enthalten denselben Abgang — "
                 f"vermutlich dieselbe Wallet doppelt geladen (Jahres- und Gesamtexport, umbenannte Datei, dieselbe "
                 f"Wallet aus zwei Programmen oder eine Datei zweimal). Bitte nur einen lückenlosen Export je Wallet "
@@ -430,7 +437,8 @@ def load_all_transactions(data_dir: Path):
     for internal, per_file in parsed:
         wallet_txs.extend(_dedup_files(per_file, "Wallet-Export noKYC" if internal else "Wallet-Export",
                                        internal=internal, by_source=True))
-    _check_same_wallet_twice(wallet_txs)
+    # Mit den BitBox-Exporten zusammen prüfen: eine BitBox02 läuft oft zusätzlich in Sparrow (Audit v1.4, R3-B1)
+    _check_same_wallet_twice(transactions + wallet_txs)
     transactions.extend(wallet_txs)
 
     broker_dir = data_dir / "Broker"
@@ -525,7 +533,7 @@ def load_all_transactions(data_dir: Path):
     if not _both:
         _check_wallet_identity(transactions)    # erst nach der Klassenprüfung (deren Meldung ist die genauere)
     if _both:
-        raise ValueError(
+        raise parsers.PrivateError(
             f"Wallet-Name kommt im KYC- und im noKYC-Bestand vor: {', '.join(wallet_name(w) for w in _both)}. "
             f"Bitte eine der beiden Dateien umbenennen (bei Ledger das Konto in Ledger Wallet, beim Sammelimport "
             f"das Konto) — "
@@ -654,7 +662,9 @@ def main():
             _generate_report(transactions, engine, year, args.csv, args.nachweis, reports_dir,
                              official=year in official_years)
     else:
-        _generate_report(transactions, engine, args.year, args.csv, args.nachweis, reports_dir)
+        # Einzeljahr: offizielle Dokumente nur, wenn das Jahr KYC-Vorgänge hat (Audit v1.4, R3-V1)
+        _generate_report(transactions, engine, args.year, args.csv, args.nachweis, reports_dir,
+                         official=args.year in report_years(transactions, official=True))
 
 
 def run_engine(transactions, mode: str = "wallet", manual_links=None) -> FifoEngine:

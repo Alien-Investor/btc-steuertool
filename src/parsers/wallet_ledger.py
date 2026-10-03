@@ -24,7 +24,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, de_date
-from . import read_rows, parse_amount, parse_iso_datetime, warn_fmt, FileRef, LINE_KEY, _sanitize, ledger_keys
+from . import read_rows, parse_amount, parse_iso_datetime, warn_fmt, FileRef, LINE_KEY, _sanitize, ledger_keys, ledger_noxpub
 from .wallet_export import Stats, delta_tx, emit_stats, warn_unconfirmed_format
 
 LABEL = "Ledger Wallet"
@@ -51,6 +51,8 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
     filename = filepath.name
     rows, header = read_rows(filepath, label=LABEL, required=REQUIRED)
     key_col = "Account xpub" if "Account xpub" in header else ("Account id" if "Account id" in header else None)
+    if key_col is None:
+        ledger_noxpub.append((filename, no_kyc))
 
     stats = Stats()
     # Gleichnamige Konten („Bitcoin 1“ auf zwei Geräten) unterscheidet der xpub. Die Nummerierung

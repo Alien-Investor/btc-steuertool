@@ -74,6 +74,13 @@ def _sanitize(msg: str) -> str:
     return text
 
 
+class PrivateError(ValueError):
+    """Abbruch, dessen Meldung private Angaben tragen kann: aus einer Datei, die noKYC sein kann
+    (bitbox/nokyc, wallets/nokyc, Bisq, Sammelimport noKYC, manual_*.csv, transfer_zuordnung.csv)
+    oder zur Trennung der Bestände. Der Nutzer sieht die Meldung vollständig; die Diagnose für den
+    Bug-Report ersetzt sie durch einen allgemeinen Satz (Audit v1.4, R3-B6)."""
+
+
 class FileRef:
     """Ein Dateiname, der nur im internen Kanal ausgeschrieben werden darf (SA2-06).
 
@@ -166,6 +173,9 @@ dst_candidates: list = []
 # Ledger: id(Transaktion) → (Kontoname, xpub). Der Loader nummeriert gleichnamige Konten über alle
 # Dateien gemeinsam (main._number_ledger_accounts).
 ledger_keys: dict[int, tuple[str, str]] = {}
+# Ledger-Dateien ohne xpub-Spalte (Schlüssel = Kontoname): gleichnamige Konten zweier Geräte wären
+# nicht zu trennen → Hinweis, sobald es mehr als eine solche Datei gibt (Audit v1.4, R3)
+ledger_noxpub: list[tuple[str, bool]] = []
 
 
 def warn(msg: str, *, internal: bool, year: int | None = None) -> None:
@@ -244,6 +254,7 @@ def reset_warnings() -> None:
     wallet_files.clear()
     dst_candidates.clear()
     ledger_keys.clear()
+    ledger_noxpub.clear()
     reset_suppressed()
 
 

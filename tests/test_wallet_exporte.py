@@ -679,5 +679,78 @@ class AuditRound2(unittest.TestCase):
             self.assertEqual(_EXPORT_STAMP.sub("", n), "cold")
 
 
+class AuditRound3(unittest.TestCase):
+    """Release-Audit v1.4, Runde 3 (Fixes aus Runde 2 + Diagnose)."""
+
+    def _load(self, files):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            for rel, text in files.items():
+                (d / rel).parent.mkdir(parents=True, exist_ok=True)
+                if isinstance(text, bytes):
+                    (d / rel).write_bytes(text)
+                else:
+                    (d / rel).write_text(text)
+            with contextlib.redirect_stdout(io.StringIO()):
+                return _load(d)
+
+    def test_same_wallet_in_bitboxapp_and_sparrow_aborts(self):
+        """R3-B1: eine BitBox02, die auch in Sparrow läuft — beide Exporte zählten doppelt."""
+        bb = AuditRound2.BB + ("2022-05-02T16:00:00+02:00,received,1000000,satoshi,,,bc1q,aaaa01,Kauf\n"
+                               "2024-08-03T08:45:10+02:00,sent,500000,satoshi,2100,satoshi,bc1q,bbbb02,Miete\n")
+        sp = AuditRound2.SP + ("2022-05-02 14:00:00,Kauf,0.01000000,0.01000000,,aaaa01\n"
+                               "2024-08-03 06:45:10,Miete,-0.00502100,0.00497900,0.00002100,bbbb02\n")
+        with self.assertRaisesRegex(ValueError, "denselben Abgang"):
+            self._load({"bitbox/cold.csv": bb, "wallets/bitbox_in_sparrow.csv": sp})
+
+    def test_private_error_class(self):
+        """R3-B6: Abbrüche aus noKYC-fähigen Dateien und zur Bestandstrennung sind PrivateError."""
+        bad = AuditRound2.SP + "2024-01-02 03:04:05,,0.10000000,0.10000000,,\n"
+        with self.assertRaises(parsers.PrivateError):
+            self._load({"wallets/nokyc/x.csv": bad})
+        try:
+            self._load({"wallets/x.csv": bad})
+        except parsers.PrivateError:
+            self.fail("KYC-Datei: normale Meldung erwartet")
+        except ValueError:
+            pass
+        with self.assertRaises(parsers.PrivateError):
+            self._load({"manual_sales.csv": "date,btc_amount,eur_amount\n2024-01-01,abc,1\n"})
+
+    def test_ledger_renamed_names_quoted(self):
+        h = AuditRobust.LEDGER_HEAD
+        a = h + "2024-01-10T12:00:00.000Z,Confirmed,BTC,IN,0.5,,aa,Spar Konto,xpubX,,,\n"
+        b = h + "2024-01-10T12:00:00.000Z,Confirmed,BTC,IN,0.5,,aa,Notgroschen Lisa,xpubX,,,\n"
+        with self.assertRaises(parsers.PrivateError) as cm:
+            self._load({"wallets/a.csv": a, "wallets/b.csv": b})
+        self.assertIn("'Notgroschen Lisa'", str(cm.exception))
+
+    def test_transfer_zuordnung_windows_1252(self):
+        """R3-B6 (Robustheit): Excel-Datei in Windows-1252 — lesbar statt UnicodeDecodeError ohne Dateibezug."""
+        from src.parsers import transfer_zuordnung
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "transfer_zuordnung.csv"
+            f.write_bytes("datum_abgang,von,menge_abgang,datum_eingang,nach,menge_eingang,notiz\n"
+                          "2024-01-01,a,0.1,2024-01-01,b,0.1,Übertrag\n".encode("cp1252"))
+            rows = transfer_zuordnung.parse(f)
+        self.assertEqual(len(rows), 1)
+
+    def test_single_year_nokyc_only_no_official_documents(self):
+        """R3-V1: --year für ein Jahr nur mit noKYC-Vorgängen."""
+        import subprocess
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            (d / "bitbox").mkdir()
+            (d / "bitbox" / "kyc1.csv").write_text(AuditRound2.BB_KYC)
+            (d / "wallets" / "nokyc").mkdir(parents=True)
+            (d / "wallets" / "nokyc" / "nk.csv").write_text(
+                AuditRound2.SP + AuditRound2.NK_IN + "2025-03-01 10:00:00,,-0.00001000,0.01999000,0.00001000,dd01\n")
+            (d / "manual_buys.csv").write_text(AuditRound2.NK_BUY)
+            subprocess.run([sys.executable, "-m", "src.main", "--year", "2025", "--nachweis", "--csv", "--data-dir", str(d)],
+                           cwd=ROOT, check=True, capture_output=True)
+            names = {p.name for p in (d / "reports").iterdir()}
+        self.assertFalse(any(n.startswith(("steuerreport_", "steuernachweis_", "kaeufe_", "verkaeufe_")) for n in names), names)
+
+
 if __name__ == "__main__":
     unittest.main()
