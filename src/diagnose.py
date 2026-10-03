@@ -132,27 +132,77 @@ def _name_pattern(names) -> re.Pattern | None:
 
 
 def redact(text: str, names=(), *, private: bool = False, _pattern=None) -> str:
-    """Eine Meldung ohne private Angaben. `private=True`: Meldung aus einer Datei, die noKYC sein
-    kann, oder zur Bestandstrennung → nur der allgemeine Satz."""
+    """Eine Meldung ohne private Angaben — Positivliste (Audit v1.4, Runde 4).
+
+    Stehen bleiben nur Wörter, die in den Meldungstexten des Tools selbst vorkommen (Wörterbuch aus
+    den Zeichenketten in src/), Jahreszahlen 2009–2099 und die Zeilennummer nach „Zeile“. Jedes
+    andere Wort wird „…“, jede andere Zahl „<n>“ — ein Name, Betrag, Datum oder Zellinhalt kann so
+    in keiner Schreibweise durchkommen (ß, Apostroph, Datum im Dateinamen, „Gelesen: <Datenzeile>“).
+    `private=True` (PrivateError) und Meldungen zur Bestandstrennung → nur der allgemeine Satz."""
     if private:
         return PRIVATE_TEXT
     s = _norm_keep_case(text)
     if _CLASS_WORDS.search(s):
         return PRIVATE_TEXT
     pattern = _pattern if _pattern is not None else _name_pattern(names)
-    # Muster zuerst (IDs/Adressen ganz erfassen), dann Namen an Wortgrenzen, dann Muster erneut
-    for _ in range(2):
-        s = _ZEILE.sub(lambda m: f"{m.group(1)} #{m.group(2)}#", s)
-        for rx, repl in _RULES:
-            s = rx.sub(repl, s)
-        if pattern is not None:
-            s = pattern.sub("<name>", s)
-    s = re.sub(r"\b(bitbox|sparrow|electrum|trezor|ledger):\S+", r"\1:<name>", s, flags=re.IGNORECASE)
-    s = _numbers(s)
-    s = re.sub(r"#(\d+)#", r"\1", s)
+    if pattern is not None:
+        s = pattern.sub(" ", s)
+    vocab = _vocabulary()
+    out: list[str] = []
+    last_word = ""
+    for m in re.finditer(r"[^\W_]+|\s+|[\W_]", s):
+        tok = m.group(0)
+        if tok.isdigit():
+            if last_word in ("zeile", "zeilen", "line") and len(tok) <= 7:
+                out.append(tok)
+            elif len(tok) == 4 and 2009 <= int(tok) <= 2099:
+                out.append(tok)
+            else:
+                out.append("<n>")
+            last_word = ""
+        elif tok[0].isalnum():
+            w = tok.casefold()
+            out.append(tok if (tok.isalpha() and w in vocab and w not in _MONTH_WORDS) else "…")
+            last_word = w if tok.isalpha() else ""
+        else:
+            out.append(tok)
+            if not tok.isspace():
+                last_word = ""
+    s = "".join(out)
+    # Folgen von Platzhaltern zusammenziehen („… …“, „'…'s …“, „<n>.<n>“)
+    s = re.sub(r"(?:…|<n>)(?:[\s'’\"„“‚‘,.:;/()_+\-]*(?:…|<n>))+", lambda m: "<n>" if "…" not in m.group(0) else "…", s)
+    s = re.sub(r"\s+", " ", s).strip()
     if len(s) > _MAX_LINE:
         s = s[: _MAX_LINE - 1] + "…"
     return s
+
+
+_MONTH_WORDS = {
+    "jan", "januar", "january", "feb", "februar", "february", "mär", "märz", "maerz", "mar", "march", "apr",
+    "april", "mai", "may", "jun", "juni", "june", "jul", "juli", "july", "aug", "august", "sep", "sept",
+    "september", "okt", "oct", "oktober", "october", "nov", "november", "dez", "dec", "dezember", "december",
+}
+_VOCAB: set[str] | None = None
+
+
+def _vocabulary() -> set[str]:
+    """Alle Wörter aus Zeichenketten im Quellcode (src/**/*.py) — die Sprache der eigenen Meldungen.
+    Wird beim ersten Aufruf gebildet; in der App liegen dieselben Dateien im Worker-Dateisystem."""
+    global _VOCAB
+    if _VOCAB is None:
+        import ast
+        from pathlib import Path
+        words: set[str] = set()
+        for f in Path(__file__).resolve().parent.rglob("*.py"):
+            try:
+                tree = ast.parse(f.read_text(encoding="utf-8"))
+            except (OSError, SyntaxError, UnicodeDecodeError):
+                continue
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                    words.update(w.casefold() for w in re.findall(r"[^\W\d_]+", node.value))
+        _VOCAB = words
+    return _VOCAB
 
 
 def _norm_keep_case(text: str) -> str:

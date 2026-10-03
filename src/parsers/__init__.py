@@ -326,19 +326,22 @@ LINE_KEY = "__zeile__"   # Zeilennummer der Datei, von read_rows in jede Zeile g
 # Ab hier werden Warnungen nur noch gezählt (B6): 200.000 unbekannte Zeilen
 # erzeugten sonst 200.000 Warnobjekte und einen 15-MB-Report je Jahr.
 _MAX_WARNINGS = 1000
-_suppressed = 0
+_suppressed = {False: 0, True: 0}     # je Kanal: offiziell / intern
 
 
 def _append_warning(w: ParserWarning) -> None:
-    global _suppressed
-    if len(parser_warnings) < _MAX_WARNINGS:
+    """Deckel je Kanal (Audit v1.4, R4-B9): die Zählung unterdrückter Warnungen stand bisher im
+    offiziellen Kanal und zählte interne (noKYC-)Warnungen mit — ihre Höhe verriet noKYC-Aktivität."""
+    internal = bool(getattr(w, "internal", True))
+    same = [i for i, x in enumerate(parser_warnings) if bool(getattr(x, "internal", True)) == internal]
+    if len(same) < _MAX_WARNINGS:
         parser_warnings.append(w)
         return
-    _suppressed += 1
-    parser_warnings[-1] = ParserWarning(
-        f"{_suppressed} weitere Warnung(en) nicht angezeigt (Grenze {_MAX_WARNINGS}) — "
+    _suppressed[internal] += 1
+    parser_warnings[same[-1]] = ParserWarning(
+        f"{_suppressed[internal]} weitere Warnung(en) nicht angezeigt (Grenze {_MAX_WARNINGS}) — "
         f"die eingelesenen Dateien enthalten massenhaft nicht verarbeitbare Zeilen, bitte prüfen.",
-        internal=False,
+        internal=internal,
     )
 
 
@@ -500,5 +503,5 @@ def parse_iso_datetime(value: str | None, *, label: str, filename: str, line: in
 
 
 def reset_suppressed() -> None:
-    global _suppressed
-    _suppressed = 0
+    _suppressed[False] = 0
+    _suppressed[True] = 0

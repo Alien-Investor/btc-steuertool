@@ -128,6 +128,52 @@ class AuditRound3(unittest.TestCase):
         self.assertIn("400 Dateien", text)
 
 
+class AuditRound4(unittest.TestCase):
+    """Runde 4: Meldungen nur noch über die Positivliste (Wörter aus den eigenen Meldungstexten)."""
+
+    def test_names_in_any_form_vanish(self):
+        for msg, bad in (
+            ("BitBox Lena Erbe 15.03.2021.csv Zeile 2, Spalte 'Amount': 'x' ist keine Zahl.", ("Lena", "Erbe", "15.03")),
+            ("BitBox Großvater Erbe.csv Zeile 2: ungültig", ("Großvater", "Grossvater")),
+            ("Trezor-Wallet „Martin's Sparkonto“ und „Erbe Oma's Konto“: denselben Abgang", ("Martin", "Sparkonto", "Oma")),
+            ("Sammelimport x.csv: Depot Erbe Oma 2024: negativer Betrag bei buy (btc=1, eur=5, fee=0)", ("Erbe", "Oma", "=1", "=5")),
+            ("Pflichtspalte(n) fehlen. Gelesen: Max Mustermann, DE89 3704 0044 0532 0130 00, max@example.com, 03/15/2024",
+             ("Max", "Mustermann", "DE89", "3704", "example", "03/15")),
+            ("Zeile 12345678 und Tel 0170-123-45-67, 1 234 567, 5 Bitcoin, Ref 123 456 789",
+             ("12345678", "0170", "123", "234", "567", "5 Bitcoin", "456")),
+            ("am 15 Mar 2024 und März 2024 und Sep 3", ("Mar", "März", "Sep")),
+        ):
+            r = diagnose.redact(msg)
+            for b in bad:
+                self.assertNotIn(b, r, (msg, r))
+
+    def test_own_wording_stays_readable(self):
+        r = diagnose.redact("ein Sparrow-Export: 1 Ausgang/Ausgänge im Jahr 2024 ohne bekannte Gebühr — als Übertrag gebucht.")
+        self.assertIn("Ausgang/Ausgänge im Jahr 2024 ohne bekannte Gebühr", r)
+        self.assertIn("Zeile 3", diagnose.redact("Datei Zeile 3: negativer Betrag"))
+
+    def test_runtime_error_from_nokyc_file_is_private(self):
+        """R4-B6: fehlender Wechselkurs (RuntimeError) aus einer noKYC-Sammeldatei."""
+        head = '"Type","Buy Amount","Buy Currency","Sell Amount","Sell Currency","Fee","Fee Currency","Exchange","Trade-Group","Comment","Date"\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            (d / "Broker").mkdir()
+            (d / "Broker" / "sammelimport_nokyc_1.csv").write_text(
+                head + '"Trade","0.01000000","BTC","500","USD","","","Kraken","","","02.10.2030 10:00:00"\n')
+            with self.assertRaises(parsers.PrivateError):
+                run_dir(d)
+
+    def test_warning_cap_counts_per_channel(self):
+        """R4-B9: die Zählung unterdrückter Warnungen darf keine internen mitzählen."""
+        parsers.reset_warnings()
+        for i in range(parsers._MAX_WARNINGS + 50):
+            parsers.warn(f"intern {i}", internal=True)
+        parsers.warn("offiziell", internal=False)
+        public = [w for w in parsers.parser_warnings if not w.internal]
+        self.assertEqual([str(w) for w in public], ["offiziell"])
+        parsers.reset_warnings()
+
+
 class Build(unittest.TestCase):
     def test_hidden_files_only_counted_and_header_of_unknown(self):
         info = {"platform": "Web", "lang": "de", "ran": True, "error": None, "warnings": [],

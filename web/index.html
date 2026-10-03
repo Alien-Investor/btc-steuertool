@@ -1088,7 +1088,8 @@
       sammel:       { target: (n,i) => `Broker/sammelimport_${i}.csv`,       max: 99 },
       sammel_nokyc: { target: (n,i) => `Broker/sammelimport_nokyc_${i}.csv`, max: 99, nokyc: true },
       manual_buys:  { target: ()    => 'manual_buys.csv',         max: 1, nokyc: true },
-      manual_sales: { target: ()    => 'manual_sales.csv',        max: 1 },
+      // private: kann noKYC-Verkäufe enthalten (Spalte no_kyc) — Diagnose zählt sie nur, keine Vorauswahl im Bug-Report (R4-B8)
+      manual_sales: { target: ()    => 'manual_sales.csv',        max: 1, private: true },
       fxcache:      { target: ()    => 'fx_cache.json',           max: 1 },
       // Manuelle Übertrags-Zuordnung (walletbezogenes FiFo): kann noKYC-Wallets
       // nennen → wie noKYC behandeln (Bug-Report wählt sie nicht vor)
@@ -1635,6 +1636,9 @@ _result
       if (running) return;
       running = true;
       if (diagText) removeDiagnose();   // eine Diagnose von vorher gilt nach diesem Lauf nicht mehr (R3-B8)
+      // Dateinamen dieses Laufs festhalten: entfernt der Nutzer danach eine Datei, muss ihr Name in
+      // der alten Abbruchmeldung trotzdem geschwärzt werden (R4-B1)
+      const runNames = files.flatMap(f => [f.name, baseName(f.name)]);
       btnRun.disabled = true;
       invalidateResults();
       const myVersion = inputVersion;   // ändert sich, sobald Dateiliste/Einstufung während des Laufs angefasst wird
@@ -1730,7 +1734,7 @@ _result
         lastReports = result.reports;
         lastInternal = result.internal_reports || [];
         lastDiag = { ran: true, error: null, private: false, warnings: result.warnings_public || [],
-                     names: result.private_names || [] };
+                     names: (result.private_names || []).concat(runNames) };
         renderResults(result.years, result.reports);
 
         window.__GUI_RESULT = result;   // Test-Hook
@@ -1753,7 +1757,7 @@ _result
         // Verworfener Lauf (Eingaben geändert): gilt als „keine Berechnung“ (R3-B8)
         lastDiag = changed ? { ran: false, error: null, private: false, warnings: [], names: [] }
           : { ran: true, error: msg, private: !!(err.diag && err.diag.private),
-              warnings: (err.diag && err.diag.warnings) || [], names: (err.diag && err.diag.names) || [] };
+              warnings: (err.diag && err.diag.warnings) || [], names: ((err.diag && err.diag.names) || []).concat(runNames) };
         log(i18n[currentLang].errPrefix + msg, 'err');
         console.error(err);
         window.__GUI_RESULT = null;
@@ -1989,7 +1993,7 @@ _result
     function openBugReport() {
       // Vorauswahl: die erkannten Dateitypen — Dateinamen bewusst NICHT (können privat sein)
       // noKYC-Typen (BitBox noKYC, Bisq, manual_buys) NICHT vorauswählen: eine Klartext-Mail verriete sonst noKYC-Bestände
-      const types = [...new Set(files.filter(f => f.type !== 'ignore' && !BLOCKING_TYPES.includes(f.type) && !TYPES[f.type].nokyc).map(f => f.type))];
+      const types = [...new Set(files.filter(f => f.type !== 'ignore' && !BLOCKING_TYPES.includes(f.type) && !TYPES[f.type].nokyc && !TYPES[f.type].private).map(f => f.type))];
       renderBugMenu(types.filter(ty => BUG_TYPES.includes(ty)));
       toggleBugMenu(false);
       document.getElementById('bug-broker').value = '';
@@ -2024,7 +2028,7 @@ _result
               label: typeLabel(f.type),
               lines,
               kb: f.bytes.length / 1024,
-              hidden: !!(TYPES[f.type] && TYPES[f.type].nokyc),
+              hidden: !!(TYPES[f.type] && (TYPES[f.type].nokyc || TYPES[f.type].private)),
               header: BLOCKING_TYPES.includes(f.type) ? text.split(/\r?\n/)[0].slice(0, 400) : '',
             };
           }),

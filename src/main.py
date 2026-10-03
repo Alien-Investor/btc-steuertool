@@ -211,7 +211,12 @@ def _parse_file(label: str, module, path: Path, *, internal: bool = False) -> li
     except ValueError as e:
         msg = str(e)
         raise err(msg if path.name in msg else f"{label} {path.name}: {msg}") from None
-    except (KeyError, AttributeError, TypeError, IndexError, ArithmeticError, UnicodeDecodeError) as e:
+    except Exception as e:
+        # Nicht nur die erwarteten Typen: auch ein RuntimeError (fehlender Wechselkurs) aus einer
+        # noKYC-fähigen Datei muss als privat gelten (Audit v1.4, R4-B6)
+        if not isinstance(e, (KeyError, AttributeError, TypeError, IndexError, ArithmeticError,
+                              UnicodeDecodeError)) and err is ValueError:
+            raise
         raise err(
             f"{label} {path.name}: Datei konnte nicht gelesen werden ({type(e).__name__}: {e}). "
             f"Hat der Anbieter das Exportformat geändert oder ist die Datei beschädigt?"
