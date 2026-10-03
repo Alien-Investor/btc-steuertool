@@ -158,6 +158,9 @@ def _account(name: str, fallback: str) -> str:
     text = _sanitize(name or "").strip()
     if not text or text.lower() in ("no exchange", "-"):
         text = fallback
+    from . import seen_names
+    seen_names.add(text[:24].strip())    # für die Diagnose-Schwärzung, auch bei Abbruch (R5-B1)
+    seen_names.add(_sanitize(name or "").strip())
     return text[:24].strip()
 
 

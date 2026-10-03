@@ -116,7 +116,7 @@ class AuditRound3(unittest.TestCase):
 
     def test_private_errors_and_class_words_one_sentence(self):
         self.assertEqual(diagnose.redact("Sparrow x.csv Zeile 2: Txid fehlt", private=True), diagnose.PRIVATE_TEXT)
-        self.assertEqual(diagnose.redact("manual_buys.csv: Spalte kyc unbekannt"), diagnose.PRIVATE_TEXT)
+        self.assertEqual(diagnose.redact("Wallet ohne KYC: Abgang"), diagnose.PRIVATE_TEXT)
 
     def test_many_files_fast_and_grouped(self):
         import time
@@ -172,6 +172,58 @@ class AuditRound4(unittest.TestCase):
         public = [w for w in parsers.parser_warnings if not w.internal]
         self.assertEqual([str(w) for w in public], ["offiziell"])
         parsers.reset_warnings()
+
+
+class AuditRound5(unittest.TestCase):
+    """Runde 5: Wörterbuch nur aus Meldungsvorlagen, Zitate ganz geschwärzt, „Gelesen:“ als Struktur,
+    erweiterte Klassenwörter, Kontonamen auch bei Abbruch."""
+
+    def test_vocabulary_from_messages_only(self):
+        v = diagnose._vocabulary()
+        for w in ("hidden", "seed", "schwester", "berlin", "depot", "coinbase", "main", "daily", "zwei", "mio",
+                  "kind", "a", "m", "p", "s", "x"):
+            self.assertNotIn(w, v, w)
+        for w in ("pflichtspalte", "gelesen", "einheit", "zeile", "spalte", "negativer", "betrag", "bekannte"):
+            self.assertIn(w, v, w)
+
+    def test_quoted_spans_and_read_line(self):
+        r = diagnose.redact("Die Wallet-Exporte 'Ledger-Wallet „Hidden Seed Lightning Wallet“' und 'x' enthalten denselben Abgang")
+        for b in ("Hidden", "Seed", "Lightning Wallet"):
+            self.assertNotIn(b, r)
+        r = diagnose.redact("Kopfzeile passt nicht. Gelesen: 2024-03-01 10:00, Schenkung an Schwester Lena, Geschenk Kind, Hidden Seed Wallet, 0.5, BTC. Ende")
+        for b in ("Schwester", "Lena", "Kind", "Hidden", "0.5", "Schenkung"):
+            self.assertNotIn(b, r, r)
+        self.assertIn("Gelesen: [", r)
+
+    def test_more_class_words(self):
+        for msg in ("Ledger-Wallet ohne KYC: Abgang", "Konto Kein-KYC", "KYC-frei gekauft", "non-KYC", "Coinjoin Runde"):
+            self.assertEqual(diagnose.redact(msg), diagnose.PRIVATE_TEXT, msg)
+        for h in ("Handels-ID,Datum/Zeit,Markt,Preis,Abweichung,Betrag in BTC,Handelsgebühr BSQ,Käufer-Kaution",
+                  '"Trade ID","Date/Time","Market","Price","Deviation","Amount in BTC","Trade Fee BSQ","Offer type"'):
+            self.assertIn("Spaltennamen nicht übertragen", diagnose.header_shape(h))
+
+    def test_account_names_known_on_abort(self):
+        """R5-B1: Sammelimport-Konto „Ohne Schwester Berlin“, danach Abbruch durch defekte manual_sales.csv."""
+        head = '"Type","Buy Amount","Buy Currency","Sell Amount","Sell Currency","Fee","Fee Currency","Exchange","Trade-Group","Comment","Date"\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            (d / "Broker").mkdir()
+            (d / "Broker" / "cointracking.csv").write_text(
+                head + '"Lost","","","0.01","BTC","","","Tresor Schwester Berlin","","","01.04.2024 10:00:00"\n')
+            (d / "manual_sales.csv").write_text("date,btc_amount,eur_amount\n2024-01-01,abc,1\n")
+            try:
+                run_dir(d)
+            except ValueError:
+                pass
+            names = sorted(parsers.seen_names)
+            warnings = [str(w) for w in parsers.parser_warnings if not w.internal]
+        self.assertIn("Tresor Schwester Berlin", names)
+        text = diagnose.build({"ran": True, "error": "x", "error_private": True, "warnings": warnings, "names": names, "files": []})
+        for b in ("Tresor", "Schwester", "Berlin"):
+            self.assertNotIn(b, text)
+
+    def test_21bitcoin_stays_readable(self):
+        self.assertIn("21bitcoin", diagnose.redact("21bitcoin: 2 Transaktion(en) übersprungen"))
 
 
 class Build(unittest.TestCase):

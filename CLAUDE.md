@@ -111,7 +111,8 @@ Regeln:
 - Bug-Report ohne Dateinamen und ohne URL. Support nur Technik/Format, nie Steuerfragen. Die optionale Diagnose schwärzt
   ausschließlich `src/diagnose.py` (Python, eine Stelle; GUI liefert nur Rohangaben, noKYC-fähige Typen nur gezählt;
   erste Zeile unbekannter Dateien nur als Struktur über eine Positivliste von Spaltenwörtern; Meldungen nur mit Wörtern
-  aus den eigenen Meldungstexten (Wörterbuch aus den Zeichenketten in src/), sonst „…“/„<n>“; Abbrüche als
+  aus den eigenen Meldungsvorlagen (Texte in raise/warn* und Variablen template/hint/…_TEXT in src/, nie Docstrings),
+  Zitate ganz geschwärzt, „Gelesen:“ nur als Struktur, Namen aus `parsers.seen_names` auch bei Abbruch; Abbrüche als
   `parsers.PrivateError` → nur ein allgemeiner Satz; der Bootstrap gibt Fehler als Daten zurück, nicht als Exception);
   Leck-Tests `tests/test_diagnose.py` + `web/test_audit.py`. „Log speichern“ = volles Log, nur intern.
 - Tests: `python3 -m http.server 8741 --directory web/dist` + `python3 web/test_gui.py`

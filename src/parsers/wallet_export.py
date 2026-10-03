@@ -54,8 +54,10 @@ def local_time(value: str, fmt: str, *, label: str, filename: str, line, field: 
 def wallet_stem(stem: str) -> str:
     """Dateiname als Wallet-Name, ohne Steuer- und Bidi-Zeichen (Audit v1.4, R2-N2: brachen sonst
     Tabellenzeilen in den internen Reports um bzw. drehten die Leserichtung)."""
-    from . import _sanitize
-    return _sanitize(stem).strip() or "wallet"
+    from . import _sanitize, seen_names
+    name = _sanitize(stem).strip() or "wallet"
+    seen_names.add(name)
+    return name
 
 
 def dst_alternative(date: datetime) -> datetime | None:

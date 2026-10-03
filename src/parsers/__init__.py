@@ -176,6 +176,9 @@ ledger_keys: dict[int, tuple[str, str]] = {}
 # Ledger-Dateien ohne xpub-Spalte (Schlüssel = Kontoname): gleichnamige Konten zweier Geräte wären
 # nicht zu trennen → Hinweis, sobald es mehr als eine solche Datei gibt (Audit v1.4, R3)
 ledger_noxpub: list[tuple[str, bool]] = []
+# Private Namen, die die Parser beim Einlesen sehen (Wallet-Dateinamen, Ledger-Konten, Sammelimport-
+# Konten) — nur für die Schwärzung der Diagnose, auch wenn der Lauf vor dem Ende abbricht (Audit R5-B1)
+seen_names: set[str] = set()
 
 
 def warn(msg: str, *, internal: bool, year: int | None = None) -> None:
@@ -255,6 +258,7 @@ def reset_warnings() -> None:
     dst_candidates.clear()
     ledger_keys.clear()
     ledger_noxpub.clear()
+    seen_names.clear()
     reset_suppressed()
 
 

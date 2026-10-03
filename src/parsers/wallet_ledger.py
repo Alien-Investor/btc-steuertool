@@ -24,7 +24,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, de_date
-from . import read_rows, parse_amount, parse_iso_datetime, warn_fmt, FileRef, LINE_KEY, _sanitize, ledger_keys, ledger_noxpub
+from . import read_rows, parse_amount, parse_iso_datetime, warn_fmt, FileRef, LINE_KEY, _sanitize, ledger_keys, ledger_noxpub, seen_names
 from .wallet_export import Stats, delta_tx, emit_stats, warn_unconfirmed_format
 
 LABEL = "Ledger Wallet"
@@ -81,6 +81,7 @@ def parse(filepath: Path, *, no_kyc: bool) -> list[Transaction]:
             unknown[key] = unknown.get(key, 0) + 1
             continue
         name = _sanitize(row["Account Name"]).strip() or "Bitcoin"
+        seen_names.add(name)
         key = _account_key(row, key_col) or name
         if not row["Operation Hash"]:
             raise ValueError(f"{LABEL} {filename} Zeile {line}: Operation Hash fehlt — ohne ihn lassen sich "

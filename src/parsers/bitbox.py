@@ -26,7 +26,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from ..models import Transaction, TxType, sat_to_btc, de_date
-from . import warn_fmt, FileRef, read_rows, amount, parse_iso_datetime, LINE_KEY, _sanitize
+from . import warn_fmt, FileRef, read_rows, amount, parse_iso_datetime, LINE_KEY, _sanitize, seen_names
 
 LABEL = "BitBox"
 REQUIRED = ("Time", "Type", "Amount", "Fee", "Fee Unit", "Transaction ID")
@@ -62,6 +62,7 @@ def parse(filepath: Path) -> list[Transaction]:
     """
     # z.B. "wallet1" — ohne Steuer-/Bidi-Zeichen (Audit v1.4, R2-N2)
     wallet_name = _sanitize(filepath.stem).strip() or "wallet"
+    seen_names.add(wallet_name)
     source = f"bitbox:{wallet_name}"
     # Case-insensitiv: ein Ordner 'NoKYC' oder 'NOKYC' wurde sonst als KYC
     # behandelt — der Fehler geht Richtung Offenlegung (SA2-04).

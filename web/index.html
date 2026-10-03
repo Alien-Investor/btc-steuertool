@@ -1228,8 +1228,10 @@ fx_rates.init(data_dir)
 from src.models import wallet_name as _wallet_name
 
 def _private_names(txs):
-    # Wallet-, Konto- und Quellnamen — nur für die Schwärzung der Diagnose, nie angezeigt
-    return sorted({_wallet_name(t.source) for t in txs} | {_wallet_name(t.wallet) for t in txs})
+    # Wallet-, Konto- und Quellnamen — nur für die Schwärzung der Diagnose, nie angezeigt.
+    # seen_names füllen die Parser beim Einlesen: auch bei einem Abbruch vor dem Ende (R5-B1)
+    return sorted({_wallet_name(t.source) for t in txs} | {_wallet_name(t.wallet) for t in txs}
+                  | set(_parsers.seen_names))
 
 def _public_warnings(extra=()):
     # Für die Diagnose (Bug-Report): nur offizielle Warnungen in der redigierten Fassung —
