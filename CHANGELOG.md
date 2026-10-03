@@ -17,7 +17,7 @@ Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die dens
   Berechnung. Dateinamen, Beträge, Tagesdaten, Adressen und Wallet-Namen werden geschwärzt, Jahreszahlen und Zeilennummern
   bleiben stehen; Dateien, die noKYC sein können, werden nur gezählt. Du siehst die Diagnose vor dem Senden vollständig.
   „Log speichern“ sichert das volle Log nur für dich.
-- **Fehlermeldungen kommen an:** Seit v1.0 zeigte die App bei jedem Abbruch nur „Dateien oder Einstufung wurden während der Berechnung
+- **Fehlermeldungen kommen an:** Seit v1.2 zeigte die App bei jedem Abbruch nur „Dateien oder Einstufung wurden während der Berechnung
   geändert“. Jetzt erscheint die eigentliche Meldung.
 - **noKYC-Trennung verschärft:** Kommen noKYC-Coins in einer KYC-Wallet an, bricht die Berechnung jetzt auch ab, wenn die
   Gebühr im Export fehlt, beide Wallets gleich heißen, bei Sammelauszahlungen, Schenkungen an die eigene Wallet,

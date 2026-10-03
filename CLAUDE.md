@@ -258,7 +258,7 @@ Vergleichslauf `mode="global"` an (alte Rechnung, nur für `wallet_abgleich_inte
   Eine Quelle (außer `manual`) in beiden Klassen bricht ab. Dedup je Quelle und Klasse. Offizielle Dokumente nur für
   `report_years(official=True)` — ein Jahr allein mit noKYC-Vorgängen verriete sich sonst durch einen leeren Report.
 - **GUI-Fehler:** im `catch` von `runCalc` den Vergleich `inputVersion !== myVersion` VOR `invalidateResults()` (das zählt hoch);
-  sonst erreicht kein Abbruch den Nutzer (R2-H1, bestand seit v1.0). Der Worker kürzt Python-Tracebacks auf die Meldung.
+  sonst erreicht kein Abbruch den Nutzer (R2-H1, bestand in v1.2–v1.3). Der Worker kürzt Python-Tracebacks auf die Meldung.
 - **`mode="global"` muss die alte Rechnung exakt reproduzieren** — Änderungen an der walletbezogenen
   Logik nie in den globalen Zweig tragen (Audit-Fund: Bisq-Gebühr-Fix wirkte sonst auch dort).
 - **Git:** `git add` und `git commit` immer getrennt ausführen (kombiniert sieht der OpSec-Hook ein
