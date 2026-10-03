@@ -245,10 +245,10 @@ Vergleichslauf `mode="global"` an (alte Rechnung, nur für `wallet_abgleich_inte
   Echtnamen nur in `wallet_abgleich_intern`. Fehlermeldungen nennen nur Wallets derselben Klasse.
 - **`mode="global"` muss die alte Rechnung exakt reproduzieren** — Änderungen an der walletbezogenen
   Logik nie in den globalen Zweig tragen (Audit-Fund: Bisq-Gebühr-Fix wirkte sonst auch dort).
-- **Git:** der OpSec-Hook sperrt Commits mit „wallet“ im Dateinamen (Fehlalarm bei
-  `test_wallet_fifo.py`, `nokyc_wallet.csv`, `wallet_abgleich_intern_*`). `git add` und `git commit`
-  immer getrennt ausführen (kombiniert sieht der Hook ein leeres Staging); der Autor committet solche
-  Stände selbst.
+- **Git:** `git add` und `git commit` immer getrennt ausführen (kombiniert sieht der OpSec-Hook ein
+  leeres Staging). Seit 03.10.2026 lässt der Hook „wallet“ in Code-/Doku-Dateinamen und unter `tests/golden/`,
+  `examples/` durch (`wallet_report.py`, `test_wallet_fifo.py`, `wallet_abgleich_intern_*`, `nokyc_wallet.csv`);
+  gesperrt bleiben Datendateien mit „wallet“ (`bitbox/*.csv`, `*.json`) sowie Seed/Secret/Keys.
 
 ---
 
