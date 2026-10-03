@@ -123,8 +123,14 @@ def _norm(text) -> str:
 def _name_pattern(names) -> re.Pattern | None:
     """Alle bekannten privaten Namen als eine Alternation (längste zuerst), nur an Wortgrenzen."""
     variants = set()
+    vocab = _vocabulary()
     for n in names:
         base = _norm(n)
+        # Namen nur aus Wörtern der eigenen Meldungssprache („sparrow.csv“, „konto“) verraten nichts —
+        # sie zu maskieren verstümmelte „Sparrow-Export“ zu „-Export“ (Gerätetest v1.4)
+        words = re.findall(r"[^\W\d_]+", base.rsplit(".", 1)[0] if base.lower().endswith(".csv") else base)
+        if words and all(w.casefold() in vocab or w.casefold() == "csv" for w in words) and not re.search(r"\d", base):
+            continue
         for v in (base, base.casefold(), base.lower(), base.replace(" ", "")):
             if len(v) >= 2:
                 variants.add(v)
@@ -237,7 +243,10 @@ def build(info: dict) -> str:
         names.append(n.rsplit("/", 1)[-1].rsplit(".", 1)[0])
     pattern = _name_pattern(names)
     out = [TITLE, ""]
-    out.append(f"Plattform: {redact(info.get('platform', '?'))} · Sprache: {redact(info.get('lang', '?'))}")
+    # Plattform und Sprache aus festen Listen (redact kannte „Android“ nicht — Gerätetest v1.4)
+    platform = info.get("platform") if info.get("platform") in ("Web", "Desktop", "Android") else "?"
+    lang = info.get("lang") if info.get("lang") in ("de", "en") else "?"
+    out.append(f"Plattform: {platform} · Sprache: {lang}")
     files = info.get("files", [])
     shown = [f for f in files if not f.get("hidden")]
     hidden = len(files) - len(shown)
@@ -247,7 +256,8 @@ def build(info: dict) -> str:
     for f in shown:
         groups.setdefault(str(f.get("label", "?")), []).append(f)
     for label, fs in groups.items():
-        lab = redact(label, _pattern=pattern)
+        # Typbezeichnungen stammen aus der App (typeLabel), nicht aus den Daten — nur säubern, nicht schwärzen
+        lab = _norm(label)[:80]
         if len(fs) == 1:
             f = fs[0]
             out.append(f"  - {lab}: {int(f.get('lines', 0))} Zeilen, {_size(f.get('kb', 0))}")

@@ -228,6 +228,20 @@ class AuditRound5(unittest.TestCase):
             self.assertNotIn(bad, diagnose.redact(msg), msg)
         self.assertIn("2024", diagnose.redact("Jahr 2024: 3 Zeilen"))
 
+    def test_device_test_readability(self):
+        """Gerätetest v1.4: Plattform „Android“, Typname und „Sparrow-Export“ wurden geschwärzt, weil die
+        Testdateien sparrow.csv, trezor.csv … hießen."""
+        text = diagnose.build({"platform": "Android", "lang": "de", "ran": True, "error": None,
+                               "names": ["sparrow.csv", "trezor.csv", "ledger.csv", "electrum.csv", "Erbe Oma.csv"],
+                               "warnings": ["ein Sparrow-Export: 1 unbestätigte Transaktion(en) nicht gebucht",
+                                            "Erbe Oma.csv: Zeile 3 unbekannt"],
+                               "files": [{"label": "Sparrow/Electrum/Trezor/Ledger (KYC)", "lines": 9, "kb": 1}] * 4})
+        self.assertIn("Plattform: Android", text)
+        self.assertIn("Sparrow/Electrum/Trezor/Ledger (KYC): 4 Dateien", text)
+        self.assertIn("ein Sparrow-Export", text)
+        self.assertNotIn("Erbe", text)
+        self.assertNotIn("Oma", text)
+
     def test_21bitcoin_stays_readable(self):
         self.assertIn("21bitcoin", diagnose.redact("21bitcoin: 2 Transaktion(en) übersprungen"))
 
