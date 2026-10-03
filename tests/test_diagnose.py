@@ -226,6 +226,71 @@ class AuditRound5(unittest.TestCase):
         self.assertIn("21bitcoin", diagnose.redact("21bitcoin: 2 Transaktion(en) übersprungen"))
 
 
+class RandomLeakTest(unittest.TestCase):
+    """Zufallstest (fester Seed, läuft bei jeder Änderung mit): Meldungen aus Wörtern der eigenen
+    Meldungssprache mit eingestreuten privaten Angaben in vielen Schreibweisen — nach redact()
+    darf keine davon übrig sein. Schützt auch künftige neue Meldungen."""
+
+    FIRST = ["Hans", "Anna", "Lena", "Martin", "Grete", "Lisa", "Patrick", "Jürgen", "Sören", "Özlem", "Zoë", "Mika",
+             "Großvater", "Oma", "Opa", "Mama", "Papa", "Schwester", "Bruder", "Tante", "Onkel", "Nachbar"]
+    LAST = ["Müller", "Schmidt", "Weiß", "Meier", "O'Brien", "Straßer", "Nguyen", "Kowalski", "Fischer"]
+    WORDS = ["Erbe", "Notgroschen", "Sparbuch", "Tresor", "Keller", "Matratze", "Hochzeit", "Urlaub", "Miete",
+             "Hidden", "Seed", "Cold", "Hot", "Savings", "Stack", "Hodl", "Rente", "Reserve", "Kalt", "Geheim",
+             "Berlin", "München", "Zürich", "Wien", "Lightning", "Geschenk", "Schenkung", "Weihnachten"]
+
+    def _private(self, rng):
+        k = rng.randrange(9)
+        if k == 0:
+            return rng.choice(self.FIRST) + rng.choice([" ", "_", "-", ""]) + rng.choice(self.LAST)
+        if k == 1:
+            return rng.choice(self.WORDS) + rng.choice([" ", "_", "-", "'s ", ""]) + rng.choice(self.FIRST)
+        if k == 2:   # Betrag
+            return rng.choice(["0.0123", "1,5", "1.234,56", "12 345", "21000000", "0.00000546", "1.", ",5", "-0.08",
+                               "1 BTC", "5000 sat", "2 Mio", "1'234.50", "3.3e-5"])
+        if k == 3:   # Datum/Zeit
+            return rng.choice(["2024-03-15", "15.03.2024", "03/15/2024", "15 Mar 2024", "Mar 15, 2024", "15. März 2024",
+                               "20240315", "14:22:10", "2:22 PM", "14.30 Uhr", "1710512530"])
+        if k == 4:   # Adressen/IDs/Schlüssel
+            return rng.choice(["bc1qown7a2l0q9mv5c4y3xk8tq0h6r2w5n9e4d7s3f", "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy",
+                               "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx", "2N1dP3x9yW8uYv7tRqSpOnMlKj6iHgF5eD",
+                               "xpub6CatWdiZiodmUeTDp8LT5or8nmbKNcuyvz7WyksVFkKB4RHwCD3XyuvPEbvqAQY3", "lnbc2500u1pvjluezpp5",
+                               "3a7c1f0e9b2d4c6a8e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f7", "npub1cnlymdm5jz8e"])
+        if k == 5:   # IBAN/E-Mail/Telefon
+            return rng.choice(["DE89 3704 0044 0532 0130 00", "DE89370400440532013000", "max.mustermann@example.org",
+                               "+49 170 1234567", "0170/1234567"])
+        if k == 6:   # Dateiname
+            return rng.choice(self.WORDS) + rng.choice(["_2024", " ", "-"]) + rng.choice(self.FIRST) + ".csv"
+        if k == 7:
+            return rng.choice(self.FIRST) + " " + rng.choice(self.WORDS) + " " + rng.choice(["2023", "Q1", "#2", "v2"])
+        return rng.choice(self.WORDS)
+
+    def test_no_private_token_survives(self):
+        import random
+        rng = random.Random(20261003)
+        vocab = sorted(diagnose._vocabulary())
+        # Voraussetzung: die privaten Wörter stehen nicht im Wörterbuch
+        for w in self.FIRST + self.LAST + self.WORDS:
+            for part in re.findall(r"[^\W\d_]+", w):
+                self.assertNotIn(part.casefold(), diagnose._vocabulary(), w)
+        for i in range(3000):
+            injected = [self._private(rng) for _ in range(rng.randint(1, 4))]
+            parts = [rng.choice(vocab) for _ in range(rng.randint(3, 12))]
+            for inj in injected:
+                wrap = rng.choice(["{}", "'{}'", "„{}“", "({})", "{}:", "\"{}\"", "Gelesen: {}, x"])
+                parts.insert(rng.randrange(len(parts) + 1), wrap.format(inj))
+            msg = " ".join(parts)
+            names = [inj for inj in injected if inj.endswith(".csv")] if rng.random() < 0.5 else []
+            r = diagnose.redact(msg, names)
+            for inj in injected:
+                for part in re.findall(r"[^\W_]+", inj):
+                    if part.isdigit() and len(part) == 4 and 2009 <= int(part) <= 2099:
+                        continue    # Jahreszahl ist erlaubt
+                    if part.casefold() in ("csv", "btc", "sat", "uhr", "pm", "e", "q", "v", "s"):
+                        continue    # Einheiten/Formatwörter aus der eigenen Sprache
+                    self.assertNotRegex(r, rf"(?<![^\W_]){re.escape(part)}(?![^\W_])",
+                                        f"{part!r} aus {inj!r} überlebt:\n{msg}\n→ {r}")
+
+
 class Build(unittest.TestCase):
     def test_hidden_files_only_counted_and_header_of_unknown(self):
         info = {"platform": "Web", "lang": "de", "ran": True, "error": None, "warnings": [],

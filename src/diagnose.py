@@ -62,7 +62,9 @@ _MONTH_WORDS = {
 }
 # Nie aus dem Wörterbuch: Zahlwörter (Beträge in Worten) und Wörter, die als private Notiz taugen
 _DENY = {"null", "eins", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun", "zehn", "hundert",
-         "tausend", "mio", "million", "millionen", "half", "halb", "kind", "kinder", "gross", "groß"}
+         "tausend", "mio", "million", "millionen", "half", "halb", "kind", "kinder", "gross", "groß",
+         # Durchsicht der Liste (03.10.2026): taugen als private Notiz/Label
+         "geschenk", "schenkung", "schenkers", "hingegebenen", "lightning", "diebstahl", "verlust", "zahltag", "ort"}
 # Bekannte Wörter mit Ziffern, die keine IDs sind
 _KEEP = {"21bitcoin"}
 # Aufrufe, deren Texte Meldungsvorlagen sind
