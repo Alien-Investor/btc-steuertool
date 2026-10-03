@@ -222,6 +222,12 @@ class AuditRound5(unittest.TestCase):
         for b in ("Tresor", "Schwester", "Berlin"):
             self.assertNotIn(b, text)
 
+    def test_year_like_numbers_in_amounts(self):
+        """Faktencheck v1.4: „0.2024 BTC“ wurde zu „<n>.2024 BTC“, „2050 sat“ blieb stehen."""
+        for msg, bad in (("Verkauf von 0.2024 BTC", "2024"), ("Betrag 2050 sat", "2050"), ("2024.5 BTC", "2024")):
+            self.assertNotIn(bad, diagnose.redact(msg), msg)
+        self.assertIn("2024", diagnose.redact("Jahr 2024: 3 Zeilen"))
+
     def test_21bitcoin_stays_readable(self):
         self.assertIn("21bitcoin", diagnose.redact("21bitcoin: 2 Transaktion(en) übersprungen"))
 

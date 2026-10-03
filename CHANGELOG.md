@@ -3,37 +3,30 @@
 Das CLI und die Web-Version haben keine eigenen Versionen; sie laufen immer auf dem Stand von `main`.
 Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die denselben Rechenkern enthalten.
 
-## Unveröffentlicht (main)
-- **Diagnose für Bug-Reports (neu):** Im Dialog „Bug melden“ lässt sich eine Diagnose erstellen, die erkannte Dateitypen, Zeilenzahl, die
-  erste Zeile nicht erkannter Dateien und die Meldungen der letzten Berechnung enthält, aber keine Dateinamen, Beträge, Daten, Adressen
-  oder Wallet-Namen; Dateien, die noKYC sein können, werden nur gezählt. Vor dem Senden vollständig sichtbar, geht mit in die Mail oder
-  wird als Datei gespeichert. **„Log speichern“** sichert das volle Log für dich selbst (als intern gekennzeichnet, nicht zum Weitergeben).
-  Nach der dritten Audit-Runde überträgt die Diagnose von einer nicht erkannten Datei nur noch den Aufbau der ersten Zeile (bekannte
-  Spaltennamen, sonst „<feld>“) und Meldungen zu Dateien, die noKYC sein können, nur als allgemeinen Satz.
-- Dritte Audit-Runde: Dieselbe Wallet aus BitBoxApp und Sparrow wird als doppelt erkannt; lädt der Rechenkern nicht (schlechte
-  Verbindung), meldet die App das nach spätestens zwei Minuten, statt zu hängen, und ein neuer Versuch klappt ohne Neuladen;
-  `transfer_zuordnung.csv` aus Excel (Windows-1252) wird gelesen; die Kommandozeile mit `--year` erzeugt für ein Jahr allein mit
-  noKYC-Vorgängen keine offiziellen Dokumente mehr.
-- **Wallet-Exporte Sparrow, Electrum, Trezor Suite, Ledger Wallet/Ledger Live (neu, unbestätigt):** Transaktions-CSVs dieser Programme werden gelesen
-  (das Tool erkennt das Programm an der Kopfzeile, auch ältere Exportformate). Jede Wallet ist ein eigener Bestand, bei Ledger jedes
-  Konto; Überträge werden über die Transaktions-ID mit Börsen und anderen Wallets verbunden. In den Finanzamt-Dokumenten heißen sie nur
-  „Sparrow-Wallet“, „Trezor-Wallet 1“ usw. Ausgänge mit Netzwerkgebühr, Überweisungen an sich selbst (nur Gebühr) und Schenkungen
-  (Wort im Label) werden wie bei der BitBox gebucht. Die Formate stammen aus dem Quellcode der Programme, nicht aus echten Exporten:
-  Der Steuerreport zeigt je Datei eine Warnung „Format noch nicht bestätigt“. Electrum schreibt Zeiten ohne Zeitzone (gelesen als deutsche
-  Ortszeit), Lightning-Zahlungen werden gemeldet, nicht erfasst. In der App: Typ „Sparrow/Electrum/Trezor/Ledger (KYC/noKYC)“.
-- Internes Release-Audit (drei Prüfer, Datenschutz/Rechnung/Robustheit) vor v1.4, alle Funde behoben: Ein Übertrag aus einer noKYC-Wallet
-  in eine KYC-Wallet wird jetzt auch erkannt, wenn die Gebühr im Export fehlt oder beide Wallets gleich heißen (bisher stand der Eingang
-  dann im Steuernachweis); eine Transaktion mit gleichem Betrag an zwei eigene Wallets galt fälschlich als doppelter Export; gleich benannte
-  Ledger-Konten zweier Geräte, negative Beträge, Satoshi-Einheit bei Trezor und unbestätigte Ledger-Vorgänge brechen ab oder werden gemeldet
-  statt still falsch gebucht; Zeiten in der doppelten Stunde der Winterzeit-Umstellung werden richtig zugeordnet.
-- Zweite Audit-Runde (frische Prüfer auf die Fixes): **In der App erreichte seit v1.0 keine Fehlermeldung den Nutzer** — bei jedem
-  Abbruch stand nur „Dateien wurden während der Berechnung geändert“. Jetzt erscheint die eigentliche Meldung (ohne Python-Details).
-  Weitere Lücken der noKYC-Trennung geschlossen (Sammelauszahlung, Schenkung an die eigene KYC-Wallet, gleichnamige Sammelimport-Konten,
-  abweichender Betrag ohne Transaktions-ID). Ein Jahr allein mit noKYC-Vorgängen erzeugt keinen leeren Steuerreport/Nachweis mehr
-  (betraf auch die Beispieldaten: 2025). Dieselbe Wallet doppelt geladen wird erkannt; Ledger-Konten gleichen Namens werden über alle
-  Dateien einheitlich nummeriert; die Kommandozeile zeigt Abbrüche als Meldung statt als Python-Traceback.
-- Bisq: der englische Export ist jetzt an einem echten Export des Autors bestätigt (gleiche Trades auf Deutsch und Englisch exportiert,
-  Ergebnis feldgleich). Der Hinweis „bitte Ergebnis prüfen“ aus v1.3 gilt für Bisq damit nicht mehr.
+## v1.4 — 2026-10-03
+- **Neu: Wallet-Exporte aus Sparrow, Electrum, Trezor Suite und Ledger Wallet (früher Ledger Live).** Das Programm wird an
+  der Kopfzeile erkannt, auch bei älteren Versionen. Jede Wallet ist ein eigener Bestand, bei Ledger jedes Konto. Überträge
+  zu Börsen und anderen Wallets verbindet die App über die Transaktions-ID; Netzwerkgebühren und Überweisungen an sich selbst
+  werden wie bei der BitBox gebucht, Schenkungen am Wort im Label (nicht bei Ledger, dessen Export kein Label hat). In den
+  Finanzamt-Dokumenten heißen sie nur „Sparrow-Wallet“, „Trezor-Wallet 1“ usw. Die Formate stammen aus dem Quellcode der
+  Programme und sind noch nicht an echten Exporten bestätigt; der Steuerreport weist je Datei darauf hin. Electrum-Zeiten
+  (ohne Zeitzone) gelten als deutsche Ortszeit; Lightning-Zahlungen werden gemeldet, nicht erfasst. In der App: Typ
+  „Sparrow/Electrum/Trezor/Ledger (KYC/noKYC)“.
+- **Neu: Diagnose für Bug-Reports.** Im Dialog „Bug melden“ erstellt die App auf Wunsch eine Diagnose: erkannte Dateitypen,
+  Zeilenzahl, Aufbau der ersten Zeile nicht erkannter Dateien (nur bekannte Spaltennamen) und die Meldungen der letzten
+  Berechnung. Dateinamen, Beträge, Tagesdaten, Adressen und Wallet-Namen werden geschwärzt, Jahreszahlen und Zeilennummern
+  bleiben stehen; Dateien, die noKYC sein können, werden nur gezählt. Du siehst die Diagnose vor dem Senden vollständig.
+  „Log speichern“ sichert das volle Log nur für dich.
+- **Fehlermeldungen kommen an:** Seit v1.0 zeigte die App bei jedem Abbruch nur „Dateien wurden während der Berechnung
+  geändert“. Jetzt erscheint die eigentliche Meldung.
+- **noKYC-Trennung verschärft:** Kommen noKYC-Coins in einer KYC-Wallet an, bricht die Berechnung jetzt auch ab, wenn die
+  Gebühr im Export fehlt, beide Wallets gleich heißen, bei Sammelauszahlungen, Schenkungen an die eigene Wallet,
+  gleichnamigen Sammelimport-Konten und abweichendem Betrag ohne Transaktions-ID. Ein Jahr nur mit noKYC-Vorgängen erzeugt
+  keinen leeren Steuerreport und Nachweis mehr (betraf auch die Beispieldaten, 2025).
+- **Doppelt geladene Wallets** (Jahres- und Gesamtexport, dieselbe Wallet in BitBoxApp und Sparrow) werden erkannt.
+- **Robuster:** Lädt der Rechenkern nicht, meldet die App das nach spätestens zwei Minuten (vor allem Web-Version), ein neuer
+  Versuch klappt ohne Neuladen. `transfer_zuordnung.csv` aus Excel (Windows-1252) wird gelesen.
+- **Bisq:** Der englische Export ist an einem echten Export bestätigt; der Prüfhinweis aus v1.3 entfällt.
 
 ## v1.3 — 2026-10-03
 - Bisq: auch der **englische Export** wird gelesen (Spaltenköpfe „Trade ID, Date/Time, …“, Werte „Buy BTC“/„Completed“); die

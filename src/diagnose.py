@@ -29,7 +29,7 @@ from pathlib import Path
 
 from .parsers import _sanitize
 
-TITLE = "BTC Steuertool – Diagnose (ohne Dateinamen, Beträge, Daten, Adressen und Wallet-Namen)"
+TITLE = "BTC Steuertool – Diagnose (ohne Dateinamen, Beträge, Tagesdaten, Adressen und Wallet-Namen; Jahreszahlen und Zeilennummern bleiben)"
 PRIVATE_TEXT = "Meldung enthält private Angaben (Details nur im lokalen Log)."
 
 _CLASS_WORDS = re.compile(
@@ -154,14 +154,14 @@ def redact(text: str, names=(), *, private: bool = False, _pattern=None) -> str:
     vocab = _vocabulary()
     out: list[str] = []
     last_word = ""
-    for m in re.finditer(r"<feld>|[^\W_]+|\s+|[\W_]", s):
-        tok = m.group(0)
+    toks = [m.group(0) for m in re.finditer(r"<feld>|[^\W_]+|\s+|[\W_]", s)]
+    for i, tok in enumerate(toks):
         if tok == "<feld>":
             out.append(tok)
         elif tok.isdigit():
             if last_word in ("zeile", "zeilen", "line") and len(tok) <= 7:
                 out.append(tok)
-            elif len(tok) == 4 and 2009 <= int(tok) <= 2099:
+            elif len(tok) == 4 and 2009 <= int(tok) <= 2099 and not _in_amount(toks, i):
                 out.append(tok)
             else:
                 out.append("<n>")
@@ -182,6 +182,23 @@ def redact(text: str, names=(), *, private: bool = False, _pattern=None) -> str:
     if len(s) > _MAX_LINE:
         s = s[: _MAX_LINE - 1] + "…"
     return s
+
+
+_UNITS = {"btc", "xbt", "sat", "sats", "satoshi", "satoshis", "mbtc", "msat", "eur", "usd", "chf"}
+
+
+def _in_amount(toks: list[str], i: int) -> bool:
+    """Gehört die Zahl an Stelle i zu einem Betrag statt eine Jahreszahl zu sein? Nachkommastellen
+    („0.2024“), Vorkommastellen vor einem Dezimaltrenner („2024.5“) oder eine Einheit dahinter
+    („2050 sat“) — Faktencheck v1.4: „0.2024 BTC“ wurde sonst zu „<n>.2024 BTC“."""
+    if i >= 2 and toks[i - 1] in (".", ",") and toks[i - 2].isdigit():
+        return True
+    if i + 2 < len(toks) and toks[i + 1] in (".", ",") and toks[i + 2].isdigit():
+        return True
+    j = i + 1
+    while j < len(toks) and toks[j].isspace():
+        j += 1
+    return j < len(toks) and toks[j].casefold() in _UNITS
 
 
 def _shape_fields(fields) -> str:

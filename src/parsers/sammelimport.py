@@ -404,7 +404,7 @@ def _to_transaction(rec: dict, filename: str) -> Transaction | None:
     if kind == "gift_in" and ia == "BTC" and iq > 0:
         # Unentgeltlicher Erwerb: Anschaffungsdatum und -kosten des Schenkers gelten
         # (§ 23 Abs. 1 S. 3 EStG) — ein Kauf zum Exportwert wäre falsch (Faktencheck 03.10.2026)
-        wrn(f"Geschenk erhalten: {iq} BTC ({rec['kind_raw']}, {account}) am {tag} — nicht verarbeitet. Für die "
+        wrn(f"Geschenk erhalten: {iq:.8f} BTC ({rec['kind_raw']}, {account}) am {tag} — nicht verarbeitet. Für die "
             f"Haltefrist gelten Anschaffungsdatum und -kosten des Schenkers (§ 23 Abs. 1 Satz 3 EStG); bitte als "
             f"manual_buys.csv mit dessen Datum und Betrag erfassen.")
         return None
@@ -415,7 +415,7 @@ def _to_transaction(rec: dict, filename: str) -> Transaction | None:
                                fee_eur=Decimal("0"), fee_btc=fee_btc, tx_id=tx_id("in"),
                                note=f"Zufluss ({rec['kind_raw']}) bei {account}, EUR-Wert laut Export — "
                                     f"steuerliche Einordnung des Zuflusses selbst prüfen", **base)
-        wrn(f"Zufluss {iq} BTC ({rec['kind_raw']}, {account}) am {tag} ohne EUR-Wert — Anschaffung ohne Kaufpreis, "
+        wrn(f"Zufluss {iq:.8f} BTC ({rec['kind_raw']}, {account}) am {tag} ohne EUR-Wert — Anschaffung ohne Kaufpreis, "
             f"nicht verarbeitet. Bitte als manual_buys.csv mit dem EUR-Wert zum Zuflusstag erfassen; "
             f"ob der Zufluss selbst Einkünfte ist, bitte prüfen.")
         return None
@@ -425,7 +425,7 @@ def _to_transaction(rec: dict, filename: str) -> Transaction | None:
             return Transaction(type=TxType.SELL, btc_amount=oq, eur_amount=value, eur_price_per_btc=value / oq,
                                fee_eur=Decimal("0"), fee_btc=fee_btc, tx_id=tx_id("sell"),
                                note=f"Bezahlung mit BTC ({rec['kind_raw']}) bei {account}, EUR-Wert laut Export", **base)
-        wrn(f"Bezahlung mit {oq} BTC ({rec['kind_raw']}, {account}) am {tag} ist eine VERÄUSSERUNG zum Marktwert — "
+        wrn(f"Bezahlung mit {oq:.8f} BTC ({rec['kind_raw']}, {account}) am {tag} ist eine VERÄUSSERUNG zum Marktwert — "
             f"ohne EUR-Wert im Export nicht verarbeitet. Bitte als manual_sales.csv mit dem EUR-Wert zum Zahltag erfassen"
             f"{' (no_kyc=ja)' if no_kyc else ''}.")
         return None
@@ -434,9 +434,9 @@ def _to_transaction(rec: dict, filename: str) -> Transaction | None:
                            fee_eur=Decimal("0"), fee_btc=fee_btc, tx_id=tx_id("gift"),
                            note=f"Unentgeltliche Übertragung ({rec['kind_raw']}) von {account}", **base)
     if kind == "lost":
-        wrn(f"Zeile '{rec['kind_raw']}' über {oq or iq} BTC ({account}) am {tag} nicht verarbeitet — der Bestand "
+        wrn(f"Zeile '{rec['kind_raw']}' über {(oq or iq):.8f} BTC ({account}) am {tag} nicht verarbeitet — der Bestand "
             f"bleibt rechnerisch bestehen, bitte prüfen (Verlust/Diebstahl ist kein Veräußerungsgeschäft).")
         return None
-    wrn(f"Typ '{rec['kind_raw']}' mit {oq or iq} BTC ({account}) am {tag} nicht verarbeitet — Zeile bitte prüfen "
+    wrn(f"Typ '{rec['kind_raw']}' mit {(oq or iq):.8f} BTC ({account}) am {tag} nicht verarbeitet — Zeile bitte prüfen "
         f"und ggf. als manual_buys.csv/manual_sales.csv erfassen.")
     return None

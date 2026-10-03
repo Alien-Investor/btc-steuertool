@@ -91,7 +91,7 @@ def delta_tx(*, date: datetime, delta: Decimal, fee: Decimal | None, label: str,
     Electrum schreibt „0.“, wenn nicht alle Inputs der Wallet gehören."""
     year = de_date(date).year
     if abs(delta) > _MAX_BTC or (fee is not None and fee > _MAX_BTC):
-        raise ValueError(f"{where}: Betrag {delta} BTC ist unplausibel (mehr als 21 Mio. BTC) — Einheit falsch oder Datei beschädigt?")
+        raise ValueError(f"{where}: Betrag {delta:.8f} BTC ist unplausibel (mehr als 21 Mio. BTC) — Einheit falsch oder Datei beschädigt?")
     if delta == 0:
         stats.add("null", year)
         return None
@@ -103,7 +103,7 @@ def delta_tx(*, date: datetime, delta: Decimal, fee: Decimal | None, label: str,
         typ = TxType.GIFT_OUT if is_gift_note(label) else TxType.TRANSFER_OUT
         return _tx(date, typ, out, ZERO, label, tx_id, source, no_kyc)
     if fee > out:
-        raise ValueError(f"{where}: Gebühr {fee} BTC ist größer als der Abgang {out} BTC — Datei beschädigt?")
+        raise ValueError(f"{where}: Gebühr {fee:.8f} BTC ist größer als der Abgang {out:.8f} BTC — Datei beschädigt?")
     amount = out - fee
     if amount == 0:
         note = f"wallet-intern (kein Bestandsabgang, nur Gebühr){' | ' + label if label else ''}"

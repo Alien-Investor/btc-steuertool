@@ -110,7 +110,7 @@ def _parse_row(row: dict, filename: str) -> Transaction | None:
         if fee_btc > btc_amount:
             warn_fmt("{file}: Auszahlung am {tag} mit Gebühr {fee} BTC über dem Betrag {menge} BTC — "
                      "Gebühr nicht verarbeitet.", internal=False, year=de_date(date).year,
-                     file=FileRef(filename), tag=de_date(date), fee=fee_btc, menge=btc_amount)
+                     file=FileRef(filename), tag=de_date(date), fee=f"{fee_btc:.8f}", menge=f"{btc_amount:.8f}")
             fee_btc = Decimal("0")
         btc_amount -= fee_btc
 

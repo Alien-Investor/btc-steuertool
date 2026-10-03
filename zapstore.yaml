@@ -33,7 +33,9 @@ description: |
   - Exemption limit applied automatically (600 EUR up to 2023, 1,000 EUR from 2024)
   - Supported sources: BitBox wallets, 21bitcoin, Bison, Swissquote, Strike, Pocket, Bisq 1 (German or English interface), plus manual
     buys/sells as CSV. Other exchanges via a CoinTracking or Blockpit export (every account in it becomes a wallet of its own; these
-    formats are derived from the documentation and not yet confirmed against real exports, the report says so)
+    formats are derived from the documentation and not yet confirmed against real exports, the report says so). Wallet exports
+    from Sparrow, Electrum, Trezor Suite and Ledger Wallet (formerly Ledger Live): every wallet or Ledger account is a holding of its
+    own; derived from the programs' source code and not yet confirmed against real exports, the report says so
   - Brokers are detected from the file contents; ZIP files are unpacked; files the app cannot recognise block the calculation
     instead of silently missing from the report. Every file is checked for its required columns before reading: a renamed column
     stops the run with file, line and column instead of silently dropping data; a byte-order mark (e.g. after saving in Excel) is read correctly
@@ -42,6 +44,9 @@ description: |
   - noKYC purchases (Bisq, manual buys not marked as KYC, noKYC wallets) are kept strictly apart: separate FiFo pool and a separate internal
     report, never part of the documents for the tax office
   - Output: tax report, formal tax evidence document, buys/sells as CSV — saved through the Android save dialog
+  - Bug report with an optional diagnosis: detected file types and the messages of the last calculation, without file names,
+    amounts, exact dates, addresses or wallet names (years and line numbers remain); you see it in full before sending. The full
+    log can be saved for yourself
   - ECB exchange rates (USD/CHF) and BTC daily closing prices are bundled; nothing is downloaded
   - Same calculation core as the open-source command-line tool and the web version (Python via Pyodide), reports byte-identical
   - Screenshots blocked (FLAG_SECURE), no backup of app data, offline in-app guide in German and English
