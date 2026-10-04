@@ -4,6 +4,8 @@ Vor jeder Änderung an `desktop/` oder an der Weiche `DESK` in `web/index.html` 
 (`~/projekte/alien-pass/desktop/`, dort Audits run-6 bis run-8). Was hier nicht abweicht, gilt dort begründet.
 Tests: `node desktop/verify-desktop.mjs` (echte Hülle, gepinntes Electron, Reports byte-gleich zur CLI) plus `web/test_gui.py` und
 `web/test_lang.py` (Web-Version ohne Hülle). Rechte des Käfigs prüft `desktop/build-desktop.sh`.
+Jeder Prüfschritt endet mit der Marke „Schritt vollständig“; fehlt sie oder endet der Schritt per Signal/Zeitlimit, ist `verify-desktop` rot
+(ein still vorzeitig beendeter Schritt bliebe sonst grün, Querfund Alien Notes v1.7). Neuer Schritt = Endmarke mitgeben.
 
 ## Grundsatz
 - **Ein Code, kein Fork.** Die Hülle lädt `web/dist` (Ergebnis von `web/build.sh`) unverändert. Alles Desktop-Spezifische in der GUI hängt an
@@ -32,6 +34,10 @@ Tests: `node desktop/verify-desktop.mjs` (echte Hülle, gepinntes Electron, Repo
   bzw. das Mailprogramm (OpenURI-Portal, kein Flatpak-Recht nötig). Neuer Link in der GUI = Eintrag in `LINKS` + Test.
   **`LINKS`, `MAIL`/`MAIL_MAX` und `CSP` liest auch die APK** (`mobile/patch-hardening.mjs`, per Regex) — Form der drei Zeilen beibehalten,
   sonst bricht der APK-Build mit Fehler ab (gewollt, nie still).
+- **Link-Bremse auf monotoner Uhr:** `openOutside` lässt höchstens einen Link je Sekunde durch, gemessen mit `performance.now()` und
+  `lastOut=-Infinity` — nie `Date.now()` (zurückgestellte Systemuhr legte den Link still, Querfund Alien Pass v1.18). Der Harness ruft
+  die Handler direkt auf (`app.emit('web-contents-created',…)`, Chromium kanonisiert URLs sonst vorher) und prüft die Bremse mit
+  einem um 1 h zurückgestellten `Date.now`.
 - **Brücke = genau `saveFile(name, bytes)`.** Name `^[\w.-]{1,120}\.(txt|csv|zip)$`, nur `Uint8Array`, ≤ 50 MB, Aufruf nur vom obersten Frame
   der eigenen Seite. Speichern-Dialog (Portal), atomar über `atomic.js`; Rückfall auf direktes Schreiben nur für ein NEUES Ziel.
   Temp-Datei mit Zufallsnamen, `O_EXCL|O_NOFOLLOW` (kein Umlenken über einen vorbereiteten Symlink, kein Sperren durch Absturz-Reste).

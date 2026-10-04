@@ -133,14 +133,6 @@ Brücke nur `saveFile`, Weiche `DESK` in `web/index.html`. **Vor jeder Änderung
   Anzeige im Fuß: Apps „v1.4“, Web „Web · Stand …“) — nie von Hand in index.html eintragen.
 - Handbuch („?“) liegt offline in `web/index.html` (`help-de`/`help-en`) — eine Quelle für Web, Desktop und APK. Inhaltliche
   Änderungen dort brauchen einen Faktencheck (öffentlich).
-- **Beim nächsten Release mitnehmen (Querfund Alien Pass v1.18, 03.10.2026, kein eigenes Release):** `openOutside` in `desktop/main.js` bremst mit
-  `Date.now()` — wird die Systemuhr zurückgestellt (NTP, Resume mit falscher RTC), bleibt der Spenden-Knopf still tot, bis die Uhr den alten Stand erreicht.
-  Fix wie Alien Pass `desktop/main.js`: `let lastOut=-Infinity;` und `const t=performance.now();`. Optional der Harness-Direktaufruf der Handler
-  (`app.emit('web-contents-created',{},fake)`, Vorlage Alien Pass `desktop/test/harness.cjs`): Chromium kanonisiert URLs vor den Handlern, ein Rohstring an
-  `shell.openExternal` fiele sonst nie auf. Die PRIMARY-Funde aus Pass betreffen das Steuertool nicht (keine Überwachung der X11-Auswahl).
-  **Nachtrag Alien Notes v1.7 (03.10.2026):** Den Uhr-Fix mit Test absichern — Harness patcht `Date.now` (1 h zurück) und ruft den Handler direkt auf, muss dann
-  öffnen (Vorlage Notes `desktop/test/harness.cjs` „Bremse übersteht eine zurückgestellte Uhr“; gegen den alten Code rot). Ebenfalls aus Notes: `verify-desktop` verlangt je
-  Schritt eine Endmarke „Schritt vollständig“ (ein stilles vorzeitiges Ende bliebe sonst grün). Die X11-Funde aus Notes run-5 betreffen das Steuertool nicht.
 
 ## Android-App (`mobile/`, Capacitor 6.2.2, `org.alieninvestor.steuertool`) — seit 02.10.2026
 

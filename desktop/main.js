@@ -60,9 +60,10 @@ function linkOk(u){
 // Höchstens ein Link je Sekunde (Electron hat keinen Popup-Blocker: 500 × window.open = 500 Browserfenster) und die
 // GEPRÜFTE kanonische URL hinaus, nicht der Rohstring — Querfund Alien Notes run-4 A-B1/A-B2 (03.10.2026).
 // mailto bleibt der geprüfte Rohstring: new URL(...).href könnte die %-Kodierung von subject/body verändern.
-let lastOut=0;
+// Monotone Uhr: mit Date.now() bliebe der Link still tot, wenn die Systemuhr zurückgestellt wird (Querfund Alien Pass v1.18 A-2).
+let lastOut=-Infinity;
 function openOutside(u){
-  const t=Date.now();
+  const t=performance.now();
   if(!linkOk(u)||t-lastOut<1000) return;
   lastOut=t;
   shell.openExternal(u.startsWith('mailto:')?u:new URL(u).href).catch(()=>{});

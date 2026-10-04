@@ -89,6 +89,23 @@ async function fresh(){
   { await sleep(1100); opened.length=0; await js(`document.getElementById('donate-link').click()`); await sleep(300);
     const want=await js(`document.getElementById('donate-link').href`);
     R('Spenden-Blitz extern geöffnet', opened.length===1&&opened[0]===want&&/^https:\/\/alien-investor\.org\/(en\/)?spenden\.html$/.test(want)&&win.webContents.getURL()==='app://steuertool/index.html', opened.slice()); }
+  // Handler direkt, ohne Chromium dazwischen (das kanonisiert URLs schon vorher, ein Rohstring an shell.openExternal fiele sonst nie auf):
+  // preventDefault, deny, der geprüfte href, Bremse und zurückgestellte Uhr (Querfunde Alien Pass v1.18, Alien Notes v1.7 A-1)
+  { const h={}; let woh=null; const fake={on:(n,f)=>{ h[n]=f; },setWindowOpenHandler:f=>{ woh=f; },setWebRTCIPHandlingPolicy:()=>{}};
+    try{ app.emit('web-contents-created',{},fake); }catch(e){ R('Handler direkt: Ausnahme',false,String(e)); }
+    await sleep(1100); opened.length=0; let pd=0;
+    if(h['will-navigate']) h['will-navigate']({preventDefault:()=>pd++},' HTTPS://ALIEN-INVESTOR.ORG:443/en/../spenden.html\t');
+    R('will-navigate (direkt): preventDefault + kanonischer href', pd===1&&opened.length===1&&opened[0]==='https://alien-investor.org/spenden.html', {pd,opened:opened.slice()});
+    await sleep(1100); opened.length=0; pd=0;
+    if(h['will-navigate']) h['will-navigate']({preventDefault:()=>pd++},'https://example.org/');
+    R('will-navigate (direkt): fremde Adresse → preventDefault, nichts geöffnet', pd===1&&opened.length===0, {pd,opened:opened.slice()});
+    await sleep(1100); opened.length=0; const r=woh?woh({url:'https://alien-investor.org/en/spenden.html'}):null;
+    R('setWindowOpenHandler (direkt): deny auch für Listen-Links', !!r&&r.action==='deny'&&opened.length===1, {r,opened:opened.slice()});
+    await sleep(1100); opened.length=0; let n=0; for(let i=0;i<3;i++){ if(woh) woh({url:'https://alien-investor.org/spenden.html'}); await sleep(400); n=opened.length; }
+    R('Bremse: drei Links im Abstand von 400 ms → 1', n===1, n);
+    // main.js läuft im selben Realm: Date.now eine Stunde zurück, der Link muss trotzdem aufgehen
+    const dn=Date.now; Date.now=()=>dn()-3600e3; await sleep(1100); opened.length=0; if(woh) woh({url:'https://alien-investor.org/spenden.html'}); Date.now=dn;
+    R('Bremse übersteht eine zurückgestellte Uhr (1 h)', opened.length===1, opened.slice()); }
   const onApp=()=>win.webContents.getURL()==='app://steuertool/index.html';
   for(const u of ['https://example.org/','https://alien-investor.org/anderes.html','https://github.com/Alien-Investor/btc-steuertool/evil','http://alien-investor.org/','https://alien-investor.org.evil.com/','file:///etc/passwd','javascript:alert(1)',
       'https://alien-investor.org/steuertool-guide.html?ref=x','https://alien-investor.org/steuertool-guide.html#x','https://user:pw@alien-investor.org/steuertool-guide.html',
@@ -152,6 +169,8 @@ app.whenReady().then(async()=>{
   try{
     if(STEP==='fresh') await fresh();
     else if(STEP==='hold'){ R('läuft',true); await sleep(Number(process.env.ST_HOLD||3000)); }
+    else R('unbekannter Schritt '+STEP,false);   // ein vertippter Schrittname wäre sonst mit der Endmarke grün
+    if(STEP!=='hold') R('Schritt vollständig',true);   // verify-desktop verlangt die Endmarke (Querfund Alien Notes v1.7 A-4)
   }catch(e){ R('Ausnahme',false,String(e&&e.stack||e)); }
   app.exit(0);
 });

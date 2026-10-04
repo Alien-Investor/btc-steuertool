@@ -38,7 +38,11 @@ function run(step,extra=[],opts={}){ return new Promise(res=>{
   const kill=setTimeout(()=>pr.kill('SIGKILL'),opts.timeout||180000);
   pr.on('exit',(code,sig)=>{ if(sig) err+='\nSIGNAL '+sig; clearTimeout(kill); const rs=out.split('\n').filter(l=>l.startsWith('R ')).map(l=>JSON.parse(l.slice(2))); res({code,rs,ms:Date.now()-t0,err}); });
 }); }
-const report=r=>{ if(!r.rs.length) t(false,'keine Ergebnisse (Exit '+r.code+')',r.err.split('\n').filter(l=>/error|Error|FATAL|SIGNAL/.test(l)).slice(0,5)); r.rs.forEach(x=>t(x.ok,x.name,x.info)); };
+// Ein Schritt zählt nur mit Endmarke „Schritt vollständig“ und ohne Signal/Zeitlimit — ein stilles vorzeitiges Ende bliebe sonst grün
+// (Querfund Alien Notes v1.7 A-4, Alien Pass v1.18 C P1-a)
+const report=r=>{ if(/SIGNAL/.test(r.err)) t(false,'Schritt abgebrochen (Signal/Zeitlimit)',{ms:r.ms});
+  if(!r.rs.length) t(false,'keine Ergebnisse (Exit '+r.code+')',r.err.split('\n').filter(l=>/error|Error|FATAL|SIGNAL/.test(l)).slice(0,5)); r.rs.forEach(x=>t(x.ok,x.name,x.info));
+  if(r.rs.length&&!r.rs.some(x=>x.name==='Schritt vollständig')) t(false,'Schritt ohne Endmarke — Prüfprogramm vorzeitig beendet',{ms:r.ms}); };
 
 console.log('[1] Härtung, Weiche, Rechenkern, Links, Speichern'); report(await run('fresh'));
 console.log('[2] Reports byte-gleich zur CLI (--all --nachweis --csv)');

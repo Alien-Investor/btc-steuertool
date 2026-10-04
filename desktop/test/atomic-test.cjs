@@ -14,3 +14,4 @@ let threw=null; try{ writeAtomic(file,'b'.repeat(200000)); }catch(e){ threw=e.co
 R('zu großer Stand wirft', !!threw, threw);
 R('alte Datei unverändert', fs.readFileSync(file,'utf8')===good);
 R('keine Temp-Reste', fs.readdirSync(dir).every(n=>n==='report.txt'), fs.readdirSync(dir));
+R('Schritt vollständig',true);   // verify-desktop verlangt die Endmarke

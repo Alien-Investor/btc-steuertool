@@ -6,6 +6,10 @@ Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die dens
 ## Unveröffentlicht (main)
 - **Versionsnummer in der App:** klein im Fuß („v1.4“; die Web-Version zeigt „Web · Stand <Datum>“, weil sie immer den aktuellen
   Stand ausliefert). Die Version steht auch im Bug-Report und in der Diagnose.
+- **Desktop: Spenden- und Handbuch-Links bleiben auch nach dem Zurückstellen der Systemuhr klickbar.** Die Sperre gegen
+  Fensterfluten (höchstens ein Link je Sekunde) rechnete mit der Systemuhr; wurde sie zurückgestellt (Zeitabgleich, Aufwachen
+  mit falscher Uhrzeit), öffnete kein Link mehr, bis die Uhr den alten Stand wieder erreichte. Jetzt läuft die Sperre auf
+  einer Uhr, die nie zurückspringt.
 
 ## v1.4 — 2026-10-03
 - **Neu: Wallet-Exporte aus Sparrow, Electrum, Trezor Suite und Ledger Wallet (früher Ledger Live).** Das Programm wird an
