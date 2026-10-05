@@ -55,7 +55,7 @@ if [ "${1:-}" = "--nur-seite" ]; then
   [ "$code" = 200 ] || { echo "FEHLER: ${DLURL}${FILE} liefert $code – Seite würde ins Leere zeigen"; exit 1; }
   PAGE=$(mktemp -d); trap 'rm -rf "$PAGE"' EXIT
   download_page "$PAGE/index.html"
-  rsync -a --chmod=F644 "$PAGE/index.html" "$DL"
+  rsync -a --no-o --no-g --chmod=F644 "$PAGE/index.html" "$DL"
   echo "=== Download-Seite: ${DLURL} (Link auf ${FILE}) ==="
   exit 0
 fi
@@ -113,8 +113,8 @@ echo "=== GitHub fertig: https://github.com/$GH_REPO/releases/tag/$TAG ==="
 # Server: Dateien zuerst, die Download-Seite (Obtainium-Quelle) danach, damit sie nie auf eine fehlende APK zeigt.
 echo "=> Server-Downloads: lade nach ${DL#*:} ..."
 download_page "$STAGE/index.html"
-if rsync -a --chmod=D755,F644 "$STAGE/$FILE" "$DREL/$BUNDLE" "$DREL/SHA256SUMS" "$DREL/SHA256SUMS.asc" "$DL" \
-   && rsync -a --chmod=F644 "$STAGE/index.html" "$DL"; then
+if rsync -a --no-o --no-g --chmod=D755,F644 "$STAGE/$FILE" "$DREL/$BUNDLE" "$DREL/SHA256SUMS" "$DREL/SHA256SUMS.asc" "$DL" \
+   && rsync -a --no-o --no-g --chmod=F644 "$STAGE/index.html" "$DL"; then
   echo "=== Server fertig: ${DLURL}${FILE}, Download-Seite ${DLURL} ==="
 else
   echo "WARNUNG: Server-Upload fehlgeschlagen (ssh-add -l?) – GitHub-Release steht; Upload von Hand nachholen."
