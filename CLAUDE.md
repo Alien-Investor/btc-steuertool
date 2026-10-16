@@ -153,14 +153,22 @@ Commit/Push → `desktop/build-desktop.sh`, `mobile/build-apk.sh` → Nutzer sig
 `rsync -a --chmod=D755,F644 web/dist/ root@api.alien-investor.org:/var/www/alien-investor/html/steuertool/` (vorher `-an --itemize-changes`),
 danach `cmp` der Live-Dateien gegen `web/dist`. Auch nach reinen Engine- oder GUI-Fixes ohne App-Release.
 
-**Offen — Querfunde aus Alien Pass v1.20 (09.10.2026), beim nächsten ohnehin fälligen Release mitnehmen (Entscheidung Nutzer: nur vormerken):**
+**Offen — nächstes Release v1.5 als Pflege-Release (Empfehlung 17.10.2026: einzige App noch auf Electron 44.5.1; enthält die Querfunde aus Alien Pass v1.20
+vom 09.10.2026, Entscheidung Nutzer damals: beim nächsten Release mitnehmen):**
 (1) Scrollbalken-Block in `web/index.html` (`::-webkit-scrollbar`, ab Zeile 43) nur unter `@media (hover:hover) and (pointer:fine)` — sonst zeigt die APK
 (Touch) in Menüs und Dialogen einen festen 10-px-Balken statt des System-Overlay-Balkens (Design-Kit `app-theme.css` seit 04.10.2026, Ausgaben-Tracker Audit c5).
 Firefox-Rückfall `scrollbar-color` per `@supports` wie im Kit. Test: Desktop-Hülle `matchMedia('(hover:hover) and (pointer:fine)')` trifft zu, Mobil-Emulation
 (`isMobile`, `hasTouch`) greift die Regel nicht. Web, Flatpak und APK zusammen ausrollen.
-(2) Electron 44.5.1 → 44.7.0 (Release 07.10.2026, 55 Chromium-/V8-Backports; Alien Pass v1.20 hat am 09.10.2026 umgestellt): in `desktop/build-desktop.sh`
-`EL_VER="44.7.0"`, `EL_SHA="3ae7d5bdad61c664486c6ab61361dd084d064c8c08af8d13a687096e18ce555a"` (SHASUMS256.txt des Release, gegengeprüft mit `checksums.json`
-aus npm electron@44.7.0); danach `verify-desktop` voll und vorher sicherstellen, dass er wirklich gegen 44.7.0 läuft (`test-electron/version`). `desktop/verify-desktop.mjs` liest `EL_VER` schon aus dem Build-Skript (richtig so). Security-Monitor nachziehen.
+(2) Electron 44.5.1 → **44.7.2** (Backports ANGLE/Chromium/PDFium/V8 nach 44.7.0; Alien Pass v1.22, Sachwert-Tresor v3.11 und Alien Notes v1.14 laufen damit):
+in `desktop/build-desktop.sh` `EL_VER="44.7.2"`, `EL_SHA="777b26a64aee3d185acb9f93c04782bb51eae7c2c61c793963ef24374e5a1539"` (SHASUMS256.txt des Release =
+`checksums.json` aus npm electron@44.7.2; das geprüfte Archiv liegt schon im Electron-Cache von Alien Notes und Sachwert-Tresor, dort Hash erneut prüfen);
+danach `verify-desktop` voll und vorher sicherstellen, dass er wirklich gegen 44.7.2 läuft (`test-electron/version`). `desktop/verify-desktop.mjs` liest `EL_VER` schon aus dem Build-Skript (richtig so). Security-Monitor nachziehen.
+(3) **Release-Sperre** nach Vorlage Alien Pass v1.22 (`build-apk.sh`/`make-release.sh`/`BUILD.md` dort): `mobile/build-apk.sh` schreibt nur nach bestandener
+Endkontrolle eines signierten Builds eine `.ok` mit dem sha256, `make-release.sh` lädt nur hoch, wenn Hash, Release-Zertifikat, App-ID und Version passen; geprüfte
+APK sofort in eine Kopie, Upload nur von dort; unbekannte Schalter ablehnen. Weitergehend (Alien Notes v1.14): Flatpak-Bundle und Build-Skript-Summen an den Tag
+binden. Gegen falsche/veränderte APK und abweichenden Tag trocken proben.
+(4) Seit v1.4 committet, noch nicht ausgeliefert: Versionsnummer im Fuß (`b5e96fa`), Link-Bremse auf monotoner Uhr + Direkttest der Handler (`b8dfc46`),
+`rsync --no-o --no-g` in `make-release.sh` (`13f9447`). CHANGELOG dafür nachziehen.
 
 ## Technologie-Stack
 
