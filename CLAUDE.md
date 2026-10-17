@@ -133,7 +133,7 @@ Brücke nur `saveFile`, Weiche `DESK` in `web/index.html`. **Vor jeder Änderung
 - Testen: `node desktop/verify-desktop.mjs` (echte Hülle, Reports byte-gleich zur CLI) — braucht einmal den Build (Electron-Cache).
 - Version: `VERSION` (`VERSION_NAME`, `DESKTOP_REV` nur für reinen Electron-Neubau). Kurstabellen-Update im Januar = neues Release.
   `web/build.sh` schreibt `VERSION_NAME` und das Datum des letzten Commits in `dist/index.html` (Platzhalter `__APP_VERSION__`/`__WEB_STAND__`,
-  Anzeige im Fuß: Apps „v1.4“, Web „Web · Stand …“) — nie von Hand in index.html eintragen.
+  Anzeige im Fuß: Apps „v1.5“, Web „Web · Stand …“) — nie von Hand in index.html eintragen.
 - Handbuch („?“) liegt offline in `web/index.html` (`help-de`/`help-en`) — eine Quelle für Web, Desktop und APK. Inhaltliche
   Änderungen dort brauchen einen Faktencheck (öffentlich).
 
@@ -147,6 +147,9 @@ Brücke nur `SaveFile` (Android-Speichern-Dialog), Weiche `DROID` in `web/index.
 - `VERSION_CODE` in `VERSION` je Release hochzählen.
 
 ## Release (Flatpak + APK gemeinsam, seit v1.0 am 02.10.2026)
+
+**Stand:** v1.5 (Pflege-Release, Electron 44.7.2, 17.10.2026) auf Download-Seite, GitHub, Zap Store und Web. Nächster Desktop-Neubau gemeinsam
+mit Alien Pass, Alien Notes und Sachwert-Tresor auf eine neuere 44.x (Entscheidung Nutzer 17.10.2026, im Security-Monitor vorgemerkt; Pflegetermin 2027-03-17).
 
 Skill `app-release` (Abschnitt „Besonderheiten BTC Steuertool“). Kurz: Tests + Gerätetest mit großem Datensatz → `CHANGELOG.md` →
 Commit/Push → `desktop/build-desktop.sh`, `mobile/build-apk.sh` → Nutzer signiert `SHA256SUMS` → Tag pushen → `./make-release.sh`
@@ -168,25 +171,8 @@ mit dem Schlüssel aus dem Tag (GOODSIG + VALIDSIG-Hauptschlüssel, kein Widerru
 Restgrenzen (bewusst): `assets/dexopt/` nur nach Namen (ART-Profile), Flatpak-BaseApp und Gradle-Distribution/-Abhängigkeiten nicht gepinnt
 (`~/.gradle`), `fonts.css` nur über `vendor.sha256`, `env.sh`/`ANDROID_HOME` ist Vertrauensanker. Trockenproben (Wegwerf-Klon, Netz gestubbt): `bash ~/security-audit-skill/btc-steuertool-public/run-2/sperre/alle.sh`.
 **Web-Version immer mit ausrollen** (Web, Flatpak und APK zeigen denselben Stand): `web/build.sh`, dann
-`rsync -a --chmod=D755,F644 web/dist/ root@api.alien-investor.org:/var/www/alien-investor/html/steuertool/` (vorher `-an --itemize-changes`),
+`rsync -a --no-o --no-g --chmod=D755,F644 web/dist/ root@api.alien-investor.org:/var/www/alien-investor/html/steuertool/` (vorher `-an --itemize-changes`),
 danach `cmp` der Live-Dateien gegen `web/dist`. Auch nach reinen Engine- oder GUI-Fixes ohne App-Release.
-
-**Offen — nächstes Release v1.5 als Pflege-Release (Empfehlung 17.10.2026: einzige App noch auf Electron 44.5.1; enthält die Querfunde aus Alien Pass v1.20
-vom 09.10.2026, Entscheidung Nutzer damals: beim nächsten Release mitnehmen):**
-(1) Scrollbalken-Block in `web/index.html` (`::-webkit-scrollbar`, ab Zeile 43) nur unter `@media (hover:hover) and (pointer:fine)` — sonst zeigt die APK
-(Touch) in Menüs und Dialogen einen festen 10-px-Balken statt des System-Overlay-Balkens (Design-Kit `app-theme.css` seit 04.10.2026, Ausgaben-Tracker Audit c5).
-Firefox-Rückfall `scrollbar-color` per `@supports` wie im Kit. Test: Desktop-Hülle `matchMedia('(hover:hover) and (pointer:fine)')` trifft zu, Mobil-Emulation
-(`isMobile`, `hasTouch`) greift die Regel nicht. Web, Flatpak und APK zusammen ausrollen.
-(2) Electron 44.5.1 → **44.7.2** (Backports ANGLE/Chromium/PDFium/V8 nach 44.7.0; Alien Pass v1.22, Sachwert-Tresor v3.11 und Alien Notes v1.14 laufen damit):
-in `desktop/build-desktop.sh` `EL_VER="44.7.2"`, `EL_SHA="777b26a64aee3d185acb9f93c04782bb51eae7c2c61c793963ef24374e5a1539"` (SHASUMS256.txt des Release =
-`checksums.json` aus npm electron@44.7.2; das geprüfte Archiv liegt schon im Electron-Cache von Alien Notes und Sachwert-Tresor, dort Hash erneut prüfen);
-danach `verify-desktop` voll und vorher sicherstellen, dass er wirklich gegen 44.7.2 läuft (`test-electron/version`). `desktop/verify-desktop.mjs` liest `EL_VER` schon aus dem Build-Skript (richtig so). Security-Monitor nachziehen.
-(3) **Release-Sperre** nach Vorlage Alien Pass v1.22 (`build-apk.sh`/`make-release.sh`/`BUILD.md` dort): `mobile/build-apk.sh` schreibt nur nach bestandener
-Endkontrolle eines signierten Builds eine `.ok` mit dem sha256, `make-release.sh` lädt nur hoch, wenn Hash, Release-Zertifikat, App-ID und Version passen; geprüfte
-APK sofort in eine Kopie, Upload nur von dort; unbekannte Schalter ablehnen. Weitergehend (Alien Notes v1.14): Flatpak-Bundle und Build-Skript-Summen an den Tag
-binden. Gegen falsche/veränderte APK und abweichenden Tag trocken proben.
-(4) Seit v1.4 committet, noch nicht ausgeliefert: Versionsnummer im Fuß (`b5e96fa`), Link-Bremse auf monotoner Uhr + Direkttest der Handler (`b8dfc46`),
-`rsync --no-o --no-g` in `make-release.sh` (`13f9447`). CHANGELOG dafür nachziehen.
 
 ## Technologie-Stack
 
