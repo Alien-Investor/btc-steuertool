@@ -157,7 +157,7 @@ nach bestandener Endkontrolle (`mobile/build/release/*.apk.ok`, `desktop/build/r
 `make-release.sh` prüft Kopien: Hash, Release-Zertifikat, App-ID/Version, VERSION = Tag, Quellen = Tag (Liste in `release-quellen.sh`, genau die
 Dateien laut Tag), APK-Inhalt (Engine, Beispiel-ZIP je Eintrag, `index.html`) = Tag, GitHub-Tag = lokal, Release-Notiz aus dem Tag ohne Platzhalter.
 Darum **erst committen, dann aus genau diesem Stand bauen, der Tag kommt auf diesen Commit**; jede Änderung an einer Quelle danach = neu bauen
-(ein Commit nur an `CHANGELOG.md`/Doku nicht). `./make-release.sh --pruefen` fährt die
+(ein Commit nur an `CHANGELOG.md`/Doku nicht, sofern am selben Tag — `index.html` trägt das Datum des letzten Commits). `./make-release.sh --pruefen` fährt die
 Sperre ohne Upload. Neue Quelle, die in APK/Bundle eingeht (Skript, Hülle): in `release-quellen.sh` eintragen. Trockenproben (Wegwerf-Klon, Netz
 gestubbt, 38 Szenarien): `bash ~/security-audit-skill/btc-steuertool-public/run-2/sperre/alle.sh`.
 **Web-Version immer mit ausrollen** (Web, Flatpak und APK zeigen denselben Stand): `web/build.sh`, dann
