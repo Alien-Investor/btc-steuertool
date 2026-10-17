@@ -3,6 +3,14 @@
 # Voraussetzung: ~/Apps/android-build/env.sh (Toolchain) + Keystore (einmalig mobile/make-keystore.sh). Muster: Alien Pass build-apk.sh.
 set -euo pipefail
 cd "$(dirname "$0")"
+# Release-Sperre (v1.5, Vorlage Alien Pass v1.22 / Alien Notes v1.14): alte Prüfdateien ZUERST weg, vor jeder anderen Prüfung — ein abgebrochener
+# Lauf (auch am Keystore oder am Capacitor-Pin) hinterlässt keine gültige. make-release.sh lädt nur eine APK mit passender .ok hoch.
+rm -f build/release/*.ok
+# Prüfsummen aller Quellen VOR dem Build (Liste: release-quellen.sh): die .ok trägt genau den Stand, aus dem gebaut wurde; ändert sich
+# eine Quelle während des Builds, gibt es keine .ok
+source ../release-quellen.sh
+SUMS0="$(cd .. && quellen_summen apk)" || { echo "FEHLER: Quellenliste unvollständig (release-quellen.sh)"; exit 1; }
+CERT_HEX="26c5e094a8b7650ca665014d0c3a8ba682b17c05f53c6cdef055d07ce984bf0b"   # Release-Zertifikat (wie make-release.sh)
 source ~/Apps/android-build/env.sh
 KEYPROPS="$HOME/.android-keys/steuertool-keystore.properties"
 [ -f "$KEYPROPS" ] || { echo "FEHLER: $KEYPROPS fehlt (einmalig mobile/make-keystore.sh)."; exit 1; }
@@ -27,6 +35,8 @@ node patch-hardening.mjs
 
 ( cd android && ./gradlew assembleRelease --no-daemon -q ) > gradle-build.log 2>&1 || { tail -30 gradle-build.log; echo "FEHLER: Gradle-Build"; exit 1; }
 APK="android/app/build/outputs/apk/release/app-release.apk"
+[ -f "$APK" ] || { echo "FEHLER: $APK fehlt"; exit 1; }
+APKSUM0="$(sha256sum "$APK" | cut -d' ' -f1)"   # Hash VOR der Endkontrolle: die .ok gilt nur für genau diese Bytes
 
 # ── Endkontrolle an der FERTIGEN APK (Manifest-Merging darf nichts einschleusen) ──
 BT="$ANDROID_HOME/build-tools/34.0.0"
@@ -54,12 +64,21 @@ for pat in 'Lorg/alieninvestor/steuertool/SaveFilePlugin;' 'Lorg/alieninvestor/s
 done
 grep -q "Content-Security-Policy" android/app/src/main/assets/public/index.html || { echo "FEHLER: CSP-Meta fehlt in der eingebetteten index.html"; exit 1; }
 "$BT/apksigner" verify "$APK" >/dev/null || { echo "FEHLER: Signatur ungültig"; exit 1; }
+CERT="$("$BT/apksigner" verify --print-certs "$APK" 2>/dev/null | grep -m1 'SHA-256 digest' | awk '{print $NF}' || true)"
+[ "$CERT" = "$CERT_HEX" ] || { echo "FEHLER: APK nicht mit dem Release-Zertifikat signiert (${CERT:-keins})"; exit 1; }
 echo "APK-Endkontrolle OK (keine Berechtigung, nicht debuggable, kein Backup, SaveFile + LinkGuard, CSP)."
 
 VNAME=$(grep '^VERSION_NAME=' ../VERSION | cut -d= -f2 | tr -d '[:space:]')
 mkdir -p build/release
 OUT="build/release/btc-steuertool-$VNAME.apk"
 cp "$APK" "$OUT"
+# Nur ein Build, der JEDE Prüfung oben bestanden hat und dessen Quellen sich nicht geändert haben, bekommt die Prüfdatei
+# (1. Zeile APK-Hash, danach die Quellen-Summen; make-release.sh gleicht sie mit dem Tag ab)
+[ "$(sha256sum "$APK" | cut -d' ' -f1)" = "$APKSUM0" ] && [ "$(sha256sum "$OUT" | cut -d' ' -f1)" = "$APKSUM0" ] \
+  || { echo "FEHLER: APK hat sich während der Endkontrolle geändert (paralleler Build?)!"; exit 1; }
+[ "$(cd .. && quellen_summen apk)" = "$SUMS0" ] || { echo "FEHLER: Quellen haben sich während des Builds geändert — neu bauen!"; exit 1; }
 ( cd build/release && sha256sum "$(basename "$OUT")" > "$(basename "$OUT").sha256" )
+{ echo "$APKSUM0"; echo "$SUMS0"; } > "$OUT.ok"
+echo "Prüfdatei: $OUT.ok ($(($(wc -l < "$OUT.ok") - 1)) Quellen)"
 "$BT/apksigner" verify --print-certs "$OUT" | grep -E "SHA-256 digest" | head -1
 ls -lh "$OUT"

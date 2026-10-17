@@ -3,6 +3,8 @@
 # → Flatpak ohne Netz, als User-Installation. Kein sudo, keine npm-Installationsskripte. Muster: Alien Pass desktop/build-desktop.sh.
 set -euo pipefail
 cd "$(dirname "$0")"
+# Release-Sperre (v1.5, Vorlage Alien Notes v1.14): alte Prüfdatei zuerst weg — ein abgebrochener Lauf hinterlässt keine gültige
+rm -f build/release/bundle.ok
 
 EL_VER="44.7.2"
 EL_SHA="777b26a64aee3d185acb9f93c04782bb51eae7c2c61c793963ef24374e5a1539"   # electron-v44.7.2-linux-x64.zip (SHASUMS256.txt des Release, gegengeprüft mit checksums.json aus npm electron@44.7.2; v1.5, gleiche Engine wie Alien Pass v1.22, Sachwert-Tresor v3.11, Alien Notes v1.14, hier am 17.10.2026 geprüft)
@@ -21,6 +23,10 @@ echo "Electron $EL_VER: Hash OK."
 [ -d node_modules/@electron/asar ] && [ -d node_modules/@electron/fuses ] || { echo "FEHLER: erst 'npm ci' in desktop/"; exit 1; }
 [ -f ../web/vendor/pyodide/pyodide.asm.wasm ] || { echo "FEHLER: erst web/vendor-setup.sh (Pyodide fehlt)" >&2; exit 1; }
 
+# Prüfsummen der Quellen, aus denen das Bundle entsteht, VOR dem Bau (Liste: release-quellen.sh): make-release.sh vergleicht sie mit dem Tag —
+# ein veraltetes oder aus einem anderen Stand gebautes Bundle geht so nicht neben der richtigen APK raus. Ändert sich etwas während des Baus: Abbruch.
+source ../release-quellen.sh
+DESK_SUMS0="$(cd .. && quellen_summen desktop)" || { echo "FEHLER: Quellenliste unvollständig (release-quellen.sh)" >&2; exit 1; }
 # Eigener Befehl, nicht links von && — sonst greift set -e nicht und ein Fehler würde still übergangen (Alien Pass Audit run-6 #6)
 ../web/build.sh || { echo "FEHLER: web/build.sh fehlgeschlagen — Build abgebrochen!" >&2; exit 1; }
 VNAME=$(grep '^VERSION_NAME=' ../VERSION | cut -d= -f2 | tr -d '[:space:]')
@@ -35,6 +41,9 @@ unzip -q "$ZIP" -d build/electron
 rm -f build/electron/chrome-sandbox build/electron/resources/default_app.asar   # Sandbox kommt im Flatpak über zypak
 cp main.js preload.js atomic.js icon.png build/app/
 cp -r ../web/dist build/app/www
+# Inhalt = Quellen: ein paralleler web/build.sh (zweite Session) könnte sonst ein halbes dist/ ins Bundle bringen
+diff -rq ../web/dist build/app/www >/dev/null || { echo "FEHLER: www/ im Bundle ≠ web/dist — neu bauen!" >&2; exit 1; }
+(cd .. && engine_inhalt desktop/build/app/www .) || { echo "FEHLER: Engine im Bundle ≠ Quelle — neu bauen!" >&2; exit 1; }
 printf '{"name":"btc-steuertool","productName":"BTC Steuertool","version":"%s","main":"main.js","private":true}\n' "$VNAME" > build/app/package.json
 node pack.mjs build/app build/electron
 
@@ -60,5 +69,8 @@ mkdir -p build/release
 BUNDLE="btc-steuertool-$TAG-linux-x86_64.flatpak"
 flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo build/repo "build/release/$BUNDLE" "$APP_ID"
 (cd build/release && sha256sum "$BUNDLE" > SHA256SUMS)
+[ "$(cd .. && quellen_summen desktop)" = "$DESK_SUMS0" ] || { echo "FEHLER: Quellen haben sich während des Baus geändert — neu bauen!" >&2; exit 1; }
+# Prüfdatei (wird NICHT hochgeladen): 1. Zeile Bundle-Hash, 2. Zeile Electron-Pin, danach die Quellen (make-release.sh gleicht sie mit dem Tag ab)
+{ sha256sum "build/release/$BUNDLE" | cut -d' ' -f1; echo "electron $EL_VER $EL_SHA"; echo "$DESK_SUMS0"; } > build/release/bundle.ok
 echo "Bundle: desktop/build/release/$BUNDLE"; cat build/release/SHA256SUMS
 echo "Signieren (Nutzer): gpg --local-user 100F9E25BFAEA807DBC357D750C0D78583BFCB81 --armor --detach-sign desktop/build/release/SHA256SUMS"
