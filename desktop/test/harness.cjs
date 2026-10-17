@@ -37,6 +37,8 @@ async function fresh(){
   // Handbuch („?“) offline in der App; Links darin gehen nur über die feste Liste
   await js(`document.getElementById('app-help').click()`);
   R('Handbuch öffnet offline', await js(`!document.getElementById('help-overlay').classList.contains('hidden')&&document.getElementById('help-de').textContent.includes('Erkennung prüfen')`));
+  { const sb=await js(`(()=>{const o=document.getElementById('help-overlay');return {mq:matchMedia('(hover:hover) and (pointer:fine)').matches,tall:o.scrollHeight>o.clientHeight,bar:o.offsetWidth-o.clientWidth};})()`);
+    R('Neon-Scrollbalken greift in der echten Hülle: (hover:hover) and (pointer:fine), 10 px im Handbuch (Querfund Alien Pass v1.20)', sb.mq&&sb.tall&&sb.bar===10, sb); }
   { await sleep(1100); opened.length=0; await js(`document.querySelector('#help-de a[href^="https://"]').click()`); await sleep(300);
     R('Handbuch-Link extern über die Liste', opened.length===1&&opened[0]==='https://alien-investor.org/steuertool-guide.html'&&win.webContents.getURL()==='app://steuertool/index.html', opened.slice()); }
   { await sleep(1100); opened.length=0; await js(`document.querySelector('#help-de a[href^="mailto:"]').click()`); await sleep(300);

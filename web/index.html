@@ -39,13 +39,17 @@
     }
     [data-theme="soft"] body::after { opacity: 0.35; }
     /* Scrollbalken im Neon-Look statt Chromium-Grau (Desktop-Hülle, Brave/Chrome). Daumen mit transparentem Rand,
-       damit er in Karten wie auf dem Seitenhintergrund schwebt. Firefox kennt die Pseudo-Elemente nicht → scrollbar-color. */
-    ::-webkit-scrollbar { width:10px; height:10px; }
-    ::-webkit-scrollbar-track { background:rgba(0,255,204,.04); }
-    ::-webkit-scrollbar-thumb { background:var(--neon-mid); border:2px solid transparent; background-clip:padding-box; border-radius:6px; }
-    ::-webkit-scrollbar-thumb:hover { background:var(--neon); background-clip:padding-box; }
-    ::-webkit-scrollbar-corner { background:transparent; }
-    ::-webkit-scrollbar-button { display:none; }
+       damit er in Karten wie auf dem Seitenhintergrund schwebt. Firefox kennt die Pseudo-Elemente nicht → scrollbar-color.
+       Nur bei Maus/Trackpad: sonst zeigt die APK (Touch) in Menüs und Dialogen einen festen 10-px-Balken statt des
+       System-Overlay-Balkens (Design-Kit app-theme.css, Querfund Alien Pass v1.20; Test web/test_audit.py). */
+    @media (hover:hover) and (pointer:fine) {
+      ::-webkit-scrollbar { width:10px; height:10px; }
+      ::-webkit-scrollbar-track { background:rgba(0,255,204,.04); }
+      ::-webkit-scrollbar-thumb { background:var(--neon-mid); border:2px solid transparent; background-clip:padding-box; border-radius:6px; }
+      ::-webkit-scrollbar-thumb:hover { background:var(--neon); background-clip:padding-box; }
+      ::-webkit-scrollbar-corner { background:transparent; }
+      ::-webkit-scrollbar-button { display:none; }
+    }
     @supports not selector(::-webkit-scrollbar) { html { scrollbar-color:var(--neon-mid) transparent; scrollbar-width:thin; } }
     * { margin:0; padding:0; box-sizing:border-box; }
     body {

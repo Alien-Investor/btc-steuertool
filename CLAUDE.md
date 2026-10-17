@@ -107,6 +107,8 @@ Regeln:
 - Pyodide erst bei Nutzungsabsicht laden (Mobile), Desktop darf eager vorwärmen. Nie den
   WASM-Compile an einen Tap hängen, auf den der Nutzer wartet (Datei-Picker).
 - Kein `accept`-Attribut am File-Input (GrapheneOS-Picker grayt sonst CSVs aus).
+- Neon-Scrollbalken (`::-webkit-scrollbar`) nur unter `@media (hover:hover) and (pointer:fine)` — Touch (APK) behält den
+  System-Overlay-Balken (v1.5, Kit `app-theme.css`). Messung in `web/test_audit.py` ohne `--hide-scrollbars`, echte Hülle in `harness.cjs`.
 - Nicht erkannte Dateien sperren die Berechnung; `BLOCKING_TYPES` ist die einzige Liste.
 - Bug-Report ohne Dateinamen und ohne URL. Support nur Technik/Format, nie Steuerfragen. Die optionale Diagnose schwärzt
   ausschließlich `src/diagnose.py` (Python, eine Stelle; GUI liefert nur Rohangaben, noKYC-fähige Typen nur gezählt;

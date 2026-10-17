@@ -200,6 +200,35 @@ with sync_playwright() as p:
 
     browser.close()
 
+    print("Querfund Alien Pass v1.20: Neon-Scrollbalken nur bei Maus/Trackpad, Touch behält den System-Balken")
+    # Headless blendet Balken per --hide-scrollbars aus (Breite dann immer 0) — für die Messung abschalten
+    sb = p.chromium.launch(ignore_default_args=["--hide-scrollbars"])
+    BAR = """() => { document.getElementById('help-btn').click();
+      const ov = document.getElementById('help-overlay');
+      return {mq: matchMedia('(hover:hover) and (pointer:fine)').matches, open: !ov.classList.contains('hidden'),
+              tall: ov.scrollHeight > ov.clientHeight, bar: ov.offsetWidth - ov.clientWidth}; }"""
+    CSSOM = r"""() => { const all = rs => [...rs].flatMap(r => r.cssRules ? [r, ...all(r.cssRules)] : [r]);
+      const rules = [...document.styleSheets].flatMap(s => { try { return all(s.cssRules); } catch (_) { return []; } })
+        .filter(r => /::-webkit-scrollbar/.test(r.selectorText || ''));
+      return {n: rules.length, bedingt: rules.filter(r => r.parentRule
+        && /\(hover: ?hover\) and \(pointer: ?fine\)/.test(r.parentRule.conditionText || '')).length}; }"""
+    for name, opts, want in [("Desktop (Maus)", {"viewport": {"width": 1280, "height": 800}}, 10),
+                             ("Mobil-Emulation (Touch)", {"viewport": {"width": 360, "height": 740},
+                                                          "is_mobile": True, "has_touch": True}, 0)]:
+        ctx = sb.new_context(**opts)
+        pg = ctx.new_page()
+        pg.goto(URL)
+        if want:
+            c = pg.evaluate(CSSOM)
+            check(c["n"] >= 6 and c["bedingt"] == c["n"],
+                  f"alle {c['n']} ::-webkit-scrollbar-Regeln nur unter (hover:hover) and (pointer:fine) ({c['bedingt']} bedingt)")
+        r = pg.evaluate(BAR)
+        check(r["open"] and r["tall"], f"{name}: Handbuch offen und scrollbar")
+        check(r["mq"] == bool(want), f"{name}: Medienbedingung {'trifft zu' if want else 'greift nicht'}")
+        check(r["bar"] == want, f"{name}: Balken im Handbuch {r['bar']} px, erwartet {want}")
+        ctx.close()
+    sb.close()
+
 if failures:
     print(f"\n{len(failures)} FEHLER")
     sys.exit(1)
