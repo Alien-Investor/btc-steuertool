@@ -12,14 +12,15 @@ Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die dens
   10-px-Balkens.
 - **Versionsnummer in der App:** klein im Fuß („v1.5“; die Web-Version zeigt „Web · Stand <Datum>“, weil sie immer den aktuellen
   Stand ausliefert). Die Version steht auch im Bug-Report und in der Diagnose.
-- **Desktop: Links (Spenden, Handbuch, Bug-Report per Mail) bleiben auch nach dem Zurückstellen der Systemuhr klickbar.** Die Sperre gegen
+- **Desktop: Links (Spenden, Online-Anleitung, Bug-Report per Mail) bleiben auch nach dem Zurückstellen der Systemuhr klickbar.** Die Sperre gegen
   Fensterfluten (höchstens ein Link je Sekunde) rechnete mit der Systemuhr; wurde sie zurückgestellt (Zeitabgleich, Aufwachen
   mit falscher Uhrzeit), öffnete kein Link mehr, bis die Uhr den alten Stand wieder erreichte. Jetzt läuft die Sperre auf
   einer Uhr, die nie zurückspringt.
 - **Bug-Report:** Im Auswahlmenü der Dateitypen brechen lange Namen (Sparrow/Electrum/Trezor/Ledger) bei schmalen Bildschirmen
   um, statt seitlich überzustehen.
-- **Release-Prüfung:** Vor dem Hochladen prüft das Release-Skript, dass APK und Flatpak genau aus dem veröffentlichten Stand
-  gebaut und unverändert sind und die APK mit dem Release-Schlüssel signiert ist.
+- **Kontrolle vor dem Hochladen:** Das Release-Skript lädt APK und Flatpak nur hoch, wenn ihre Quelldateien dem veröffentlichten
+  Git-Tag entsprechen, beide seit der Endkontrolle unverändert sind und die APK mit dem Release-Zertifikat sowie die Prüfsumme des
+  Flatpaks mit dem GPG-Release-Schlüssel signiert sind.
 
 ## v1.4 — 2026-10-03
 - **Neu: Wallet-Exporte aus Sparrow, Electrum, Trezor Suite und Ledger Wallet (früher Ledger Live).** Das Programm wird an
