@@ -3,13 +3,20 @@
 Das CLI und die Web-Version haben keine eigenen Versionen; sie laufen immer auf dem Stand von `main`.
 Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die denselben Rechenkern enthalten.
 
-## Unveröffentlicht (main)
-- **Versionsnummer in der App:** klein im Fuß („v1.4“; die Web-Version zeigt „Web · Stand <Datum>“, weil sie immer den aktuellen
+## v1.5 — 2026-10-17
+- **Desktop: Browser-Engine aktualisiert** (Electron 44.5.1 → 44.7.2 mit Chromium 152.0.7977.149). Die neue Fassung bringt von
+  Chromium, V8, ANGLE und PDFium übernommene Fehlerkorrekturen mit. Die App hat weiterhin keinen Netzzugriff.
+- **Android: schmaler System-Scrollbalken in Menüs und Dialogen.** Der Neon-Scrollbalken erscheint nur noch mit Maus oder
+  Trackpad (Desktop-App, Browser am Rechner); auf dem Handy zeigt die App den Scrollbalken von Android statt eines festen
+  10-px-Balkens.
+- **Versionsnummer in der App:** klein im Fuß („v1.5“; die Web-Version zeigt „Web · Stand <Datum>“, weil sie immer den aktuellen
   Stand ausliefert). Die Version steht auch im Bug-Report und in der Diagnose.
 - **Desktop: Spenden- und Handbuch-Links bleiben auch nach dem Zurückstellen der Systemuhr klickbar.** Die Sperre gegen
   Fensterfluten (höchstens ein Link je Sekunde) rechnete mit der Systemuhr; wurde sie zurückgestellt (Zeitabgleich, Aufwachen
   mit falscher Uhrzeit), öffnete kein Link mehr, bis die Uhr den alten Stand wieder erreichte. Jetzt läuft die Sperre auf
   einer Uhr, die nie zurückspringt.
+- **Release-Prüfung:** Vor dem Hochladen prüft das Release-Skript, dass APK und Flatpak genau aus dem veröffentlichten Stand
+  gebaut und unverändert sind und die APK mit dem Release-Schlüssel signiert ist.
 
 ## v1.4 — 2026-10-03
 - **Neu: Wallet-Exporte aus Sparrow, Electrum, Trezor Suite und Ledger Wallet (früher Ledger Live).** Das Programm wird an
