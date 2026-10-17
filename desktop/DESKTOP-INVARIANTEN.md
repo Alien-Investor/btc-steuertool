@@ -9,8 +9,11 @@ Jeder Prüfschritt endet mit der Marke „Schritt vollständig“; fehlt sie ode
 `verify-desktop` prüft den gepinnten Archiv-Hash aus `build-desktop.sh` (genau eine Zuweisung je `EL_VER`/`EL_SHA`), entpackt die Engine
 bei JEDEM Lauf frisch daraus, und die laufende Hülle muss `process.versions.electron` = `EL_VER` melden — die `version`-Datei allein ließ eine
 alte Engine durch, ein vorhandenes `test-electron/` ein beliebiges Programm (v1.5, Gegenproben 17.10.2026, Release-Audit R1 a-A1/A-7).
-`build-desktop.sh` holt asar/fuses per `npm ci` aus dem Lock und prüft jede Kopie im Bundle (Hülle, www/ samt vendor/ und index.html,
-Dateimenge) gegen die Quellen-Summen VOR dem Bau; jede `path:`-Datei des Flatpak-Manifests muss in `release-quellen.sh` stehen (R1 a-A2/A-3).
+`build-desktop.sh` baut in einem privaten `git worktree` von HEAD (nur bei sauberem Arbeitsbaum, Ergebnis nach `desktop/build/release/`), holt
+asar/fuses per `npm ci` nach der Summenbildung und gleicht `node_modules` mit der Lock ab, prüft jede Kopie im Bundle (Hülle, www/ samt vendor/ und
+index.html, Dateimenge) und die Builder-Ausgabe (Starter, .desktop, Icon, /app/main) gegen die Quellen-Summen VOR dem Bau; jede `path:`-Datei des
+Manifests muss in `release-quellen.sh` stehen, andere Quellformen (paths, url, Module) brechen ab (R1 a-A2/A-3, R2-1 #1/#6, R2-2-2).
+Die Neon-Daumen-Prüfung nimmt nur das Balkenband auf (Gerätepixel aus dem Bitmap, Schwelle × devicePixelRatio, R2-2-1).
 
 ## Grundsatz
 - **Ein Code, kein Fork.** Die Hülle lädt `web/dist` (Ergebnis von `web/build.sh`) unverändert. Alles Desktop-Spezifische in der GUI hängt an

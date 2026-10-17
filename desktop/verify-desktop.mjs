@@ -12,7 +12,8 @@ const BUILD_SH=readFileSync(path.join(D,'build-desktop.sh'),'utf8');
 // genau eine Zuweisung je Variable: bash nähme bei zweien die letzte, ein match die erste (Release-Audit v1.5 R1 a-A7)
 const one=re=>{ const m=[...BUILD_SH.matchAll(re)]; return m.length===1?m[0][1]:undefined; };
 const EL_VER=one(/^EL_VER="([0-9]+\.[0-9]+\.[0-9]+)"$/gm), EL_SHA=one(/^EL_SHA="([0-9a-f]{64})"/gm);
-if((BUILD_SH.match(/^EL_(VER|SHA)=/gm)||[]).length!==2){ console.error('FEHLER: EL_VER/EL_SHA nicht genau einmal in desktop/build-desktop.sh'); process.exit(2); }
+// jede Form zählt: eingerückt, export/readonly/declare, += (Release-Audit R2-2 H-1)
+if((BUILD_SH.match(/^\s*(export\s+|readonly\s+|declare\s+\S*\s*|local\s+)?EL_(VER|SHA)\+?=/gm)||[]).length!==2){ console.error('FEHLER: EL_VER/EL_SHA nicht genau einmal in desktop/build-desktop.sh'); process.exit(2); }
 if(!EL_VER||!EL_SHA){ console.error('FEHLER: EL_VER/EL_SHA nicht in desktop/build-desktop.sh gefunden'); process.exit(2); }
 const ZIP=path.join(process.env.HOME,'.cache/btc-steuertool-desktop',`electron-v${EL_VER}-linux-x64.zip`);
 const EL_DIR=path.join(B,'test-electron'), APP=path.join(B,'test-app'), EL=path.join(EL_DIR,'electron');

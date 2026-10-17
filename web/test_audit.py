@@ -203,8 +203,11 @@ with sync_playwright() as p:
     print("Querfund Alien Pass v1.20: Neon-Scrollbalken nur bei Maus/Trackpad, Touch behält den System-Balken")
     # Zur Laufzeit erzeugtes CSS entginge der CSSOM-Prüfung nach dem Laden (Release-Audit v1.5 R1 c H1) — es gibt keins und soll keins geben
     page_src = (Path(__file__).parent / "index.html").read_text(encoding="utf-8")
-    check(not re.search(r"createElement\(\s*['\"]style|insertRule|adoptedStyleSheets|new CSSStyleSheet", page_src),
-          "kein zur Laufzeit erzeugtes CSS in index.html")
+    # auch `style`/STYLE, <style> per innerHTML/insertAdjacentHTML, <link rel=stylesheet> per JS (R2-2 H-2): genau ein <style im ganzen Text
+    check(not re.search(r"createElement\(\s*['\"`]style|insertRule|adoptedStyleSheets|new CSSStyleSheet", page_src, re.I)
+          and len(re.findall(r"<style", page_src, re.I)) == 1
+          and re.findall(r"stylesheet", page_src, re.I) == ["stylesheet"] and '<link href="vendor/fonts/fonts.css" rel="stylesheet">' in page_src,
+          "kein zur Laufzeit erzeugtes CSS in index.html (genau ein <style>-Block)")
     # Headless blendet Balken per --hide-scrollbars aus (Breite dann immer 0) — für die Messung abschalten
     sb = p.chromium.launch(ignore_default_args=["--hide-scrollbars"])
     # Balkenbreite = offsetWidth − clientWidth ohne Rahmen (das Bug-Menü hat 1 px Rahmen)
@@ -214,9 +217,11 @@ with sync_playwright() as p:
       const ov = document.getElementById('help-overlay');
       return {mq: matchMedia('(hover:hover) and (pointer:fine)').matches, open: !ov.classList.contains('hidden'),
               tall: ov.scrollHeight > ov.clientHeight, bar: (%s)(ov)}; }""" % BAR
+    # quer: Überlauf des Menüs; abgeschnitten: Optionen, deren Text im eigenen Kasten nicht ganz sichtbar ist (Ellipse, R2-2 H-3)
     MENU = """() => { const m = document.getElementById('bug-menu');
       return {open: !m.classList.contains('hidden'), tall: m.scrollHeight > m.clientHeight, bar: (%s)(m),
-              quer: m.scrollWidth - m.clientWidth}; }""" % BAR
+              quer: m.scrollWidth - m.clientWidth,
+              abgeschnitten: [...m.querySelectorAll('.bug-opt span')].filter(e => e.scrollWidth > e.clientWidth).length}; }""" % BAR
     # Bedingung exakt (verankert): eine erweiterte Liste wie „…, (min-resolution: 2dppx)“ träfe sonst auch Handys (R1 c N1)
     CSSOM = r"""() => { const all = rs => [...rs].flatMap(r => r.cssRules ? [r, ...all(r.cssRules)] : [r]);
       const rules = [...document.styleSheets].flatMap(s => { try { return all(s.cssRules); } catch (_) { return []; } })
@@ -257,7 +262,8 @@ with sync_playwright() as p:
     pg = ctx.new_page()
     for url in (URL, URL.replace("lang=de", "lang=en")):
         m = open_menu(pg, url)
-        check(m["open"] and m["quer"] <= 0, f"{url[-7:]}: kein seitlicher Überlauf ({m['quer']} px)")
+        check(m["open"] and m["quer"] <= 0 and m["abgeschnitten"] == 0,
+              f"{url[-7:]}: kein seitlicher Überlauf ({m['quer']} px), kein Name abgeschnitten ({m['abgeschnitten']})")
     ctx.close()
     sb.close()
 

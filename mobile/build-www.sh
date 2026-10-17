@@ -3,7 +3,8 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 ../web/build.sh
-rm -rf www && cp -r ../web/dist www
+rm -rf www   # eigener Befehl (set -e, Release-Audit R2-1 #5)
+cp -r ../web/dist www
 CSP="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
 python3 -I - "$CSP" <<'PY'   # -I: kein Modul aus dem Arbeitsordner (Release-Audit R1 b-B1)
 import sys, pathlib

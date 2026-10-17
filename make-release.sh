@@ -6,9 +6,11 @@
 # Schalter: --pruefen (nur die Release-Sperre, kein Upload), --nur-seite (Download-Seite neu), --nur-server (GitHub steht schon, nur Server).
 set -euo pipefail
 cd "$(dirname "$0")"
+# Der ganze Ablauf steckt in main(): bash liest ein Skript während des Laufs nach — so gilt genau die beim Start gelesene (und unten mit dem
+# Tag verglichene) Fassung, auch wenn die Datei währenddessen geändert wird (Release-Audit v1.5 R2-1 #3)
+main() {
 case "${1:-}" in ""|--pruefen|--nur-seite|--nur-server) ;; *) echo "FEHLER: unbekannter Schalter ${1} (erlaubt: --pruefen, --nur-seite, --nur-server)"; exit 1;; esac
 [ "$#" -le 1 ] || { echo "FEHLER: höchstens ein Schalter"; exit 1; }
-source ./release-quellen.sh
 
 OWNER="Alien-Investor"
 REPO="btc-steuertool"
@@ -57,6 +59,16 @@ DREL="desktop/build/release"; DREV=$(grep '^DESKTOP_REV=' VERSION | cut -d= -f2 
 DTAG="$NAME"; [ "$DREV" = 1 ] || DTAG="$NAME-r$DREV"
 BUNDLE="btc-steuertool-$DTAG-linux-x86_64.flatpak"
 
+# ── Tag zuerst (Release-Audit R2-1 #3): EINMAL auf einen Commit festlegen, Prüfskripte = Tag, Prüffunktionen AUS DEM TAG laden ──
+# Vorher kamen die Funktionen aus der release-quellen.sh des Arbeitsbaums und wurden erst danach mit dem Tag verglichen. Alle Vergleiche nehmen
+# $TC, und vor dem Upload muss der Tag noch derselbe sein (R1 b-B5).
+TOBJ="$(git rev-parse -q --verify "refs/tags/$TAG" || true)"; TC="$( [ -n "$TOBJ" ] && git rev-parse -q --verify "$TOBJ^{commit}" || true)"
+[ -n "$TOBJ" ] && [ -n "$TC" ] || { echo "FEHLER: Tag $TAG fehlt lokal – erst git tag $TAG"; exit 1; }
+tag_unveraendert() { [ "$(git rev-parse -q --verify "refs/tags/$TAG" || true)" = "$TOBJ" ] || { echo "FEHLER: Tag $TAG wurde während des Laufs versetzt"; exit 1; }; }
+for f in make-release.sh release-quellen.sh; do cmp -s "$f" <(git show "$TC:$f") || { echo "FEHLER: $f im Arbeitsbaum ≠ $TAG"; exit 1; }; done
+source <(git show "$TC:release-quellen.sh")
+cmp -s VERSION <(git show "$TC:VERSION") || { echo "FEHLER: VERSION im Arbeitsbaum ≠ $TAG"; exit 1; }
+
 # ── Release-Sperre: APK ──
 # Nur eine APK hochladen, die mobile/build-apk.sh vollständig geprüft hat (Prüfdatei mit Hash, danach unverändert), mit dem Release-Zertifikat,
 # der App-ID und genau dieser Version. Geprüft und hochgeladen wird eine KOPIE, die sofort bereitgestellt wird: ein paralleler Build kann die APK
@@ -81,13 +93,6 @@ grep -qF "package: name='${APP_ID}' versionCode='${CODE}' versionName='${NAME}'"
   || { echo "FEHLER: App-ID oder Version der APK passt nicht zu VERSION (${NAME}/${CODE})"; exit 1; }
 
 # An den Tag binden: Hash, Zertifikat und Version passen auch bei einer APK, die VOR den letzten Änderungen gebaut wurde.
-# Der Tag wird EINMAL auf einen Commit festgelegt; alle Vergleiche nehmen $TC, und vor dem Upload muss er noch derselbe sein (Release-Audit R1 b-B5).
-TOBJ="$(git rev-parse -q --verify "refs/tags/$TAG" || true)"; TC="$(git rev-parse -q --verify "refs/tags/$TAG^{commit}" || true)"
-[ -n "$TOBJ" ] && [ -n "$TC" ] || { echo "FEHLER: Tag $TAG fehlt lokal – erst git tag $TAG"; exit 1; }
-tag_unveraendert() { [ "$(git rev-parse -q --verify "refs/tags/$TAG" || true)" = "$TOBJ" ] || { echo "FEHLER: Tag $TAG wurde während des Laufs versetzt"; exit 1; }; }
-cmp -s VERSION <(git show "$TC:VERSION") || { echo "FEHLER: VERSION im Arbeitsbaum ≠ $TAG"; exit 1; }
-# Die Prüfungen selbst müssen die des Tags sein — eine im Arbeitsbaum gekürzte Quellenliste ließe sonst eine abgeschwächte APK durch (R1 b-B4)
-for f in make-release.sh release-quellen.sh; do cmp -s "$f" <(git show "$TC:$f") || { echo "FEHLER: $f im Arbeitsbaum ≠ $TAG"; exit 1; }; done
 # (a) Quellen-Summen aus der .ok (Build-Skripte, Hülle, Engine) = Tag, genau die Quellenliste laut Tag
 quellen_an_tag "$SOK" 2 apk "$TC" || exit 1
 # (b) Inhalt der APK selbst: alles unter assets/ — Engine, Beispiel-ZIP, vendor/ (web/vendor.sha256), index.html samt CSP-Wert,
@@ -107,7 +112,10 @@ DST="$STAGE/desktop"; mkdir -p "$DST"; for f in "$BUNDLE" SHA256SUMS SHA256SUMS.
 # vorher reichte die Zeichenkette irgendwo in der Ausgabe, auch in der Benutzerkennung eines fremden Schlüssels (Release-Audit R1 b-B6)
 git show "$TC:alien-investor-release-key.asc" | gpg --batch --dearmor > "$STAGE/release-key.gpg" 2>/dev/null || { echo "FEHLER: Release-Schlüssel aus $TAG nicht lesbar"; exit 1; }
 GVS="$(gpgv --keyring "$STAGE/release-key.gpg" --status-fd 1 "$DST/SHA256SUMS.asc" "$DST/SHA256SUMS" 2>/dev/null || true)"
-grep -qE '^\[GNUPG:\] VALIDSIG [0-9A-F]+ .* 100F9E25BFAEA807DBC357D750C0D78583BFCB81$' <<<"$GVS" || { echo "FEHLER: Signatur fehlt/falsch (Release-Schlüssel)"; exit 1; }
+# … und nur eine gute Signatur eines gültigen Schlüssels: gpgv meldet auch für einen widerrufenen Schlüssel VALIDSIG (R2-1 #7)
+grep -q '^\[GNUPG:\] GOODSIG ' <<<"$GVS" && grep -qE '^\[GNUPG:\] VALIDSIG [0-9A-F]+ .* 100F9E25BFAEA807DBC357D750C0D78583BFCB81$' <<<"$GVS" \
+  && ! grep -qE '^\[GNUPG:\] (REVKEYSIG|EXPKEYSIG|EXPSIG|BADSIG|ERRSIG|KEYREVOKED|KEYEXPIRED|SIGEXPIRED)( |$)' <<<"$GVS" \
+  || { echo "FEHLER: Signatur fehlt/falsch (Release-Schlüssel, gültig, nicht widerrufen)"; exit 1; }
 # Bundle an den Tag binden: bundle.ok (nicht hochgeladen) = Bundle-Hash, Electron-Pin, Quellen-Summen; Pin und Quellen müssen dem Tag entsprechen
 [ "$(head -1 "$DST/bundle.ok")" = "$(sha256sum "$DST/$BUNDLE" | cut -d' ' -f1)" ] || { echo "FEHLER: Bundle ≠ Prüfdatei bundle.ok – neu bauen (desktop/build-desktop.sh)"; exit 1; }
 TBS="$(git show "$TC:desktop/build-desktop.sh")"
@@ -212,3 +220,5 @@ else
   echo "WARNUNG: Server-Upload fehlgeschlagen (ssh-add -l?) – GitHub-Release steht; nachholen mit ./make-release.sh --nur-server (nicht von Hand)."
   exit 1   # ein gescheiterter Upload endet nie mit 0: das Release ist erst mit den Server-Dateien fertig
 fi
+}
+main "$@"; exit $?

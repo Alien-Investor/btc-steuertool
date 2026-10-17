@@ -251,6 +251,14 @@ class AuditRound5(unittest.TestCase):
         for odd in ("v\uff11.\uff15", "v1.\u0665", "Stand \uff10\uff13.10.2026"):
             self.assertIn("Version: ? ·", diagnose.build({**base, "version": odd}), odd)
 
+    def test_non_ascii_digits_do_not_break_redaction(self):
+        """Release-Audit v1.5 R2-2 H-4: ²³⁴⁵ ist isdigit(), aber int() wirft — die ganze Diagnose scheiterte."""
+        for text in ("Wert \u00b2\u00b3\u2074\u2075 unlesbar", "Zeile \u2460\u2461", "Jahr \u0662\u0660\u0662\u0664"):
+            out = diagnose.redact(text)
+            self.assertNotIn("\u00b2", out)
+            self.assertNotIn("\u2460", out)
+            self.assertNotIn("\u0662", out)
+
     def test_21bitcoin_stays_readable(self):
         self.assertIn("21bitcoin", diagnose.redact("21bitcoin: 2 Transaktion(en) übersprungen"))
 

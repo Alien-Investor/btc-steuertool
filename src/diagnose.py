@@ -164,7 +164,7 @@ def redact(text: str, names=(), *, private: bool = False, _pattern=None) -> str:
     for i, tok in enumerate(toks):
         if tok == "<feld>":
             out.append(tok)
-        elif tok.isdigit():
+        elif tok.isascii() and tok.isdigit():   # nur ASCII-Ziffern: ²³ ist isdigit(), aber int() wirft (Release-Audit v1.5 R2-2 H-4)
             if last_word in ("zeile", "zeilen", "line") and len(tok) <= 7:
                 out.append(tok)
             elif len(tok) == 4 and 2009 <= int(tok) <= 2099 and not _in_amount(toks, i):

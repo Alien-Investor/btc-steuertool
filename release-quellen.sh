@@ -39,7 +39,8 @@ _summe() { case "$1" in
   *) git show "$1:$2" | sha256sum | cut -d' ' -f1 ;; esac; }
 _lies() { case "$1" in
   .) cat -- "$2" ;;
-  @*) [ -n "$(_summe "$1" "$2")" ] && [ "$(_summe . "$2")" = "$(_summe "$1" "$2")" ] && cat -- "$2" ;;
+  @*) local k; k="$(mktemp)"; cat -- "$2" > "$k" 2>/dev/null || { rm -f "$k"; return 1; }   # Summe und Inhalt aus derselben Kopie (R2-1 #4)
+      if [ -n "$(_summe "$1" "$2")" ] && [ "$(_hash "$k")" = "$(_summe "$1" "$2")" ]; then cat -- "$k"; rm -f "$k"; else rm -f "$k"; return 1; fi ;;
   *) git show "$1:$2" ;; esac; }
 _engine() { case "$1" in
   .) engine_baum ;;
@@ -47,6 +48,11 @@ _engine() { case "$1" in
   *) engine_tag "$1" ;; esac; }
 _hash() { sha256sum < "$1" | cut -d' ' -f1; }
 _unzip_muster() { sed 's/[][*?\\]/\\&/g' <<<"$1"; }   # unzip deutet Namen als Muster (Release-Audit R1 b-H5)
+
+# lock_gleich <verzeichnis>: node_modules entspricht genau package-lock.json (Release-Audit R2-1 #2) — npm schreibt beim Installieren
+# node_modules/.package-lock.json; ein während npm ci getauschter Lock oder ein nachträglich verändertes Paket fiele sonst nicht auf
+lock_gleich() { [ -f "$1/node_modules/.package-lock.json" ] && [ -n "$(jq -S '.packages' "$1/package-lock.json" 2>/dev/null)" ] \
+  && [ "$(jq -S '.packages|del(."")' "$1/package-lock.json")" = "$(jq -S '.packages' "$1/node_modules/.package-lock.json")" ]; }
 
 # quellen_an_tag <prüfdatei> <ab-zeile> <apk|desktop> <tag>: jede genannte Quelle = Tag-Fassung, und genau die Quellen laut Tag sind genannt.
 quellen_an_tag() {
@@ -107,13 +113,16 @@ vendor_inhalt() {
 index_inhalt() {
   local datei="$1" rev="$2" art="$3" name stand csp tag='<meta charset="UTF-8">'
   name="$(_lies "$rev" VERSION | sed -n 's/^VERSION_NAME=//p')"
-  case "$rev" in .|@*) stand="$(git log -1 --format=%cd --date=format:%d.%m.%Y)" ;; *) stand="$(git log -1 --format=%cd --date=format:%d.%m.%Y "$rev")" ;; esac
+  # wie web/build.sh: Datum des letzten Commits, ohne Git (Selbstbau aus einem Archiv) das heutige Datum (Release-Audit R2-2-3)
+  case "$rev" in .|@*) stand="$(git log -1 --format=%cd --date=format:%d.%m.%Y 2>/dev/null || date +%d.%m.%Y)" ;;
+    *) stand="$(git log -1 --format=%cd --date=format:%d.%m.%Y "$rev")" ;; esac
   [ -n "$name" ] && [ -n "$stand" ] || { echo "FEHLER: Version/Stand für index.html ($rev) nicht bestimmbar"; return 1; }
-  _index_soll() { _lies "$rev" web/index.html | sed -e "s/__APP_VERSION__/$name/" -e "s/__WEB_STAND__/$stand/"; }
+  local roh; roh="$(_lies "$rev" web/index.html)" && [ -n "$roh" ] || { echo "FEHLER: web/index.html ($rev) nicht lesbar oder leer"; return 1; }
+  _index_soll() { printf '%s\n' "$roh" | sed -e "s/__APP_VERSION__/$name/" -e "s/__WEB_STAND__/$stand/"; }
   if [ "$art" = apk ]; then
     csp="$(_lies "$rev" mobile/build-www.sh | sed -n 's/^CSP="\(.*\)"$/\1/p')"
     [ -n "$csp" ] && [ "$(grep -c . <<<"$csp")" = 1 ] && [[ "$csp" != *\\* ]] || { echo "FEHLER: CSP in mobile/build-www.sh ($rev) nicht eindeutig"; return 1; }
-    [ "$(_lies "$rev" web/index.html | grep -cF "$tag")" = 1 ] || { echo "FEHLER: <meta charset> nicht genau einmal in web/index.html ($rev)"; return 1; }
+    [ "$(grep -cF "$tag" <<<"$roh")" = 1 ] || { echo "FEHLER: <meta charset> nicht genau einmal in web/index.html ($rev)"; return 1; }
     cmp -s "$datei" <(_index_soll | awk -v tag="$tag" -v csp="$csp" '{ i = index($0, tag)
         if (i && !d) { print substr($0, 1, i + length(tag) - 1); print "  <meta http-equiv=\"Content-Security-Policy\" content=\"" csp "\">" substr($0, i + length(tag)); d = 1 }
         else print }') || { echo "FEHLER: index.html (APK) ≠ $rev"; return 1; }

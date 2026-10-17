@@ -41,11 +41,13 @@ async function fresh(){
     R('Neon-Scrollbalken greift in der echten Hülle: (hover:hover) and (pointer:fine), 10 px im Handbuch (Querfund Alien Pass v1.20)', sb.mq&&sb.tall&&sb.bar===10, sb);
     // Die Breite allein bliebe auch ohne Neon-Daumen grün (Release-Audit v1.5 R1 a-A4): im 10-px-Band rechts am Handbuch Neon-Pixel zählen
     await sleep(400);
-    const rc=await js(`(()=>{const r=document.getElementById('help-overlay').getBoundingClientRect();return {r:r.right};})()`);
-    const img=await win.webContents.capturePage(); const {width,height}=img.getSize(); const buf=img.toBitmap();
-    const sf=Math.round(Math.sqrt(buf.length/4/(width*height))), W=width*sf, H=height*sf, x0=Math.round((rc.r-10)*sf), x1=Math.round(rc.r*sf);
-    let rows=0; for(let y=0;y<H;y++){ for(let x=Math.max(0,x0);x<Math.min(W,x1);x++){ const i=(y*W+x)*4; if(buf[i+1]>=60&&buf[i+2]<60){ rows++; break; } } }
-    R('Neon-Daumen im Scrollbalken des Handbuchs sichtbar (Pixelzeilen mit Neon im Balkenband)', rows>=20, {rows}); }
+    // Nur das 10-px-Band aufnehmen (CSS-Pixel); die Aufnahme kommt in Gerätepixeln — Breite/Höhe aus dem Bitmap selbst, so stimmt es bei
+    // jeder Bildschirm-Skalierung (vorher landete das Band bei Skalierung ≠ 1 im Text, Release-Audit R2-2-1). BGRA: [i+1]=G, [i+2]=R.
+    const rc=await js(`(()=>{const r=document.getElementById('help-overlay').getBoundingClientRect();return {r:r.right,t:r.top,h:r.height,dpr:devicePixelRatio};})()`);
+    const img=await win.webContents.capturePage({x:Math.floor(rc.r-10),y:Math.floor(rc.t),width:10,height:Math.floor(rc.h)});
+    const {width:bw,height:bh}=img.getSize(), buf=img.toBitmap(), W=Math.round(buf.length/4/bh);
+    let rows=0; for(let y=0;y<bh;y++){ for(let x=0;x<W;x++){ const i=(y*W+x)*4; if(buf[i+1]>=60&&buf[i+2]<60){ rows++; break; } } }
+    R('Neon-Daumen im Scrollbalken des Handbuchs sichtbar (Pixelzeilen mit Neon im Balkenband)', rows>=Math.ceil(20*rc.dpr), {rows,bw,bh,dpr:rc.dpr}); }
   { await sleep(1100); opened.length=0; await js(`document.querySelector('#help-de a[href^="https://"]').click()`); await sleep(300);
     R('Handbuch-Link extern über die Liste', opened.length===1&&opened[0]==='https://alien-investor.org/steuertool-guide.html'&&win.webContents.getURL()==='app://steuertool/index.html', opened.slice()); }
   { await sleep(1100); opened.length=0; await js(`document.querySelector('#help-de a[href^="mailto:"]').click()`); await sleep(300);

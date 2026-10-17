@@ -160,9 +160,13 @@ Darum **erst committen, dann aus genau diesem Stand bauen, der Tag kommt auf die
 (ein Commit nur an `CHANGELOG.md`/Doku nicht, sofern am selben Tag — `index.html` trägt das Datum des letzten Commits). `./make-release.sh --pruefen` fährt die
 Sperre ohne Upload. Neue Quelle, die in APK/Bundle eingeht (Skript, Hülle): in `release-quellen.sh` eintragen. Nicht versionierte Eingänge
 sind über Listen gebunden: `web/vendor.sha256` (schreibt `vendor-setup.sh`, prüft `web/build.sh`; Änderung nur bewusst committen),
-`mobile/apk-assets.sha256` (Capacitor-Dateien der APK, Soll aus dem npm-Tarball 6.2.2). Release-Builds sind frisch: `npm ci` in `mobile/` und
-`desktop/`, `mobile/android/` wird jedes Mal neu erzeugt, `capacitor.config.ts/.js` bricht ab. Die Signatur prüft `gpgv` mit dem Schlüssel aus dem
-Tag (VALIDSIG-Hauptschlüssel). Trockenproben (Wegwerf-Klon, Netz gestubbt): `bash ~/security-audit-skill/btc-steuertool-public/run-2/sperre/alle.sh`.
+`mobile/apk-assets.sha256` (Capacitor-Dateien der APK, Soll aus dem npm-Tarball 6.2.2). **Beide Builds laufen in einem privaten `git worktree`
+von HEAD** (`~/.cache/btc-steuertool-abbild/`, nur bei sauberem Arbeitsbaum; Ergebnis wird zurückkopiert) — parallele Sitzungen, die Dateien ändern
+und zurückstellen („git stash … pop“), wirken so nicht mehr hinein (Audit R2). Dort frisch: `npm ci` + Abgleich mit der Lock, `android/` neu,
+`capacitor.config.ts/.js` bricht ab. Endkontrolle prüft FLAG_SECURE im Bytecode, das Bundle die Builder-Ausgabe gegen die Quellen. Signatur: `gpgv`
+mit dem Schlüssel aus dem Tag (GOODSIG + VALIDSIG-Hauptschlüssel, kein Widerruf). `make-release.sh` lädt die Prüffunktionen aus dem Tag.
+Restgrenzen (bewusst): `assets/dexopt/` nur nach Namen (ART-Profile), Flatpak-BaseApp und Gradle-Distribution/-Abhängigkeiten nicht gepinnt
+(`~/.gradle`), `fonts.css` nur über `vendor.sha256`, `env.sh`/`ANDROID_HOME` ist Vertrauensanker. Trockenproben (Wegwerf-Klon, Netz gestubbt): `bash ~/security-audit-skill/btc-steuertool-public/run-2/sperre/alle.sh`.
 **Web-Version immer mit ausrollen** (Web, Flatpak und APK zeigen denselben Stand): `web/build.sh`, dann
 `rsync -a --chmod=D755,F644 web/dist/ root@api.alien-investor.org:/var/www/alien-investor/html/steuertool/` (vorher `-an --itemize-changes`),
 danach `cmp` der Live-Dateien gegen `web/dist`. Auch nach reinen Engine- oder GUI-Fixes ohne App-Release.

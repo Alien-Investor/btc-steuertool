@@ -64,19 +64,22 @@ verify_sha256() {
   echo "  ✓ $label"
 }
 
+# Immer von leer aufbauen: Altdateien landeten sonst ungeprüft in vendor.sha256 (Release-Audit v1.5 R2-1 #8). Hilfsdateien in einem eigenen
+# Temp-Ordner, Python mit -I (kein Modul aus dem entpackten Ordner).
+rm -rf vendor
+[ ! -e vendor ] || { echo "ABBRUCH: vendor/ ließ sich nicht leeren" >&2; exit 1; }
 mkdir -p vendor/pyodide vendor/fonts
+HILF="$(mktemp -d)"; trap 'rm -rf "$HILF"' EXIT
 
 # 1. Pyodide-Core (Runtime: pyodide.js, wasm, stdlib, lock)
 cd vendor/pyodide
-TARBALL=$(mktemp -t pyodide-core-XXXXXX.tar.bz2)
-trap 'rm -f "$TARBALL"' EXIT
+TARBALL="$HILF/pyodide-core.tar.bz2"   # im Hilfsordner — dessen trap räumt auf
 echo "Pyodide-Core ${PYODIDE_VERSION}:"
 curl -sSL --fail -o "$TARBALL" \
   "https://github.com/pyodide/pyodide/releases/download/${PYODIDE_VERSION}/pyodide-core-${PYODIDE_VERSION}.tar.bz2"
 verify_sha256 "$TARBALL" "$PYODIDE_CORE_SHA256" "pyodide-core-${PYODIDE_VERSION}.tar.bz2"
 tar xjf "$TARBALL" --strip-components=1
 rm -f "$TARBALL"
-trap - EXIT
 
 # 2. Wheels: tzdata inkl. Abhängigkeits-Closure laut pyodide-lock.json
 #    (pandas seit 10/2026 nicht mehr — der Kern nutzt nur die Standardbibliothek)
@@ -84,7 +87,7 @@ trap - EXIT
 #    sha256 steht im selben Dict direkt neben dem file_name und wurde bis
 #    15.08.2026 eingelesen und weggeworfen. Genau das war SA-011.
 echo "Wheels:"
-python3 - <<'PY' > /tmp/.pyodide-wheels.$$
+python3 -I - <<'PY' > "$HILF/wheels"
 import json
 lock = json.load(open('pyodide-lock.json'))
 pkgs = lock['packages']
@@ -102,20 +105,19 @@ PY
 while read -r fn sha; do
   curl -sSL --fail -o "$fn" "https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/${fn}"
   verify_sha256 "$fn" "$sha" "$fn"
-done < /tmp/.pyodide-wheels.$$
-rm -f /tmp/.pyodide-wheels.$$
+done < "$HILF/wheels"
 
 # 3. Fonts (Orbitron 700/900 + Share Tech Mono, latin) + lokales fonts.css
 cd ../fonts
 echo "Fonts:"
 UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
-export GFONTS_CSS=/tmp/.gfonts.$$
+export GFONTS_CSS="$HILF/gfonts.css"
 curl -sSL --fail -A "$UA" -o "$GFONTS_CSS" \
   "https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap"
 
 # Python parst nur das CSS und gibt "dateiname url css-block" aus (Block
 # base64-kodiert, damit er auf eine Zeile passt).
-python3 - <<'PY' > /tmp/.fontplan.$$
+python3 -I - <<'PY' > "$HILF/fontplan"
 import base64, os, re
 css = open(os.environ['GFONTS_CSS']).read()
 seen = set()
@@ -140,8 +142,7 @@ while read -r fn src block; do
   verify_sha256 "$fn" "${!var:?Kein erwarteter Hash fuer $fn im Skript hinterlegt}" "$fn"
   echo "$block" | base64 -d >> fonts.css
   echo "" >> fonts.css
-done < /tmp/.fontplan.$$
-rm -f /tmp/.fontplan.$$ "$GFONTS_CSS"
+done < "$HILF/fontplan"
 
 cd ../..
 # Prüfsummen-Liste (versioniert, v1.5, Release-Audit R1 b-B1): web/build.sh baut nur mit genau diesen Dateien, make-release.sh prüft die

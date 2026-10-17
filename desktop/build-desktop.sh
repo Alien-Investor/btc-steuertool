@@ -5,6 +5,34 @@ set -euo pipefail
 cd "$(dirname "$0")"
 # Release-Sperre (v1.5, Vorlage Alien Notes v1.14): alte Prüfdatei zuerst weg — ein abgebrochener Lauf hinterlässt keine gültige
 rm -f build/release/bundle.ok
+# Gebaut wird aus einem PRIVATEN Abbild von HEAD (git worktree), nie aus dem gemeinsamen Arbeitsbaum (Release-Audit v1.5 R2-1 #1, R2-2-2):
+# flatpak-builder las Starter, .desktop, icon.svg und Manifest, node pack.mjs lief — Minuten nach der Summenbildung. Eine zweite Sitzung, die
+# eine Datei ändert und zurückstellt (auch „git stash … git stash pop“), bekam eine gültige bundle.ok mit fremdem Inhalt. Ohne Git (Selbstbau
+# aus einem Archiv) wird wie bisher im Ordner gebaut — das ist dann kein Release-Build.
+REPO="$(cd .. && pwd)"
+if [ "${STEUERTOOL_IM_ABBILD:-}" != 1 ] && git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  [ -z "$(git -C "$REPO" status --porcelain --untracked-files=no)" ] || { echo "FEHLER: nicht committete Änderungen — gebaut wird HEAD, erst committen." >&2; exit 1; }
+  [ -d "$REPO/web/vendor" ] || { echo "FEHLER: web/vendor fehlt — web/vendor-setup.sh" >&2; exit 1; }
+  mkdir -p "$HOME/.cache/btc-steuertool-abbild"; ABB="$(mktemp -d "$HOME/.cache/btc-steuertool-abbild/desktop.XXXXXX")"
+  aufraeumen() { git -C "$REPO" worktree remove --force "$ABB/repo" >/dev/null 2>&1 || true; rm -rf "$ABB"; git -C "$REPO" worktree prune || true; }
+  trap aufraeumen EXIT
+  git -C "$REPO" worktree add -q --detach "$ABB/repo" HEAD
+  cp -a "$REPO/web/vendor" "$ABB/repo/web/vendor"   # nicht versioniert; web/build.sh prüft es gegen web/vendor.sha256 aus HEAD
+  echo "Abbild von HEAD $(git -C "$ABB/repo" rev-parse --short HEAD): $ABB/repo"
+  rc=0; STEUERTOOL_IM_ABBILD=1 bash "$ABB/repo/desktop/build-desktop.sh" || rc=$?
+  [ "$rc" = 0 ] || { echo "FEHLER: Build im Abbild gescheitert (rc=$rc)" >&2; exit "$rc"; }
+  rm -rf build/release
+  [ ! -e build/release ] || { echo "FEHLER: desktop/build/release ließ sich nicht leeren" >&2; exit 1; }
+  mkdir -p build/release
+  B="$(cd "$ABB/repo/desktop/build/release" && ls -1 *.flatpak)"; [ "$(grep -c . <<<"$B")" = 1 ] || { echo "FEHLER: nicht genau ein Bundle im Abbild" >&2; exit 1; }
+  cp "$ABB/repo/desktop/build/release/$B" "$ABB/repo/desktop/build/release/SHA256SUMS" build/release/
+  cp "$ABB/repo/desktop/build/release/bundle.ok" build/release/bundle.ok   # Prüfdatei zuletzt, nur zu genau diesem Bundle
+  [ "$(sha256sum < "build/release/$B" | cut -d' ' -f1)" = "$(head -1 build/release/bundle.ok)" ] || { rm -f build/release/bundle.ok; echo "FEHLER: Kopie aus dem Abbild ≠ bundle.ok" >&2; exit 1; }
+  echo "Bundle: desktop/build/release/$B (aus dem Abbild von HEAD)"; cat build/release/SHA256SUMS
+  echo "Signieren (Nutzer): gpg --local-user 100F9E25BFAEA807DBC357D750C0D78583BFCB81 --armor --detach-sign $REPO/desktop/build/release/SHA256SUMS"
+  exit 0
+fi
+# ── ab hier im Abbild (oder Selbstbau ohne Git) ──
 
 EL_VER="44.7.2"
 EL_SHA="777b26a64aee3d185acb9f93c04782bb51eae7c2c61c793963ef24374e5a1539"   # electron-v44.7.2-linux-x64.zip (SHASUMS256.txt des Release, gegengeprüft mit checksums.json aus npm electron@44.7.2; v1.5, gleiche Engine wie Alien Pass v1.22, Sachwert-Tresor v3.11, Alien Notes v1.14, hier am 17.10.2026 geprüft)
@@ -20,20 +48,24 @@ fi
 echo "$EL_SHA  $ZIP" | sha256sum -c --quiet - || { echo "FEHLER: Hash des Electron-Archivs weicht ab — Build abgebrochen!"; exit 1; }
 echo "Electron $EL_VER: Hash OK."
 
-# Build-Werkzeuge (asar, fuses) immer frisch aus dem Lock — npm prüft die Integrity jedes Pakets (Release-Audit v1.5 R1 a-A5)
-npm ci --ignore-scripts --no-audit --no-fund
 [ -f ../web/vendor/pyodide/pyodide.asm.wasm ] || { echo "FEHLER: erst web/vendor-setup.sh (Pyodide fehlt)" >&2; exit 1; }
 
 # Prüfsummen der Quellen, aus denen das Bundle entsteht, VOR dem Bau (Liste: release-quellen.sh): make-release.sh vergleicht sie mit dem Tag —
 # ein veraltetes oder aus einem anderen Stand gebautes Bundle geht so nicht neben der richtigen APK raus. Ändert sich etwas während des Baus: Abbruch.
 source ../release-quellen.sh
 DESK_SUMS0="$(cd .. && quellen_summen desktop)" || { echo "FEHLER: Quellenliste unvollständig (release-quellen.sh)" >&2; exit 1; }
+# Build-Werkzeuge (asar, fuses) frisch aus dem Lock — NACH der Summenbildung, dann gegen genau diese Lock geprüft (R1 a-A5, R2-1 #2)
+npm ci --ignore-scripts --no-audit --no-fund
+lock_gleich . || { echo "FEHLER: node_modules ≠ package-lock.json nach npm ci" >&2; exit 1; }
 # Jede Datei, die das Flatpak-Manifest einbindet (path:), muss in der Quellenliste stehen — icon.svg fehlte (Release-Audit R1 a-A2/b-B2)
 while read -r mp; do
   [ "$mp" = ../build/electron ] && continue
   rel="$(realpath -m --relative-to=.. "flatpak/$mp")"
   (cd .. && feste_quellen desktop) | grep -qxF "$rel" || { echo "FEHLER: $rel (Manifest) fehlt in release-quellen.sh" >&2; exit 1; }
-done < <(sed -n 's/^ *path: *//p' flatpak/$APP_ID.yml)
+done < <(sed -n -E 's/^ *(- +)?path: *//p' flatpak/$APP_ID.yml)
+# Andere Formen, Quellen einzubinden (paths:, url:, Modul-Dateien), unterstützt die Prüfung nicht — dann lieber abbrechen (R2-1 #6)
+! grep -qE '^ *(- +)?(paths|url|mirror-urls) *:|^ *(- +)?type: *(archive|git|patch|script|shell|extra-data|svn|bzr|inline)( |$)|^ *- +[^ :]+\.(ya?ml|json) *$' flatpak/$APP_ID.yml \
+  || { echo "FEHLER: Manifest bindet Quellen in einer nicht geprüften Form ein (paths/url/Modul-Datei)" >&2; exit 1; }
 # Eigener Befehl, nicht links von && — sonst greift set -e nicht und ein Fehler würde still übergangen (Alien Pass Audit run-6 #6)
 ../web/build.sh || { echo "FEHLER: web/build.sh fehlgeschlagen — Build abgebrochen!" >&2; exit 1; }
 VNAME=$(grep '^VERSION_NAME=' ../VERSION | cut -d= -f2 | tr -d '[:space:]')
@@ -43,7 +75,9 @@ DREV=$(grep '^DESKTOP_REV=' ../VERSION | cut -d= -f2 | tr -d '[:space:]')
 # Reiner Engine-Neubau (nur DESKTOP_REV hoch) bekommt ein -rN im Dateinamen; die App-Version bleibt VERSION_NAME
 TAG="$VNAME"; [ "$DREV" = 1 ] || TAG="$VNAME-r$DREV"
 
-rm -rf build && mkdir -p build/app build/electron
+rm -rf build   # eigener Befehl: links von && griffe set -e nicht (R2-1 #5)
+[ ! -e build ] || { echo "FEHLER: desktop/build ließ sich nicht entfernen" >&2; exit 1; }
+mkdir -p build/app build/electron
 unzip -q "$ZIP" -d build/electron
 rm -f build/electron/chrome-sandbox build/electron/resources/default_app.asar   # Sandbox kommt im Flatpak über zypak
 cp main.js preload.js atomic.js icon.png build/app/
@@ -67,6 +101,13 @@ WANT=$(printf '[Context]\nshared=ipc;\nsockets=wayland;fallback-x11;\ndevices=dr
 # Der Builder läuft selbst als Flatpak und sieht nur ~/ — deshalb liegt alles unter desktop/build/
 # Erst bauen, dann die Rechte am gebauten Stand prüfen, erst danach installieren
 flatpak run org.flatpak.Builder --force-clean --state-dir=build/.flatpak-builder build/fp flatpak/$APP_ID.yml
+# Ausgabe des Builders gegen die Quellen vor dem Bau (R2-2-2): Starter, .desktop, Icon byte-gleich, main/ = geprüftes build/electron
+for paar in "bin/btc-steuertool:desktop/flatpak/btc-steuertool.sh" "share/applications/$APP_ID.desktop:desktop/flatpak/$APP_ID.desktop" \
+            "share/icons/hicolor/scalable/apps/$APP_ID.svg:desktop/icon.svg"; do
+  [ "$(_hash "build/fp/files/${paar%%:*}")" = "$(cd .. && _summe @desktop/build/quellen.sum "${paar#*:}")" ] \
+    || { echo "FEHLER: ${paar%%:*} im gebauten Stand ≠ ${paar#*:} vor dem Bau — nicht installiert!" >&2; exit 1; }
+done
+diff -r build/fp/files/main build/electron >/dev/null || { echo "FEHLER: /app/main ≠ build/electron — nicht installiert!" >&2; exit 1; }
 PRE=$(awk '/^\[/{skip=($0=="[Application]"||$0=="[Build]"||$0 ~ /^\[Extension .*\.Debug\]$/)} !skip' build/fp/metadata | sed '/^$/d')
 WANT_META=$(printf '[Context]\nshared=ipc;\nsockets=fallback-x11;wayland;\ndevices=dri;')
 if [ "$PRE" != "$WANT_META" ]; then echo "$PRE"; echo "FEHLER: Rechte im gebauten Stand weichen vom Soll ab — nicht installiert!" >&2; exit 1; fi
@@ -84,6 +125,7 @@ BUNDLE="btc-steuertool-$TAG-linux-x86_64.flatpak"
 flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo build/repo "build/release/$BUNDLE" "$APP_ID"
 (cd build/release && sha256sum "$BUNDLE" > SHA256SUMS)
 [ "$(cd .. && quellen_summen desktop)" = "$DESK_SUMS0" ] || { echo "FEHLER: Quellen haben sich während des Baus geändert — neu bauen!" >&2; exit 1; }
+lock_gleich . || { echo "FEHLER: node_modules hat sich während des Baus geändert" >&2; exit 1; }
 # Prüfdatei (wird NICHT hochgeladen): 1. Zeile Bundle-Hash, 2. Zeile Electron-Pin, danach die Quellen (make-release.sh gleicht sie mit dem Tag ab)
 { sha256sum "build/release/$BUNDLE" | cut -d' ' -f1; echo "electron $EL_VER $EL_SHA"; echo "$DESK_SUMS0"; } > build/release/bundle.ok
 echo "Bundle: desktop/build/release/$BUNDLE"; cat build/release/SHA256SUMS
