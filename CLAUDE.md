@@ -152,6 +152,14 @@ Skill `app-release` (Abschnitt „Besonderheiten BTC Steuertool“). Kurz: Tests
 Commit/Push → `desktop/build-desktop.sh`, `mobile/build-apk.sh` → Nutzer signiert `SHA256SUMS` → Tag pushen → `./make-release.sh`
 (GitHub-Release + `api.alien-investor.org/downloads/steuertool/`, Download-Seite mit genau einem APK-Link) → Nutzer: `publish-zapstore.sh`
 → Website (`btc-steuertool.html` DE/EN, `apps.html`) mit Faktencheck. Store-Screenshots: `mobile/shot-store.py`.
+**Release-Sperre (seit v1.5, Vorlage Alien Pass v1.22 / Alien Notes v1.14):** Beide Builds löschen zuerst ihre Prüfdatei und schreiben sie nur
+nach bestandener Endkontrolle (`mobile/build/release/*.apk.ok`, `desktop/build/release/bundle.ok`: Hash, Quellen-Summen; Bundle auch Electron-Pin).
+`make-release.sh` prüft Kopien: Hash, Release-Zertifikat, App-ID/Version, VERSION = Tag, Quellen = Tag (Liste in `release-quellen.sh`, genau die
+Dateien laut Tag), APK-Inhalt (Engine, Beispiel-ZIP je Eintrag, `index.html`) = Tag, GitHub-Tag = lokal, Release-Notiz aus dem Tag ohne Platzhalter.
+Darum **erst committen, dann aus genau diesem Stand bauen, der Tag kommt auf diesen Commit**; jede Änderung an einer Quelle danach = neu bauen
+(ein Commit nur an `CHANGELOG.md`/Doku nicht). `./make-release.sh --pruefen` fährt die
+Sperre ohne Upload. Neue Quelle, die in APK/Bundle eingeht (Skript, Hülle): in `release-quellen.sh` eintragen. Trockenproben (Wegwerf-Klon, Netz
+gestubbt, 38 Szenarien): `bash ~/security-audit-skill/btc-steuertool-public/run-2/sperre/alle.sh`.
 **Web-Version immer mit ausrollen** (Web, Flatpak und APK zeigen denselben Stand): `web/build.sh`, dann
 `rsync -a --chmod=D755,F644 web/dist/ root@api.alien-investor.org:/var/www/alien-investor/html/steuertool/` (vorher `-an --itemize-changes`),
 danach `cmp` der Live-Dateien gegen `web/dist`. Auch nach reinen Engine- oder GUI-Fixes ohne App-Release.
