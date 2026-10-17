@@ -4,15 +4,21 @@
 // Das Prüfprogramm test/harness.cjs läuft IN der Hülle (keine Fernsteuerung). Reports müssen byte-gleich zur CLI sein.
 // Voraussetzung: einmal build-desktop.sh (lädt das Electron-Archiv in den Cache).    Aufruf: node desktop/verify-desktop.mjs
 import { spawn, execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdirSync, rmSync, cpSync, writeFileSync, existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 const D=path.dirname(new URL(import.meta.url).pathname), ROOT=path.dirname(D), B=path.join(D,'build');
-const EL_VER=readFileSync(path.join(D,'build-desktop.sh'),'utf8').match(/^EL_VER="([^"]+)"/m)[1];
+const BUILD_SH=readFileSync(path.join(D,'build-desktop.sh'),'utf8');
+const EL_VER=(BUILD_SH.match(/^EL_VER="([0-9]+\.[0-9]+\.[0-9]+)"$/m)||[])[1], EL_SHA=(BUILD_SH.match(/^EL_SHA="([0-9a-f]{64})"/m)||[])[1];
+if(!EL_VER||!EL_SHA){ console.error('FEHLER: EL_VER/EL_SHA nicht in desktop/build-desktop.sh gefunden'); process.exit(2); }
 const ZIP=path.join(process.env.HOME,'.cache/btc-steuertool-desktop',`electron-v${EL_VER}-linux-x64.zip`);
 const EL_DIR=path.join(B,'test-electron'), APP=path.join(B,'test-app'), EL=path.join(EL_DIR,'electron');
 const TMP=path.join(B,'test-home'), REF=path.join(B,'test-ref');
 let ok=0, bad=0; const t=(c,m,info)=>{ if(c){ ok++; console.log('  ✓',m,info!==undefined&&info!==null?JSON.stringify(info):''); } else { bad++; console.log('  ✗',m,info!==undefined&&info!==null?JSON.stringify(info):''); } };
 if(!existsSync(ZIP)){ console.error('FEHLER: '+ZIP+' fehlt — erst desktop/build-desktop.sh'); process.exit(2); }
+// Geprüft wird der gepinnte Archiv-Hash wie in build-desktop.sh — sonst liefe die Prüfung gegen ein beliebiges Archiv dieses Namens
+{ const h=createHash('sha256').update(readFileSync(ZIP)).digest('hex');
+  if(h!==EL_SHA){ console.error('FEHLER: Hash von '+ZIP+' ist '+h+', gepinnt '+EL_SHA); process.exit(2); } }
 
 // Aufbau: web/dist frisch, unveränderte Hülle + Prüfprogramm, Electron aus dem gepinnten Archiv (ohne Fuses — sonst kein fremder Einstieg)
 execFileSync(path.join(ROOT,'web','build.sh'),{stdio:'ignore'});
@@ -24,7 +30,7 @@ for(const f of ['main.js','preload.js','atomic.js','icon.png']) cpSync(path.join
 cpSync(path.join(D,'test','harness.cjs'),path.join(APP,'harness.cjs')); cpSync(path.join(ROOT,'web','dist'),path.join(APP,'www'),{recursive:true});
 writeFileSync(path.join(APP,'package.json'),JSON.stringify({name:'btc-steuertool',productName:'BTC Steuertool',version:'0.0.0-test',main:'harness.cjs',private:true}));
 rmSync(TMP,{recursive:true,force:true}); mkdirSync(TMP,{recursive:true});
-const ENV={...process.env, XDG_DATA_HOME:path.join(TMP,'data'), XDG_CONFIG_HOME:path.join(TMP,'config'), ST_OUT:TMP};
+const ENV={...process.env, XDG_DATA_HOME:path.join(TMP,'data'), XDG_CONFIG_HOME:path.join(TMP,'config'), ST_OUT:TMP, ST_EL_VER:EL_VER};
 
 // CLI-Referenz: dieselben Beispieldaten, --all --nachweis --csv
 rmSync(REF,{recursive:true,force:true}); cpSync(path.join(ROOT,'examples'),path.join(REF,'examples'),{recursive:true});
@@ -44,7 +50,11 @@ const report=r=>{ if(/SIGNAL/.test(r.err)) t(false,'Schritt abgebrochen (Signal/
   if(!r.rs.length) t(false,'keine Ergebnisse (Exit '+r.code+')',r.err.split('\n').filter(l=>/error|Error|FATAL|SIGNAL/.test(l)).slice(0,5)); r.rs.forEach(x=>t(x.ok,x.name,x.info));
   if(r.rs.length&&!r.rs.some(x=>x.name==='Schritt vollständig')) t(false,'Schritt ohne Endmarke — Prüfprogramm vorzeitig beendet',{ms:r.ms}); };
 
-console.log('[1] Härtung, Weiche, Rechenkern, Links, Speichern'); report(await run('fresh'));
+console.log('[1] Härtung, Weiche, Rechenkern, Links, Speichern');
+{ const r=await run('fresh'); report(r);
+  // Die version-Datei des Archivs reicht nicht: die laufende Hülle selbst muss die gepinnte Engine melden
+  const ev=r.rs.find(x=>x.name==='Engine-Version');
+  t(!!ev&&ev.info===EL_VER,'laufende Hülle meldet Electron '+EL_VER,ev?ev.info:'keine Angabe'); }
 console.log('[2] Reports byte-gleich zur CLI (--all --nachweis --csv)');
 { const f=path.join(TMP,'reports.json');
   if(!existsSync(f)) t(false,'keine Reports aus [1]');

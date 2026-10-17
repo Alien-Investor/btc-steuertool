@@ -6,6 +6,8 @@ Tests: `node desktop/verify-desktop.mjs` (echte Hülle, gepinntes Electron, Repo
 `web/test_lang.py` (Web-Version ohne Hülle). Rechte des Käfigs prüft `desktop/build-desktop.sh`.
 Jeder Prüfschritt endet mit der Marke „Schritt vollständig“; fehlt sie oder endet der Schritt per Signal/Zeitlimit, ist `verify-desktop` rot
 (ein still vorzeitig beendeter Schritt bliebe sonst grün, Querfund Alien Notes v1.7). Neuer Schritt = Endmarke mitgeben.
+`verify-desktop` prüft vor dem Entpacken den gepinnten Archiv-Hash aus `build-desktop.sh`, und die laufende Hülle muss
+`process.versions.electron` = `EL_VER` melden — die `version`-Datei allein ließe eine alte Engine durch (v1.5, Gegenprobe 17.10.2026).
 
 ## Grundsatz
 - **Ein Code, kein Fork.** Die Hülle lädt `web/dist` (Ergebnis von `web/build.sh`) unverändert. Alles Desktop-Spezifische in der GUI hängt an
@@ -16,7 +18,7 @@ Jeder Prüfschritt endet mit der Marke „Schritt vollständig“; fehlt sie ode
   Speichern-Dialog hinaus. Chromium-Sandbox über `zypak-wrapper`, kein `--no-sandbox`.
 - **Rechte-Endkontrolle zweimal** in `build-desktop.sh`: am gebauten `build/fp/metadata` vor der Installation und an der installierten App,
   exakter Soll-Vergleich (`shared=ipc;` / `sockets=wayland;fallback-x11;` / `devices=dri;`), keine Sperrliste. Neues Recht = Soll bewusst ändern.
-- **Electron gepinnt** (Version + SHA-256 des Archivs in `build-desktop.sh`, derselbe Stand wie Alien Pass / Sachwert-Tresor),
+- **Electron gepinnt** (Version + SHA-256 des Archivs in `build-desktop.sh`, derselbe Stand wie Alien Pass / Sachwert-Tresor / Alien Notes, seit v1.5 Electron 44.7.2),
   `strip: false` + `no-debuginfo`. **Fuses** wie Alien Pass (`pack.mjs`, nach dem Setzen aus dem Binary zurückgelesen),
   `WasmTrapHandlers` an (Pyodide).
 

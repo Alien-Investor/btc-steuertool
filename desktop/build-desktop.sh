@@ -4,8 +4,8 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-EL_VER="44.5.1"
-EL_SHA="5bcd217611d6843ececd6c9e9c1fcd1da3ab066c43d8b1a9e4b44689a1fba6f5"   # electron-v44.5.1-linux-x64.zip (wie Alien Pass / Sachwert-Tresor)
+EL_VER="44.7.2"
+EL_SHA="777b26a64aee3d185acb9f93c04782bb51eae7c2c61c793963ef24374e5a1539"   # electron-v44.7.2-linux-x64.zip (SHASUMS256.txt des Release, gegengeprüft mit checksums.json aus npm electron@44.7.2; v1.5, gleiche Engine wie Alien Pass v1.22, Sachwert-Tresor v3.11, Alien Notes v1.14, hier am 17.10.2026 geprüft)
 APP_ID="org.alieninvestor.steuertool"
 CACHE="$HOME/.cache/btc-steuertool-desktop"
 ZIP="$CACHE/electron-v$EL_VER-linux-x64.zip"

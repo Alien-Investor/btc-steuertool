@@ -19,6 +19,7 @@ async function until(code,ms=60000){ const t0=Date.now(); while(Date.now()-t0<ms
 
 async function fresh(){
   const t0=Date.now();
+  R('Engine-Version', process.versions.electron===process.env.ST_EL_VER, process.versions.electron);
   R('lädt nur app://steuertool/index.html', win.webContents.getURL()==='app://steuertool/index.html', win.webContents.getURL());
   R('kein Node im Renderer', await js(`typeof require==='undefined'&&typeof process==='undefined'&&typeof module==='undefined'`));
   const keys=await js(`Object.keys(window.AlienDesktop).sort().join(',')`);
