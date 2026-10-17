@@ -117,7 +117,7 @@ else {
     wc.on('will-navigate',(ev,url)=>{ ev.preventDefault(); openOutside(url); });
     wc.on('will-redirect',ev=>ev.preventDefault());
     wc.on('will-attach-webview',ev=>ev.preventDefault());
-    wc.setWindowOpenHandler(({url})=>{ openOutside(url); return {action:'deny'}; });
+    wc.setWindowOpenHandler(({url})=>{ try{ openOutside(url); }catch(_){} return {action:'deny'}; });   // deny auch, wenn openOutside wirft (Release-Audit v1.5 R1 a-A8)
     wc.setWebRTCIPHandlingPolicy('disable_non_proxied_udp');
   });
 

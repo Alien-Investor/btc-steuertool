@@ -9,7 +9,10 @@ import { mkdirSync, rmSync, cpSync, writeFileSync, existsSync, readFileSync, rea
 import path from 'node:path';
 const D=path.dirname(new URL(import.meta.url).pathname), ROOT=path.dirname(D), B=path.join(D,'build');
 const BUILD_SH=readFileSync(path.join(D,'build-desktop.sh'),'utf8');
-const EL_VER=(BUILD_SH.match(/^EL_VER="([0-9]+\.[0-9]+\.[0-9]+)"$/m)||[])[1], EL_SHA=(BUILD_SH.match(/^EL_SHA="([0-9a-f]{64})"/m)||[])[1];
+// genau eine Zuweisung je Variable: bash nähme bei zweien die letzte, ein match die erste (Release-Audit v1.5 R1 a-A7)
+const one=re=>{ const m=[...BUILD_SH.matchAll(re)]; return m.length===1?m[0][1]:undefined; };
+const EL_VER=one(/^EL_VER="([0-9]+\.[0-9]+\.[0-9]+)"$/gm), EL_SHA=one(/^EL_SHA="([0-9a-f]{64})"/gm);
+if((BUILD_SH.match(/^EL_(VER|SHA)=/gm)||[]).length!==2){ console.error('FEHLER: EL_VER/EL_SHA nicht genau einmal in desktop/build-desktop.sh'); process.exit(2); }
 if(!EL_VER||!EL_SHA){ console.error('FEHLER: EL_VER/EL_SHA nicht in desktop/build-desktop.sh gefunden'); process.exit(2); }
 const ZIP=path.join(process.env.HOME,'.cache/btc-steuertool-desktop',`electron-v${EL_VER}-linux-x64.zip`);
 const EL_DIR=path.join(B,'test-electron'), APP=path.join(B,'test-app'), EL=path.join(EL_DIR,'electron');
@@ -23,7 +26,9 @@ if(!existsSync(ZIP)){ console.error('FEHLER: '+ZIP+' fehlt — erst desktop/buil
 // Aufbau: web/dist frisch, unveränderte Hülle + Prüfprogramm, Electron aus dem gepinnten Archiv (ohne Fuses — sonst kein fremder Einstieg)
 execFileSync(path.join(ROOT,'web','build.sh'),{stdio:'ignore'});
 const elVer=()=>{ try{ return readFileSync(path.join(EL_DIR,'version'),'utf8').trim(); }catch(_){ return ''; } };
-if(!existsSync(EL)||elVer()!==EL_VER){ rmSync(EL_DIR,{recursive:true,force:true}); mkdirSync(EL_DIR,{recursive:true}); execFileSync('unzip',['-q',ZIP,'-d',EL_DIR]); }
+// Bei JEDEM Lauf frisch aus dem geprüften Archiv: ein vorhandenes test-electron/ mit passender version-Datei konnte ein beliebiges Programm
+// sein, das 44.7.2 meldet (Release-Audit v1.5 R1 a-A1)
+rmSync(EL_DIR,{recursive:true,force:true}); mkdirSync(EL_DIR,{recursive:true}); execFileSync('unzip',['-q',ZIP,'-d',EL_DIR]);
 if(elVer()!==EL_VER){ console.error('FEHLER: entpackte Engine ist '+elVer()+', erwartet '+EL_VER); process.exit(2); }
 rmSync(APP,{recursive:true,force:true}); mkdirSync(APP,{recursive:true});
 for(const f of ['main.js','preload.js','atomic.js','icon.png']) cpSync(path.join(D,f),path.join(APP,f));

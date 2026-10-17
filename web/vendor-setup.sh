@@ -144,5 +144,9 @@ done < /tmp/.fontplan.$$
 rm -f /tmp/.fontplan.$$ "$GFONTS_CSS"
 
 cd ../..
+# Prüfsummen-Liste (versioniert, v1.5, Release-Audit R1 b-B1): web/build.sh baut nur mit genau diesen Dateien, make-release.sh prüft die
+# APK dagegen. Alles außer fonts.css ist oben gepinnt; ändert Google die Schrift-CSS, zeigt git diff web/vendor.sha256 das — nur bewusst committen.
+[ -z "$(find vendor -type l)" ] || { echo "ABBRUCH: Symlink in vendor/" >&2; exit 1; }
+(cd vendor && find . -type f | sed 's#^\./##' | LC_ALL=C sort | while read -r f; do sha256sum -- "$f"; done) > vendor.sha256
 echo ""
-echo "vendor/ wiederhergestellt und vollstaendig verifiziert: $(du -sh vendor | cut -f1)"
+echo "vendor/ wiederhergestellt und vollstaendig verifiziert: $(du -sh vendor | cut -f1), Liste: web/vendor.sha256 (git diff prüfen)"

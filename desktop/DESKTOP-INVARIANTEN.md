@@ -6,8 +6,11 @@ Tests: `node desktop/verify-desktop.mjs` (echte Hülle, gepinntes Electron, Repo
 `web/test_lang.py` (Web-Version ohne Hülle). Rechte des Käfigs prüft `desktop/build-desktop.sh`.
 Jeder Prüfschritt endet mit der Marke „Schritt vollständig“; fehlt sie oder endet der Schritt per Signal/Zeitlimit, ist `verify-desktop` rot
 (ein still vorzeitig beendeter Schritt bliebe sonst grün, Querfund Alien Notes v1.7). Neuer Schritt = Endmarke mitgeben.
-`verify-desktop` prüft vor dem Entpacken den gepinnten Archiv-Hash aus `build-desktop.sh`, und die laufende Hülle muss
-`process.versions.electron` = `EL_VER` melden — die `version`-Datei allein ließe eine alte Engine durch (v1.5, Gegenprobe 17.10.2026).
+`verify-desktop` prüft den gepinnten Archiv-Hash aus `build-desktop.sh` (genau eine Zuweisung je `EL_VER`/`EL_SHA`), entpackt die Engine
+bei JEDEM Lauf frisch daraus, und die laufende Hülle muss `process.versions.electron` = `EL_VER` melden — die `version`-Datei allein ließ eine
+alte Engine durch, ein vorhandenes `test-electron/` ein beliebiges Programm (v1.5, Gegenproben 17.10.2026, Release-Audit R1 a-A1/A-7).
+`build-desktop.sh` holt asar/fuses per `npm ci` aus dem Lock und prüft jede Kopie im Bundle (Hülle, www/ samt vendor/ und index.html,
+Dateimenge) gegen die Quellen-Summen VOR dem Bau; jede `path:`-Datei des Flatpak-Manifests muss in `release-quellen.sh` stehen (R1 a-A2/A-3).
 
 ## Grundsatz
 - **Ein Code, kein Fork.** Die Hülle lädt `web/dist` (Ergebnis von `web/build.sh`) unverändert. Alles Desktop-Spezifische in der GUI hängt an

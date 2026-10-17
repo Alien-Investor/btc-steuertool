@@ -38,7 +38,14 @@ async function fresh(){
   await js(`document.getElementById('app-help').click()`);
   R('Handbuch öffnet offline', await js(`!document.getElementById('help-overlay').classList.contains('hidden')&&document.getElementById('help-de').textContent.includes('Erkennung prüfen')`));
   { const sb=await js(`(()=>{const o=document.getElementById('help-overlay');return {mq:matchMedia('(hover:hover) and (pointer:fine)').matches,tall:o.scrollHeight>o.clientHeight,bar:o.offsetWidth-o.clientWidth};})()`);
-    R('Neon-Scrollbalken greift in der echten Hülle: (hover:hover) and (pointer:fine), 10 px im Handbuch (Querfund Alien Pass v1.20)', sb.mq&&sb.tall&&sb.bar===10, sb); }
+    R('Neon-Scrollbalken greift in der echten Hülle: (hover:hover) and (pointer:fine), 10 px im Handbuch (Querfund Alien Pass v1.20)', sb.mq&&sb.tall&&sb.bar===10, sb);
+    // Die Breite allein bliebe auch ohne Neon-Daumen grün (Release-Audit v1.5 R1 a-A4): im 10-px-Band rechts am Handbuch Neon-Pixel zählen
+    await sleep(400);
+    const rc=await js(`(()=>{const r=document.getElementById('help-overlay').getBoundingClientRect();return {r:r.right};})()`);
+    const img=await win.webContents.capturePage(); const {width,height}=img.getSize(); const buf=img.toBitmap();
+    const sf=Math.round(Math.sqrt(buf.length/4/(width*height))), W=width*sf, H=height*sf, x0=Math.round((rc.r-10)*sf), x1=Math.round(rc.r*sf);
+    let rows=0; for(let y=0;y<H;y++){ for(let x=Math.max(0,x0);x<Math.min(W,x1);x++){ const i=(y*W+x)*4; if(buf[i+1]>=60&&buf[i+2]<60){ rows++; break; } } }
+    R('Neon-Daumen im Scrollbalken des Handbuchs sichtbar (Pixelzeilen mit Neon im Balkenband)', rows>=20, {rows}); }
   { await sleep(1100); opened.length=0; await js(`document.querySelector('#help-de a[href^="https://"]').click()`); await sleep(300);
     R('Handbuch-Link extern über die Liste', opened.length===1&&opened[0]==='https://alien-investor.org/steuertool-guide.html'&&win.webContents.getURL()==='app://steuertool/index.html', opened.slice()); }
   { await sleep(1100); opened.length=0; await js(`document.querySelector('#help-de a[href^="mailto:"]').click()`); await sleep(300);

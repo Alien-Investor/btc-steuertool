@@ -62,32 +62,38 @@ BUNDLE="btc-steuertool-$DTAG-linux-x86_64.flatpak"
 # der App-ID und genau dieser Version. Geprüft und hochgeladen wird eine KOPIE, die sofort bereitgestellt wird: ein paralleler Build kann die APK
 # danach nicht mehr unbemerkt austauschen. Alle Uploads nehmen $SAPK bzw. die Kopien in $DST.
 [ -f "$APK" ] || { echo "FEHLER: $APK fehlt – erst mobile/build-apk.sh"; exit 1; }
-source ~/Apps/android-build/env.sh
+# Aus env.sh nur die beiden Pfade, nicht deren PATH: ein dort vorangestellter Ordner könnte cmp, sha256sum … der Prüfungen ersetzen
+# (Release-Audit v1.5 R1 b-H8). apksigner braucht java — es bekommt JAVA_HOME/bin nur für den eigenen Aufruf.
+eval "$(bash -c 'source ~/Apps/android-build/env.sh >/dev/null 2>&1; printf "ANDROID_HOME=%q\nJAVA_HOME=%q\n" "$ANDROID_HOME" "${JAVA_HOME:-}"')"
+[ -n "$ANDROID_HOME" ] && [ -n "$JAVA_HOME" ] || { echo "FEHLER: ANDROID_HOME/JAVA_HOME aus ~/Apps/android-build/env.sh nicht lesbar"; exit 1; }
 BT="$ANDROID_HOME/build-tools/34.0.0"
+apksigner() { PATH="$JAVA_HOME/bin:$PATH" "$BT/apksigner" "$@"; }
 STAGE=$(mktemp -d); trap 'rm -rf "$STAGE"' EXIT
 SAPK="$STAGE/$FILE"; cp "$APK" "$SAPK"; SOK="$STAGE/apk.ok"; cp "$APK.ok" "$SOK" 2>/dev/null || : > "$SOK"
 OKSUM="$(head -1 "$SOK" || true)"   # 1. Zeile = APK, danach die Quellen-Summen
 [[ "$OKSUM" =~ ^[0-9a-f]{64}$ ]] && [ "$(sha256sum "$SAPK" | cut -d' ' -f1)" = "$OKSUM" ] \
   || { echo "FEHLER: APK ohne bestandene Endkontrolle oder danach verändert – erst mobile/build-apk.sh"; exit 1; }
-CERT="$("$BT/apksigner" verify --print-certs "$SAPK" 2>/dev/null | grep -m1 'SHA-256 digest' | awk '{print $NF}' || true)"
+CERT="$(apksigner verify --print-certs "$SAPK" 2>/dev/null | grep -m1 'SHA-256 digest' | awk '{print $NF}' || true)"
 [ "$CERT" = "$CERT_HEX" ] || { echo "FEHLER: APK nicht mit dem Release-Zertifikat signiert (${CERT:-keins})"; exit 1; }
 BADGE="$("$BT/aapt" dump badging "$SAPK" 2>/dev/null || true)"
-grep -q "^package: name='${APP_ID}' versionCode='${CODE}' versionName='${NAME}'" <<<"$BADGE" \
+# feste Zeichenkette, nicht Regex — sonst passte jeder Punkt auf jedes Zeichen (Release-Audit R1 b-H4)
+grep -qF "package: name='${APP_ID}' versionCode='${CODE}' versionName='${NAME}'" <<<"$(head -1 <<<"$BADGE")" \
   || { echo "FEHLER: App-ID oder Version der APK passt nicht zu VERSION (${NAME}/${CODE})"; exit 1; }
 
 # An den Tag binden: Hash, Zertifikat und Version passen auch bei einer APK, die VOR den letzten Änderungen gebaut wurde.
-git rev-parse -q --verify "refs/tags/$TAG" >/dev/null || { echo "FEHLER: Tag $TAG fehlt lokal – erst git tag $TAG"; exit 1; }
-cmp -s VERSION <(git show "$TAG:VERSION") || { echo "FEHLER: VERSION im Arbeitsbaum ≠ $TAG"; exit 1; }
+# Der Tag wird EINMAL auf einen Commit festgelegt; alle Vergleiche nehmen $TC, und vor dem Upload muss er noch derselbe sein (Release-Audit R1 b-B5).
+TOBJ="$(git rev-parse -q --verify "refs/tags/$TAG" || true)"; TC="$(git rev-parse -q --verify "refs/tags/$TAG^{commit}" || true)"
+[ -n "$TOBJ" ] && [ -n "$TC" ] || { echo "FEHLER: Tag $TAG fehlt lokal – erst git tag $TAG"; exit 1; }
+tag_unveraendert() { [ "$(git rev-parse -q --verify "refs/tags/$TAG" || true)" = "$TOBJ" ] || { echo "FEHLER: Tag $TAG wurde während des Laufs versetzt"; exit 1; }; }
+cmp -s VERSION <(git show "$TC:VERSION") || { echo "FEHLER: VERSION im Arbeitsbaum ≠ $TAG"; exit 1; }
+# Die Prüfungen selbst müssen die des Tags sein — eine im Arbeitsbaum gekürzte Quellenliste ließe sonst eine abgeschwächte APK durch (R1 b-B4)
+for f in make-release.sh release-quellen.sh; do cmp -s "$f" <(git show "$TC:$f") || { echo "FEHLER: $f im Arbeitsbaum ≠ $TAG"; exit 1; }; done
 # (a) Quellen-Summen aus der .ok (Build-Skripte, Hülle, Engine) = Tag, genau die Quellenliste laut Tag
-quellen_an_tag "$SOK" 2 apk "$TAG" || exit 1
-# (b) Inhalt der APK selbst: die 1:1 kopierten Engine-Teile und index.html (Platzhalter und Android-CSP wie web/build.sh / mobile/build-www.sh)
-mkdir "$STAGE/apkx"; unzip -q "$SAPK" 'assets/public/*' -d "$STAGE/apkx"; W="$STAGE/apkx/assets/public"
-engine_inhalt "$W" "$TAG" || exit 1
-STAND="$(git log -1 --format=%cd --date=format:%d.%m.%Y "$TAG")"
-CSPRE='^  <meta http-equiv="Content-Security-Policy" content="[^"]*">$'
-[ "$(grep -c "$CSPRE" "$W/index.html" || true)" = 1 ] || { echo "FEHLER: index.html der APK hat nicht genau eine Android-CSP"; exit 1; }
-cmp -s <(sed "/$CSPRE/d" "$W/index.html") <(git show "$TAG:web/index.html" | sed -e "s/__APP_VERSION__/$NAME/" -e "s/__WEB_STAND__/$STAND/") \
-  || { echo "FEHLER: index.html in der APK ≠ $TAG – aus dem getaggten Stand neu bauen (mobile/build-apk.sh)"; exit 1; }
+quellen_an_tag "$SOK" 2 apk "$TC" || exit 1
+# (b) Inhalt der APK selbst: alles unter assets/ — Engine, Beispiel-ZIP, vendor/ (web/vendor.sha256), index.html samt CSP-Wert,
+#     Capacitor-Dateien (mobile/apk-assets.sha256), capacitor.config.json, exakte Dateimenge
+mkdir "$STAGE/apkx"; unzip -q "$SAPK" 'assets/*' -d "$STAGE/apkx"
+apk_inhalt "$STAGE/apkx" "$TC" || exit 1
 echo "APK an $TAG gebunden."
 
 # ── Release-Sperre: Desktop ──
@@ -97,13 +103,17 @@ for f in "$BUNDLE" SHA256SUMS SHA256SUMS.asc bundle.ok; do [ -f "$DREL/$f" ] || 
 DST="$STAGE/desktop"; mkdir -p "$DST"; for f in "$BUNDLE" SHA256SUMS SHA256SUMS.asc bundle.ok; do cp "$DREL/$f" "$DST/$f"; done
 [ "$(grep -c . "$DST/SHA256SUMS" || true)" = 1 ] && grep -qxF "$(sha256sum "$DST/$BUNDLE" | cut -d' ' -f1)  $BUNDLE" "$DST/SHA256SUMS" \
   || { echo "FEHLER: SHA256SUMS hat nicht genau eine Zeile für $BUNDLE"; exit 1; }
-gpg --verify "$DST/SHA256SUMS.asc" "$DST/SHA256SUMS" 2>&1 | grep -q '100F9E25BFAEA807DBC357D750C0D78583BFCB81' || { echo "FEHLER: Signatur fehlt/falsch (Release-Schlüssel)"; exit 1; }
+# Signatur nur mit dem Release-Schlüssel aus dem Tag (gpgv, eigener Schlüsselbund) und am Hauptschlüssel-Fingerabdruck der VALIDSIG-Zeile —
+# vorher reichte die Zeichenkette irgendwo in der Ausgabe, auch in der Benutzerkennung eines fremden Schlüssels (Release-Audit R1 b-B6)
+git show "$TC:alien-investor-release-key.asc" | gpg --batch --dearmor > "$STAGE/release-key.gpg" 2>/dev/null || { echo "FEHLER: Release-Schlüssel aus $TAG nicht lesbar"; exit 1; }
+GVS="$(gpgv --keyring "$STAGE/release-key.gpg" --status-fd 1 "$DST/SHA256SUMS.asc" "$DST/SHA256SUMS" 2>/dev/null || true)"
+grep -qE '^\[GNUPG:\] VALIDSIG [0-9A-F]+ .* 100F9E25BFAEA807DBC357D750C0D78583BFCB81$' <<<"$GVS" || { echo "FEHLER: Signatur fehlt/falsch (Release-Schlüssel)"; exit 1; }
 # Bundle an den Tag binden: bundle.ok (nicht hochgeladen) = Bundle-Hash, Electron-Pin, Quellen-Summen; Pin und Quellen müssen dem Tag entsprechen
 [ "$(head -1 "$DST/bundle.ok")" = "$(sha256sum "$DST/$BUNDLE" | cut -d' ' -f1)" ] || { echo "FEHLER: Bundle ≠ Prüfdatei bundle.ok – neu bauen (desktop/build-desktop.sh)"; exit 1; }
-TBS="$(git show "$TAG:desktop/build-desktop.sh")"
+TBS="$(git show "$TC:desktop/build-desktop.sh")"
 PIN="electron $(sed -n 's/^EL_VER="\([0-9.]*\)"$/\1/p' <<<"$TBS") $(sed -n 's/^EL_SHA="\([0-9a-f]\{64\}\)".*/\1/p' <<<"$TBS")"
 [ "$(sed -n 2p "$DST/bundle.ok")" = "$PIN" ] || { echo "FEHLER: Electron im Bundle ≠ Pin in $TAG ($PIN)"; exit 1; }
-quellen_an_tag "$DST/bundle.ok" 3 desktop "$TAG" || exit 1
+quellen_an_tag "$DST/bundle.ok" 3 desktop "$TC" || exit 1
 echo "Desktop-Bundle an $TAG gebunden (${PIN% *})."
 
 # Nur die Download-Seite neu schreiben und hochladen: ./make-release.sh --nur-seite — erst NACH der Release-Sperre,
@@ -114,24 +124,28 @@ if [ "${1:-}" = "--nur-seite" ]; then
   SRVSUM="$( { curl -sf "${DLURL}${FILE}" || echo "curl-fehler"; } | sha256sum | cut -d' ' -f1)"
   [ "$SRVSUM" = "$OKSUM" ] || { echo "FEHLER: APK auf dem Server ist nicht die geprüfte lokale (${SRVSUM:0:12}…)"; exit 1; }
   download_page "$STAGE/index.html"
-  rsync -a --no-o --no-g --chmod=F644 "$STAGE/index.html" "$DL"
+  rsync -a --no-o --no-g --chmod=F644 "$STAGE/index.html" "$DL" || { echo "FEHLER: Upload der Download-Seite gescheitert (ssh-add -l?)"; exit 1; }
   echo "=== Download-Seite: ${DLURL} (Link auf ${FILE}) ==="
   exit 0
 fi
 
 GH_REPO="$OWNER/$REPO"
 gh auth status >/dev/null 2>&1 || { echo "FEHLER: gh nicht angemeldet (gh auth login)"; exit 1; }
-RTAG="$(git ls-remote --exit-code https://github.com/$GH_REPO.git "refs/tags/$TAG" | cut -f1 || true)"
-[ -n "$RTAG" ] || { echo "FEHLER: Tag $TAG nicht auf GitHub – erst git push origin $TAG"; exit 1; }
-[ "$RTAG" = "$(git rev-parse "$TAG")" ] || { echo "FEHLER: Tag $TAG zeigt auf GitHub auf einen anderen Stand als lokal"; exit 1; }
+tag_github() {
+  RTAG="$(git ls-remote --exit-code https://github.com/$GH_REPO.git "refs/tags/$TAG" | cut -f1 || true)"
+  [ -n "$RTAG" ] || { echo "FEHLER: Tag $TAG nicht auf GitHub – erst git push origin $TAG"; exit 1; }
+  [ "$RTAG" = "$TOBJ" ] || { echo "FEHLER: Tag $TAG zeigt auf GitHub auf einen anderen Stand als lokal geprüft"; exit 1; }
+}
+tag_github
 
 # Release-Notes aus CHANGELOG.md des TAGS (Abschnitt der aktuellen Version), nicht aus dem Arbeitsbaum
-CHANGES=$(git show "$TAG:CHANGELOG.md" | awk -v v="v${NAME}" '$1=="##" && $2==v {f=1;next} f && $1=="##" {exit} f{print}')
+CHANGES=$(git show "$TC:CHANGELOG.md" | awk -v v="v${NAME}" '$1=="##" && $2==v {f=1;next} f && $1=="##" {exit} f{print}')
 [ -n "$CHANGES" ] || { echo "FEHLER: CHANGELOG.md in $TAG hat keinen Abschnitt „## v${NAME}“"; exit 1; }
-# Kein Platzhalter in den öffentlichen Release-Notes (wie Alien Notes v1.14): jede [eckige Klammer] (auch mehrzeilig, bis 300 Zeichen) und
-# TODO/TBD/FIXME/XXX stoppen den Lauf; Markdown-Links [Text](…) und Kästchen [ ]/[x] zählen nicht. rc 1 = kein Treffer; ein Treffer (0)
-# ODER ein grep-Fehler (2) stoppen. -z liest alles als einen Datensatz (mehrzeilig).
-PHRC=0; grep -qzP '\[(?![ xX]\])[^\]]{1,300}\](?!\()|\b(TODO|TBD|FIXME|XXX)\b' <<<"$CHANGES" || PHRC=$?
+# Kein Platzhalter in den öffentlichen Release-Notes (wie Alien Notes v1.14, erweitert R1 b-H3): jede [eckige Klammer] (auch mehrzeilig, bis
+# 300 Zeichen), {geschweifte Klammer}, ???, XX/XXX (auch in „XX.10.2026“), vX.Y und TODO/TBD/FIXME in jeder Schreibweise stoppen den Lauf;
+# Markdown-Links [Text](…) und Kästchen [ ]/[x] zählen nicht. rc 1 = kein Treffer; ein Treffer (0) ODER ein grep-Fehler (2) stoppen.
+# -z liest alles als einen Datensatz (mehrzeilig).
+PHRC=0; grep -qzP '\[(?![ xX]\])[^\]]{1,300}\](?!\()|\{[^}]{1,80}\}|\?\?\?|\bX{2,}\b|\bvX\.Y\b|(?i)\b(TODO|TBD|FIXME)\b' <<<"$CHANGES" || PHRC=$?
 [ "$PHRC" = 1 ] || { echo "FEHLER: Platzhalter im CHANGELOG-Abschnitt v${NAME} (oder Prüfung gescheitert, rc=$PHRC) – erst auflösen"; exit 1; }
 BODY="## BTC Steuertool ${TAG}
 ${CHANGES}
@@ -163,10 +177,12 @@ Update: \`flatpak uninstall --user org.alieninvestor.steuertool\` (die App speic
 Kein Netz, keine Cloud, keine Telemetrie. Keine Steuerberatung — die Reports sind eine Rechenhilfe, die Verantwortung für die Erklärung bleibt bei dir."
 
 if [ "${1:-}" = "--pruefen" ]; then
-  printf '%s\n' "$BODY" > "$STAGE/notes.md"
-  echo "=== Release-Sperre bestanden: $FILE ($OKSUM), $BUNDLE, Tag $TAG = GitHub. Nichts hochgeladen. ==="
+  printf '%s\n\n' "----- Release-Notiz (so ginge sie raus) -----" "$BODY"   # Release-Audit R1 b-H6
+  echo "=== Release-Sperre bestanden: $FILE ($OKSUM), $BUNDLE, Tag $TAG ($TC) = GitHub. Nichts hochgeladen. ==="
   exit 0
 fi
+# Unmittelbar vor dem ersten Upload: Tag lokal und auf GitHub noch genau der geprüfte (R1 b-B5)
+tag_unveraendert; tag_github
 
 # GitHub (Spiegel): die geprüften Kopien. ./make-release.sh --nur-server: GitHub-Release steht schon, nur die Server-Downloads nachholen —
 # mit allen Prüfungen oben; das GitHub-Release muss es geben und dieselben Dateien tragen
@@ -174,7 +190,9 @@ if [ "${1:-}" != "--nur-server" ]; then
   echo "=> GitHub: erstelle Release $TAG ..."
   printf '%s\n' "$BODY" > "$STAGE/notes.md"
   gh release create "$TAG" -R "$GH_REPO" --verify-tag --latest --title "BTC Steuertool $TAG" --notes-file "$STAGE/notes.md" \
-    "$SAPK" "$DST/$BUNDLE" "$DST/SHA256SUMS" "$DST/SHA256SUMS.asc"
+    "$SAPK" "$DST/$BUNDLE" "$DST/SHA256SUMS" "$DST/SHA256SUMS.asc" \
+    || { echo "FEHLER: GitHub-Release $TAG gescheitert (R1 b-H7) – auf GitHub nachsehen: ein halbes Release/Entwurf von Hand löschen"
+         echo "         (gh release delete $TAG -R $GH_REPO), dann ./make-release.sh erneut. Server unverändert."; exit 1; }
   echo "=== GitHub fertig: https://github.com/$GH_REPO/releases/tag/$TAG ==="
 else
   gh release download "$TAG" -R "$GH_REPO" -p "$FILE" -D "$STAGE/gh" >/dev/null 2>&1 || { echo "FEHLER: GitHub-Release $TAG oder dessen APK fehlt – erst den vollen Weg"; exit 1; }

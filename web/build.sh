@@ -16,6 +16,11 @@ grep -q "__APP_VERSION__\|__WEB_STAND__" dist/index.html && { echo "FEHLER: Vers
 cp worker.js dist/        # Pyodide-Worker (gleich-origin, kein blob: → keine CSP-Änderung)
 cp -rL ../src dist/src
 cp -rL ../examples dist/examples
+# web/vendor/ ist nicht versioniert: gebaut wird nur mit genau den Dateien aus web/vendor.sha256 (v1.5, Release-Audit R1 b-B1)
+[ -f vendor.sha256 ] && [ -z "$(find vendor -type l)" ] || { echo "FEHLER: web/vendor.sha256 fehlt oder Symlink in web/vendor/" >&2; exit 1; }
+[ "$(cd vendor && find . -type f | sed 's#^\./##' | LC_ALL=C sort)" = "$(awk '{print $2}' vendor.sha256 | LC_ALL=C sort)" ] \
+  || { echo "FEHLER: web/vendor/ hat andere Dateien als web/vendor.sha256 — web/vendor-setup.sh" >&2; exit 1; }
+(cd vendor && sha256sum -c --strict --quiet ../vendor.sha256) || { echo "FEHLER: web/vendor/ weicht von web/vendor.sha256 ab — web/vendor-setup.sh" >&2; exit 1; }
 cp -r vendor dist/vendor
 
 # Aufräumen: Python-Caches und generierte Beispiel-Reports gehören nicht ins Deployment
@@ -23,7 +28,7 @@ find dist -name __pycache__ -type d -prune -exec rm -rf {} +
 rm -rf dist/examples/reports
 
 # Beispieldaten als ZIP (Drag&Drop-Weg zum Ausprobieren)
-python3 - <<'PY'
+python3 -I - <<'PY'   # -I: kein Modul aus dem Arbeitsordner (Release-Audit R1 b-B1)
 import zipfile, pathlib
 files = [
     "examples/bitbox/wallet1.csv", "examples/bitbox/nokyc/nokyc_wallet.csv",

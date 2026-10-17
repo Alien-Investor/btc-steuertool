@@ -158,8 +158,11 @@ nach bestandener Endkontrolle (`mobile/build/release/*.apk.ok`, `desktop/build/r
 Dateien laut Tag), APK-Inhalt (Engine, Beispiel-ZIP je Eintrag, `index.html`) = Tag, GitHub-Tag = lokal, Release-Notiz aus dem Tag ohne Platzhalter.
 Darum **erst committen, dann aus genau diesem Stand bauen, der Tag kommt auf diesen Commit**; jede Änderung an einer Quelle danach = neu bauen
 (ein Commit nur an `CHANGELOG.md`/Doku nicht, sofern am selben Tag — `index.html` trägt das Datum des letzten Commits). `./make-release.sh --pruefen` fährt die
-Sperre ohne Upload. Neue Quelle, die in APK/Bundle eingeht (Skript, Hülle): in `release-quellen.sh` eintragen. Trockenproben (Wegwerf-Klon, Netz
-gestubbt, 38 Szenarien): `bash ~/security-audit-skill/btc-steuertool-public/run-2/sperre/alle.sh`.
+Sperre ohne Upload. Neue Quelle, die in APK/Bundle eingeht (Skript, Hülle): in `release-quellen.sh` eintragen. Nicht versionierte Eingänge
+sind über Listen gebunden: `web/vendor.sha256` (schreibt `vendor-setup.sh`, prüft `web/build.sh`; Änderung nur bewusst committen),
+`mobile/apk-assets.sha256` (Capacitor-Dateien der APK, Soll aus dem npm-Tarball 6.2.2). Release-Builds sind frisch: `npm ci` in `mobile/` und
+`desktop/`, `mobile/android/` wird jedes Mal neu erzeugt, `capacitor.config.ts/.js` bricht ab. Die Signatur prüft `gpgv` mit dem Schlüssel aus dem
+Tag (VALIDSIG-Hauptschlüssel). Trockenproben (Wegwerf-Klon, Netz gestubbt): `bash ~/security-audit-skill/btc-steuertool-public/run-2/sperre/alle.sh`.
 **Web-Version immer mit ausrollen** (Web, Flatpak und APK zeigen denselben Stand): `web/build.sh`, dann
 `rsync -a --chmod=D755,F644 web/dist/ root@api.alien-investor.org:/var/www/alien-investor/html/steuertool/` (vorher `-an --itemize-changes`),
 danach `cmp` der Live-Dateien gegen `web/dist`. Auch nach reinen Engine- oder GUI-Fixes ohne App-Release.

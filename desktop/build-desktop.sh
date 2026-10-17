@@ -20,13 +20,20 @@ fi
 echo "$EL_SHA  $ZIP" | sha256sum -c --quiet - || { echo "FEHLER: Hash des Electron-Archivs weicht ab — Build abgebrochen!"; exit 1; }
 echo "Electron $EL_VER: Hash OK."
 
-[ -d node_modules/@electron/asar ] && [ -d node_modules/@electron/fuses ] || { echo "FEHLER: erst 'npm ci' in desktop/"; exit 1; }
+# Build-Werkzeuge (asar, fuses) immer frisch aus dem Lock — npm prüft die Integrity jedes Pakets (Release-Audit v1.5 R1 a-A5)
+npm ci --ignore-scripts --no-audit --no-fund
 [ -f ../web/vendor/pyodide/pyodide.asm.wasm ] || { echo "FEHLER: erst web/vendor-setup.sh (Pyodide fehlt)" >&2; exit 1; }
 
 # Prüfsummen der Quellen, aus denen das Bundle entsteht, VOR dem Bau (Liste: release-quellen.sh): make-release.sh vergleicht sie mit dem Tag —
 # ein veraltetes oder aus einem anderen Stand gebautes Bundle geht so nicht neben der richtigen APK raus. Ändert sich etwas während des Baus: Abbruch.
 source ../release-quellen.sh
 DESK_SUMS0="$(cd .. && quellen_summen desktop)" || { echo "FEHLER: Quellenliste unvollständig (release-quellen.sh)" >&2; exit 1; }
+# Jede Datei, die das Flatpak-Manifest einbindet (path:), muss in der Quellenliste stehen — icon.svg fehlte (Release-Audit R1 a-A2/b-B2)
+while read -r mp; do
+  [ "$mp" = ../build/electron ] && continue
+  rel="$(realpath -m --relative-to=.. "flatpak/$mp")"
+  (cd .. && feste_quellen desktop) | grep -qxF "$rel" || { echo "FEHLER: $rel (Manifest) fehlt in release-quellen.sh" >&2; exit 1; }
+done < <(sed -n 's/^ *path: *//p' flatpak/$APP_ID.yml)
 # Eigener Befehl, nicht links von && — sonst greift set -e nicht und ein Fehler würde still übergangen (Alien Pass Audit run-6 #6)
 ../web/build.sh || { echo "FEHLER: web/build.sh fehlgeschlagen — Build abgebrochen!" >&2; exit 1; }
 VNAME=$(grep '^VERSION_NAME=' ../VERSION | cut -d= -f2 | tr -d '[:space:]')
@@ -41,9 +48,16 @@ unzip -q "$ZIP" -d build/electron
 rm -f build/electron/chrome-sandbox build/electron/resources/default_app.asar   # Sandbox kommt im Flatpak über zypak
 cp main.js preload.js atomic.js icon.png build/app/
 cp -r ../web/dist build/app/www
-# Inhalt = Quellen: ein paralleler web/build.sh (zweite Session) könnte sonst ein halbes dist/ ins Bundle bringen
-diff -rq ../web/dist build/app/www >/dev/null || { echo "FEHLER: www/ im Bundle ≠ web/dist — neu bauen!" >&2; exit 1; }
-(cd .. && engine_inhalt desktop/build/app/www .) || { echo "FEHLER: Engine im Bundle ≠ Quelle — neu bauen!" >&2; exit 1; }
+# Inhalt = Quellen VOR dem Bau (Release-Audit R1 a-A3): ändert eine zweite Sitzung Quellen, baut neu und stellt zurück, passt der Arbeitsbaum
+# am Ende wieder — die Kopien im Bundle nicht. Darum jede Kopie gegen DESK_SUMS0: Hülle, www (Engine, vendor, index.html), Dateimenge.
+printf '%s\n' "$DESK_SUMS0" > build/quellen.sum
+for f in main.js preload.js atomic.js icon.png; do
+  [ "$(_hash "build/app/$f")" = "$(cd .. && _summe @desktop/build/quellen.sum "desktop/$f")" ] || { echo "FEHLER: $f im Bundle ≠ Quelle vor dem Bau — neu bauen!" >&2; exit 1; }
+done
+(cd .. && engine_inhalt desktop/build/app/www @desktop/build/quellen.sum && vendor_inhalt desktop/build/app/www/vendor @desktop/build/quellen.sum \
+  && index_inhalt desktop/build/app/www/index.html @desktop/build/quellen.sum web) || { echo "FEHLER: www/ im Bundle ≠ Quellen vor dem Bau — neu bauen!" >&2; exit 1; }
+[ "$(cd build/app/www && find . -type f -o -type l | sed 's#^\./##' | LC_ALL=C sort)" = "$(cd .. && web_soll @desktop/build/quellen.sum)" ] \
+  || { echo "FEHLER: www/ im Bundle hat andere Dateien als vorgesehen — neu bauen!" >&2; exit 1; }
 printf '{"name":"btc-steuertool","productName":"BTC Steuertool","version":"%s","main":"main.js","private":true}\n' "$VNAME" > build/app/package.json
 node pack.mjs build/app build/electron
 
