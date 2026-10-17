@@ -117,8 +117,9 @@ Regeln:
   Leck-Tests `tests/test_diagnose.py` + `web/test_audit.py`. „Log speichern“ = volles Log, nur intern.
 - Tests: `python3 -m http.server 8741 --directory web/dist` + `python3 web/test_gui.py`
   (Referenz: CLI `--all --nachweis --csv --data-dir` auf eine examples-Kopie unter
-  `/tmp/poc-ref/examples`, Reports müssen byte-gleich sein) + `python3 web/test_lang.py` + `python3 web/test_audit.py`.
-  Playwright-Chromium: `python3 -m playwright install chromium`.
+  `$STEUERTOOL_TEST_TMP/poc-ref/examples`, Reports müssen byte-gleich sein) + `python3 web/test_lang.py` + `python3 web/test_audit.py`.
+  `STEUERTOOL_TEST_TMP` (Standard `/tmp`) aufs Sitzungs-Scratchpad setzen — der Wächter sperrt Schreiben unter `/tmp/poc-ref`.
+  Playwright-Chromium: `python3 -m playwright install chromium` (nach geleertem `~/.cache` erneut).
 
 ---
 

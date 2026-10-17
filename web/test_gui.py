@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """End-to-End-Test der GUI: lädt die Beispiel-CSVs über den echten File-Input,
 prüft die automatische Broker-Erkennung und vergleicht die Reports mit der
-CLI-Referenz unter /tmp/poc-ref/examples/reports/."""
+CLI-Referenz unter $STEUERTOOL_TEST_TMP/poc-ref/examples/reports/ (Standard /tmp)."""
+import os
 import sys
 from pathlib import Path
 
@@ -9,8 +10,9 @@ from playwright.sync_api import sync_playwright
 
 BASE = Path(__file__).parent
 EXAMPLES = (BASE.parent / "examples").resolve()
-REF_DIR = Path("/tmp/poc-ref/examples/reports")
-OUT_DIR = Path("/tmp/gui-browser-reports")
+TMP = Path(os.environ.get("STEUERTOOL_TEST_TMP", "/tmp"))
+REF_DIR = TMP / "poc-ref/examples/reports"
+OUT_DIR = TMP / "gui-browser-reports"
 OUT_DIR.mkdir(exist_ok=True)
 
 UPLOAD_FILES = [
@@ -117,7 +119,7 @@ with sync_playwright() as p:
     if "Bitcoin" not in visible_text and "KÄUFE" not in visible_text:
         failures.append("Report-Ansicht leer nach Tab-Wechsel")
 
-    page.screenshot(path="/tmp/gui-screenshot.png", full_page=True)
+    page.screenshot(path=str(TMP / "gui-screenshot.png"), full_page=True)
 
     # 6) Erkennung ohne Rechnen: englischer Bisq-Export (Fixture) und eine CSV mit BOM
     print("\nErkennung Sonderfälle (nur Sniffing):")

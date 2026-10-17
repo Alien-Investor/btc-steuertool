@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Test des DE/EN-Toggles: ?lang-Param, Toggle-Button, Beispieldaten-Lauf, Tab-Labels."""
+import os
 import sys
 from playwright.sync_api import sync_playwright
 
@@ -90,7 +91,7 @@ with sync_playwright() as p:
     check("Jahres-Tabs noch da", len(page.eval_on_selector_all("#year-tabs .tab-btn", "els => els")) == n_years and n_years >= 3)
     check("Report-Ansicht nicht leer", len(page.inner_text("#report-view")) > 100)
 
-    page.screenshot(path="/tmp/gui-en-screenshot.png", full_page=True)
+    page.screenshot(path=os.path.join(os.environ.get("STEUERTOOL_TEST_TMP", "/tmp"), "gui-en-screenshot.png"), full_page=True)
     browser.close()
 
 print()
