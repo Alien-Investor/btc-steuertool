@@ -10,10 +10,10 @@ from playwright.sync_api import sync_playwright
 
 BASE = Path(__file__).parent
 EXAMPLES = (BASE.parent / "examples").resolve()
-TMP = Path(os.environ.get("STEUERTOOL_TEST_TMP", "/tmp"))
+TMP = Path(os.environ.get("STEUERTOOL_TEST_TMP") or "/tmp").expanduser()   # leer → /tmp (sonst landeten Reports im Arbeitsverzeichnis)
 REF_DIR = TMP / "poc-ref/examples/reports"
 OUT_DIR = TMP / "gui-browser-reports"
-OUT_DIR.mkdir(exist_ok=True)
+OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 UPLOAD_FILES = [
     EXAMPLES / "bitbox/wallet1.csv",

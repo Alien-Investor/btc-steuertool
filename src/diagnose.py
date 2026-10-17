@@ -247,7 +247,8 @@ def build(info: dict) -> str:
     platform = info.get("platform") if info.get("platform") in ("Web", "Desktop", "Android") else "?"
     lang = info.get("lang") if info.get("lang") in ("de", "en") else "?"
     version = str(info.get("version") or "")
-    if not re.fullmatch(r"v\d+(?:\.\d+){1,2}|vdev|Stand \d{2}\.\d{2}\.\d{4}|Stand dev", version):
+    # [0-9] statt \d: \d trifft auch Unicode-Ziffern (Release-Audit v1.5 R1 c H7)
+    if not re.fullmatch(r"v[0-9]+(?:\.[0-9]+){1,2}|vdev|Stand [0-9]{2}\.[0-9]{2}\.[0-9]{4}|Stand dev", version):
         version = "?"
     out.append(f"Plattform: {platform} · Version: {version} · Sprache: {lang}")
     files = info.get("files", [])

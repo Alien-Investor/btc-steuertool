@@ -201,32 +201,64 @@ with sync_playwright() as p:
     browser.close()
 
     print("Querfund Alien Pass v1.20: Neon-Scrollbalken nur bei Maus/Trackpad, Touch behält den System-Balken")
+    # Zur Laufzeit erzeugtes CSS entginge der CSSOM-Prüfung nach dem Laden (Release-Audit v1.5 R1 c H1) — es gibt keins und soll keins geben
+    page_src = (Path(__file__).parent / "index.html").read_text(encoding="utf-8")
+    check(not re.search(r"createElement\(\s*['\"]style|insertRule|adoptedStyleSheets|new CSSStyleSheet", page_src),
+          "kein zur Laufzeit erzeugtes CSS in index.html")
     # Headless blendet Balken per --hide-scrollbars aus (Breite dann immer 0) — für die Messung abschalten
     sb = p.chromium.launch(ignore_default_args=["--hide-scrollbars"])
-    BAR = """() => { document.getElementById('help-btn').click();
+    # Balkenbreite = offsetWidth − clientWidth ohne Rahmen (das Bug-Menü hat 1 px Rahmen)
+    BAR = """el => { const cs = getComputedStyle(el);
+      return el.offsetWidth - el.clientWidth - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth); }"""
+    HELP = """() => { document.getElementById('help-btn').click();
       const ov = document.getElementById('help-overlay');
       return {mq: matchMedia('(hover:hover) and (pointer:fine)').matches, open: !ov.classList.contains('hidden'),
-              tall: ov.scrollHeight > ov.clientHeight, bar: ov.offsetWidth - ov.clientWidth}; }"""
+              tall: ov.scrollHeight > ov.clientHeight, bar: (%s)(ov)}; }""" % BAR
+    MENU = """() => { const m = document.getElementById('bug-menu');
+      return {open: !m.classList.contains('hidden'), tall: m.scrollHeight > m.clientHeight, bar: (%s)(m),
+              quer: m.scrollWidth - m.clientWidth}; }""" % BAR
+    # Bedingung exakt (verankert): eine erweiterte Liste wie „…, (min-resolution: 2dppx)“ träfe sonst auch Handys (R1 c N1)
     CSSOM = r"""() => { const all = rs => [...rs].flatMap(r => r.cssRules ? [r, ...all(r.cssRules)] : [r]);
       const rules = [...document.styleSheets].flatMap(s => { try { return all(s.cssRules); } catch (_) { return []; } })
         .filter(r => /::-webkit-scrollbar/.test(r.selectorText || ''));
       return {n: rules.length, bedingt: rules.filter(r => r.parentRule
-        && /\(hover: ?hover\) and \(pointer: ?fine\)/.test(r.parentRule.conditionText || '')).length}; }"""
+        && /^\(hover: ?hover\) and \(pointer: ?fine\)$/.test(r.parentRule.conditionText || '')).length}; }"""
+
+    def open_menu(pg, url):
+        pg.goto(url)
+        pg.click("#bug-link")
+        pg.click("#bug-pick-btn")
+        return pg.evaluate(MENU)
+
+    # Handy-Profil mit echter Pixeldichte: Playwright setzt sonst DPR 1, echte Geräte haben 2,6–3 (R1 c N1)
     for name, opts, want in [("Desktop (Maus)", {"viewport": {"width": 1280, "height": 800}}, 10),
-                             ("Mobil-Emulation (Touch)", {"viewport": {"width": 360, "height": 740},
-                                                          "is_mobile": True, "has_touch": True}, 0)]:
+                             ("Mobil-Emulation (Touch, DPR 1)", {"viewport": {"width": 360, "height": 740},
+                                                                 "is_mobile": True, "has_touch": True}, 0),
+                             ("Handy-Profil (Touch, DPR 2.625)", {"viewport": {"width": 412, "height": 915}, "device_scale_factor": 2.625,
+                                                                  "is_mobile": True, "has_touch": True}, 0)]:
         ctx = sb.new_context(**opts)
         pg = ctx.new_page()
         pg.goto(URL)
         if want:
             c = pg.evaluate(CSSOM)
             check(c["n"] >= 6 and c["bedingt"] == c["n"],
-                  f"alle {c['n']} ::-webkit-scrollbar-Regeln nur unter (hover:hover) and (pointer:fine) ({c['bedingt']} bedingt)")
-        r = pg.evaluate(BAR)
+                  f"alle {c['n']} ::-webkit-scrollbar-Regeln nur unter genau (hover:hover) and (pointer:fine) ({c['bedingt']} bedingt)")
+        r = pg.evaluate(HELP)
         check(r["open"] and r["tall"], f"{name}: Handbuch offen und scrollbar")
         check(r["mq"] == bool(want), f"{name}: Medienbedingung {'trifft zu' if want else 'greift nicht'}")
         check(r["bar"] == want, f"{name}: Balken im Handbuch {r['bar']} px, erwartet {want}")
+        m = open_menu(pg, URL)
+        check(m["open"] and m["tall"], f"{name}: Bug-Menü offen und scrollbar")
+        check(m["bar"] == want, f"{name}: Balken im Bug-Menü {m['bar']} px, erwartet {want}")
         ctx.close()
+
+    print("Release-Audit v1.5 R1 c N2: Bug-Menü läuft bei 360 px nicht seitlich über (DE/EN)")
+    ctx = sb.new_context(viewport={"width": 360, "height": 740}, is_mobile=True, has_touch=True)
+    pg = ctx.new_page()
+    for url in (URL, URL.replace("lang=de", "lang=en")):
+        m = open_menu(pg, url)
+        check(m["open"] and m["quer"] <= 0, f"{url[-7:]}: kein seitlicher Überlauf ({m['quer']} px)")
+    ctx.close()
     sb.close()
 
 if failures:

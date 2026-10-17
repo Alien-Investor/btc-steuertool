@@ -91,7 +91,7 @@ with sync_playwright() as p:
     check("Jahres-Tabs noch da", len(page.eval_on_selector_all("#year-tabs .tab-btn", "els => els")) == n_years and n_years >= 3)
     check("Report-Ansicht nicht leer", len(page.inner_text("#report-view")) > 100)
 
-    page.screenshot(path=os.path.join(os.environ.get("STEUERTOOL_TEST_TMP", "/tmp"), "gui-en-screenshot.png"), full_page=True)
+    page.screenshot(path=os.path.join(os.path.expanduser(os.environ.get("STEUERTOOL_TEST_TMP") or "/tmp"), "gui-en-screenshot.png"), full_page=True)
     browser.close()
 
 print()

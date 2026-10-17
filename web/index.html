@@ -1984,7 +1984,10 @@ _result
         const lab = document.createElement('label'); lab.className = 'bug-opt';
         const cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = ty; cb.checked = picked.includes(ty);
         cb.addEventListener('change', updateBugPick);
-        lab.append(cb, document.createTextNode(typeLabel(ty)));
+        // Umbruch nach jedem „/“ erlaubt: „Sparrow/Electrum/Trezor/Ledger (KYC)“ lief bei 360 px 24 px seitlich über (Release-Audit v1.5 R1 c N2)
+        const txt = document.createElement('span');
+        typeLabel(ty).split('/').forEach((part, i) => { if (i) txt.append('/', document.createElement('wbr')); txt.append(part); });
+        lab.append(cb, txt);
         menu.append(lab);
       }
       updateBugPick();

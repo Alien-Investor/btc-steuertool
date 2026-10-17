@@ -247,6 +247,9 @@ class AuditRound5(unittest.TestCase):
         self.assertIn("Version: v1.4 ·", diagnose.build({**base, "version": "v1.4"}))
         self.assertIn("Version: Stand 03.10.2026 ·", diagnose.build({**base, "version": "Stand 03.10.2026"}))
         self.assertIn("Version: ? ·", diagnose.build({**base, "version": "Erbe Oma 1.4"}))
+        # Nur ASCII-Ziffern: \d trifft in Python auch Vollbreiten- und andere Unicode-Ziffern (Release-Audit v1.5 R1 c H7)
+        for odd in ("v\uff11.\uff15", "v1.\u0665", "Stand \uff10\uff13.10.2026"):
+            self.assertIn("Version: ? ·", diagnose.build({**base, "version": odd}), odd)
 
     def test_21bitcoin_stays_readable(self):
         self.assertIn("21bitcoin", diagnose.redact("21bitcoin: 2 Transaktion(en) übersprungen"))
