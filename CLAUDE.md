@@ -150,6 +150,8 @@ Brücke nur `SaveFile` (Android-Speichern-Dialog), Weiche `DROID` in `web/index.
 
 **Stand:** v1.5 (Pflege-Release, Electron 44.7.2, 17.10.2026) auf Download-Seite, GitHub, Zap Store und Web. Nächster Desktop-Neubau gemeinsam
 mit Alien Pass, Alien Notes und Sachwert-Tresor auf eine neuere 44.x (Entscheidung Nutzer 17.10.2026, im Security-Monitor vorgemerkt; Pflegetermin 2027-03-17).
+**Vorgemerkt:** Härtungen aus dem Release-Audit von Alien Pass v1.23 (18.10.2026) für Release-Skripte und Build-Prüfungen — Liste lokal unter
+`~/security-audit-skill/btc-steuertool-public/QUERFUNDE-OFFEN.md` (nicht im Repo); vor dem nächsten Release bzw. dem gemeinsamen Neubau messen und übernehmen.
 
 Skill `app-release` (Abschnitt „Besonderheiten BTC Steuertool“). Kurz: Tests + Gerätetest mit großem Datensatz → `CHANGELOG.md` →
 Commit/Push → `desktop/build-desktop.sh`, `mobile/build-apk.sh` → Nutzer signiert `SHA256SUMS` → Tag pushen → `./make-release.sh`
