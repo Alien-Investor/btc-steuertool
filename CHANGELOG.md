@@ -3,6 +3,11 @@
 Das CLI und die Web-Version haben keine eigenen Versionen; sie laufen immer auf dem Stand von `main`.
 Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die denselben Rechenkern enthalten.
 
+## Nächstes Release (in Web seit 2026-10-24)
+- **Bug-Report auf kleinen Handys:** Der Dialog lässt sich jetzt scrollen. Auf Bildschirmen unter etwa 800 px Höhe (z. B. Galaxy A5)
+  waren Titel, Schließen-Kreuz und der Knopf „Senden“ vorher abgeschnitten und nicht erreichbar.
+- **Eigenes Käfer-Symbol** vor „Bug melden“ statt des System-Emojis 🐛, damit es auf jedem Gerät gleich aussieht.
+
 ## v1.5 — 2026-10-17
 - **Desktop: Browser-Engine aktualisiert** (Electron 44.5.1 → 44.7.2 mit Chromium 152.0.7977.149). Die neue Fassung bringt aus
   Chromium und seinen Bausteinen (u. a. V8, ANGLE, Skia, PDFium, WebRTC) übernommene Fehlerkorrekturen mit. Die App hat weiterhin

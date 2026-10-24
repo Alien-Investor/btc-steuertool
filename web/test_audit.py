@@ -265,6 +265,20 @@ with sync_playwright() as p:
         check(m["open"] and m["quer"] <= 0 and m["abgeschnitten"] == 0,
               f"{url[-7:]}: kein seitlicher Überlauf ({m['quer']} px), kein Name abgeschnitten ({m['abgeschnitten']})")
     ctx.close()
+
+    print("Bug-Dialog bei 360×640 (z. B. Galaxy A5): Titel und Senden-Knopf per Scrollen erreichbar (DE/EN)")
+    ctx = sb.new_context(viewport={"width": 360, "height": 640}, is_mobile=True, has_touch=True)
+    pg = ctx.new_page()
+    for url in (URL, URL.replace("lang=de", "lang=en")):
+        pg.goto(url)
+        pg.wait_for_timeout(500)
+        pg.evaluate("openBugReport()")
+        r = pg.evaluate("""() => { const o = document.getElementById('bug-overlay');
+            o.scrollTop = 0; const t = document.getElementById('bug-title').getBoundingClientRect().top;
+            o.scrollTop = o.scrollHeight; const s = document.getElementById('bug-send').getBoundingClientRect().bottom;
+            return { t, s, h: innerHeight }; }""")
+        check(r["t"] >= 0 and r["s"] <= r["h"], f"{url[-7:]}: Titel oben bei {r['t']:.0f} px, Senden unten bei {r['s']:.0f} von {r['h']} px")
+    ctx.close()
     sb.close()
 
 if failures:

@@ -249,12 +249,17 @@
     .report-actions { display:flex; gap:10px; flex-wrap:wrap; margin:12px 0 4px; }
 
     /* ── BUG REPORT (Muster alien-analyzer-v2) ── */
+    /* Käfer vor „Bug melden“ als data:-Maske statt 🐛 (System-Emojis sehen je Gerät anders aus; Kit app-design .sym-bug) */
+    .sym-bug::before { content:''; display:inline-block; width:1em; height:1em; margin-right:.4em; vertical-align:-.15em;
+      background:currentColor; -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7.5 14.5a4.5 5.5 0 1 0 9 0a4.5 5.5 0 1 0-9 0zM9.7 6.8a2.3 2.3 0 1 0 4.6 0a2.3 2.3 0 1 0-4.6 0zM12 9.5V20M7.5 12H4M7.5 15.5H3.5M8.2 18.6l-2.4 2M16.5 12H20M16.5 15.5h4M15.8 18.6l2.4 2M10.7 4.9 9.4 2.8M13.3 4.9l1.3-2.1'/%3E%3C/svg%3E") center/contain no-repeat; mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7.5 14.5a4.5 5.5 0 1 0 9 0a4.5 5.5 0 1 0-9 0zM9.7 6.8a2.3 2.3 0 1 0 4.6 0a2.3 2.3 0 1 0-4.6 0zM12 9.5V20M7.5 12H4M7.5 15.5H3.5M8.2 18.6l-2.4 2M16.5 12H20M16.5 15.5h4M15.8 18.6l2.4 2M10.7 4.9 9.4 2.8M13.3 4.9l1.3-2.1'/%3E%3C/svg%3E") center/contain no-repeat; }
     .api-overlay {
       position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:1000;
-      display:flex; align-items:center; justify-content:center; padding:20px;
+      display:flex; align-items:flex-start; justify-content:center; padding:20px;
+      /* höher als der Bildschirm (Bug-Dialog 759 px, Galaxy A5 640 px): Overlay scrollt, margin:auto zentriert nur wenn Platz ist */
+      overflow-y:auto; overscroll-behavior:contain;
     }
     .api-dialog {
-      max-width:480px; width:100%; padding:30px;
+      max-width:480px; width:100%; padding:30px; margin:auto 0;
       background:var(--card-bg); border:1px solid var(--neon-mid);
     }
     .api-dialog-title { font-family:'Orbitron',sans-serif; font-size:.9rem; font-weight:700; color:var(--neon); letter-spacing:3px; margin-bottom:8px; }
@@ -367,7 +372,7 @@
   <div id="bug-overlay" class="api-overlay hidden">
     <div class="api-dialog card">
       <button style="position:absolute;top:10px;right:12px;background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:.7rem;font-family:'Share Tech Mono',monospace;letter-spacing:1px;" onclick="closeBugReport()" title="Schließen">✕</button>
-      <div class="api-dialog-title" id="bug-title">🐛 Bug melden</div>
+      <div class="api-dialog-title sym-bug" id="bug-title">Bug melden</div>
       <div class="api-dialog-intro" id="bug-subtext">Wird als E-Mail an kontakt@alien-investor.org gesendet.</div>
       <div class="api-field">
         <label class="api-label" for="bug-pick-btn" id="bug-label-broker">Broker / Dateityp</label>
@@ -456,7 +461,7 @@
         <p><strong>Überträge zwischen meinen Wallets und ihre Gebühren?</strong><br>Der übertragene Bestand bleibt steuerneutral und behält sein Kaufdatum (siehe „Mehrere Wallets“). Die Netzwerk- oder Auszahlungsgebühr in Bitcoin bucht die App als kleine Veräußerung des Gebührenanteils: Die Gebühr ist ein Tausch gegen eine Dienstleistung (abgeleitet aus dem BMF-Schreiben vom 06.03.2025, Rn. 33, 54, 60). FiFo-Zuordnung, Bewertung zum Tagesschlusskurs (Rn. 91), eigener Abschnitt „GEBÜHREN IN BITCOIN“ im Report.</p>
         <p><strong>Bitcoin verschenkt oder gespendet?</strong><br>Trag in der BitBoxApp vor dem Export ein Wort wie „Spende“, „Geschenk“ oder „Schenkung“ in die Notiz der Transaktion ein. Die App bucht die Zeile dann als unentgeltliche Übertragung: kein Verkauf, kein Gewinn, aber ein Abgang aus dem Bestand. Der Report nennt je Lot Kaufdatum und Einstand, weil dem Empfänger die Anschaffung zugerechnet wird (§ 23 Abs. 1 Satz 3 EStG). Eine dabei gezahlte Netzwerkgebühr bleibt eine kleine Veräußerung (siehe oben). Notizen mit „Gutschein“ oder „Gift Card“ und verneinte Formen wie „kein Geschenk“ wertet die App nicht als Schenkung.</p>
         <p><strong>Mein Broker fehlt?</strong><br>Käufe in <code>manual_buys.csv</code> eintragen (<code>date,btc_amount,eur_amount,note,kyc,wallet</code>; bei KYC-Brokern wie Coinbase die Spalte <code>kyc</code> auf <code>ja</code>; <code>wallet</code> optional: die eigene Wallet, an die geliefert wurde). Und die CSV-Kopfzeile ohne echte Daten an <a href="mailto:kontakt@alien-investor.org">kontakt@alien-investor.org</a> schicken. Neue Parser kommen mit einem Update.</p>
-        <p><strong>Etwas klappt nicht?</strong><br>„🐛 Bug melden“ unten auf der Seite. Dort kannst du eine <em>Diagnose</em> erstellen: erkannte Dateitypen, Zeilenzahl, den Aufbau der ersten Zeile nicht erkannter Dateien (nur bekannte Spaltennamen) und die Meldungen der letzten Berechnung, ohne Dateinamen, Beträge, Tagesdaten, Adressen und Wallet-Namen; Jahreszahlen und Zeilennummern bleiben stehen. Du siehst sie vor dem Senden vollständig; sie geht mit in die Mail oder lässt sich als Datei speichern. Das volle Log („Log speichern“) enthält dagegen Wallet-Namen und Beträge und ist nur für dich gedacht. Support gibt es zu Technik und Dateiformaten, nicht zu Steuerfragen.</p>
+        <p><strong>Etwas klappt nicht?</strong><br>„Bug melden“ unten auf der Seite. Dort kannst du eine <em>Diagnose</em> erstellen: erkannte Dateitypen, Zeilenzahl, den Aufbau der ersten Zeile nicht erkannter Dateien (nur bekannte Spaltennamen) und die Meldungen der letzten Berechnung, ohne Dateinamen, Beträge, Tagesdaten, Adressen und Wallet-Namen; Jahreszahlen und Zeilennummern bleiben stehen. Du siehst sie vor dem Senden vollständig; sie geht mit in die Mail oder lässt sich als Datei speichern. Das volle Log („Log speichern“) enthält dagegen Wallet-Namen und Beträge und ist nur für dich gedacht. Support gibt es zu Technik und Dateiformaten, nicht zu Steuerfragen.</p>
         <p><strong>Erst mal ausprobieren?</strong><br>„Mit Beispieldaten testen“ lädt fiktive Daten für alle unterstützten Broker. Oder die Beispieldaten als ZIP speichern und selbst in die Zone ziehen.</p>
 
         <h2>Wichtig</h2>
@@ -513,7 +518,7 @@
         <p><strong>Transfers between my wallets and their fees?</strong><br>The transferred holding stays tax-neutral and keeps its purchase date (see "Several wallets"). The network or withdrawal fee paid in bitcoin is booked as a small disposal of the fee share: the fee is an exchange for a service (derived from the German Federal Ministry of Finance letter of 06.03.2025, paras. 33, 54, 60). FiFo matching, valued at the daily closing price (para. 91), own section "GEBÜHREN IN BITCOIN" in the report.</p>
         <p><strong>Gave bitcoin away or donated it?</strong><br>Before exporting, put a word like "gift", "donation", "Spende", "Geschenk" or "Schenkung" into the transaction note in the BitBoxApp. The app then books the line as a gratuitous transfer: no sale, no gain, but the coins leave your holdings. The report lists purchase date and cost per lot, because the acquisition is attributed to the recipient (§ 23 (1) sentence 3 EStG). A network fee paid along the way is still a small disposal (see above). Notes containing "gift card" or "Gutschein" (voucher) and negations such as "not a gift" are not treated as gifts.</p>
         <p><strong>My broker is missing?</strong><br>Enter purchases in <code>manual_buys.csv</code> (<code>date,btc_amount,eur_amount,note,kyc,wallet</code>; for KYC brokers like Coinbase set <code>kyc</code> to <code>ja</code>; <code>wallet</code> is optional: your own wallet the coins were delivered to). And send the CSV header line without real data to <a href="mailto:kontakt@alien-investor.org">kontakt@alien-investor.org</a>. New parsers arrive with an update.</p>
-        <p><strong>Something does not work?</strong><br>"🐛 Report a bug" at the bottom of the page. There you can create a <em>diagnosis</em>: detected file types, line counts, the structure of the first line of unrecognized files (known column names only) and the messages of the last calculation, without file names, amounts, exact dates, addresses or wallet names; years and line numbers remain. You see all of it before sending; it goes into the email or can be saved as a file. The full log ("Save log") does contain wallet names and amounts and is meant for you only. Support covers technical and file-format questions, not tax questions.</p>
+        <p><strong>Something does not work?</strong><br>"Report a bug" at the bottom of the page. There you can create a <em>diagnosis</em>: detected file types, line counts, the structure of the first line of unrecognized files (known column names only) and the messages of the last calculation, without file names, amounts, exact dates, addresses or wallet names; years and line numbers remain. You see all of it before sending; it goes into the email or can be saved as a file. The full log ("Save log") does contain wallet names and amounts and is meant for you only. Support covers technical and file-format questions, not tax questions.</p>
         <p><strong>Try it first?</strong><br>"Try with sample data" loads fictitious data for all supported brokers. Or save the sample data as a ZIP and drag it into the zone yourself.</p>
 
         <h2>Important</h2>
@@ -638,7 +643,7 @@
       <a href="https://github.com/Alien-Investor/btc-steuertool">GitHub</a> ·
       <a href="https://alien-investor.org">alien-investor.org</a> ·
       <span id="legal-links"></span> ·
-      <a href="#" id="bug-link" onclick="openBugReport(); return false;" style="color:var(--text-dim); opacity:.8;">🐛 Bug melden</a><br>
+      <a href="#" id="bug-link" class="sym-bug" onclick="openBugReport(); return false;" style="color:var(--text-dim); opacity:.8; white-space:nowrap;">Bug melden</a><br>
       <span class="app-version" id="app-version"></span><br>
       <span style="color:rgba(74,122,109,.7)" id="footer-disclaimer">Keine Steuerberatung – reine Berechnungshilfe. Denke selbst. Vertraue niemandem.</span><br>
       <!-- Spenden-Blitz wie in Alien Pass / Notes / Tresor. In den App-Hüllen öffnet er den System-Browser (Ziel muss in LINKS von desktop/main.js stehen). -->
@@ -815,7 +820,7 @@
         logPlaced: n => `${n} Datei(en) im lokalen Speicher platziert — berechne...`,
         logDone: (tx, ys, s) => `Fertig: ${tx} Transaktionen, Jahre: ${ys} (${s}s)`,
         errPrefix: 'FEHLER: ',
-        bugTitle: '🐛 Bug melden',
+        bugTitle: 'Bug melden',
         bugIntro: 'Wird als E-Mail an kontakt@alien-investor.org gesendet. Bitte keine echten ' +
           'Transaktionsdaten anhängen — bei Datei-Problemen reicht die CSV-Kopfzeile. ' +
           'Nur Technik-/Format-Fragen, keine Steuerfragen.',
@@ -828,7 +833,7 @@
         bugPhDesc: 'Was ist passiert? Welche Datei, welche Meldung?',
         bugSend: 'Senden',
         bugCancel: 'Abbrechen',
-        bugLink: '🐛 Bug melden',
+        bugLink: 'Bug melden',
         bugBody: (broker, desc) =>
           'Version: BTC Steuertool ' + (DESK ? 'Desktop' : DROID ? 'Android' : 'Web') + ' ' + versionLabel('de').replace(/^Web · /, '') + '\n' +
           'Broker / Dateityp: ' + broker + '\n\nBeschreibung:\n' + desc,
@@ -962,7 +967,7 @@
         logPlaced: n => `${n} file(s) placed in local storage — calculating...`,
         logDone: (tx, ys, s) => `Done: ${tx} transactions, years: ${ys} (${s}s)`,
         errPrefix: 'ERROR: ',
-        bugTitle: '🐛 Report a bug',
+        bugTitle: 'Report a bug',
         bugIntro: 'Sent as an email to kontakt@alien-investor.org. Please do not attach real ' +
           'transaction data — for file issues the CSV header line is enough. ' +
           'Technical/format questions only, no tax questions.',
@@ -975,7 +980,7 @@
         bugPhDesc: 'What happened? Which file, which message?',
         bugSend: 'Send',
         bugCancel: 'Cancel',
-        bugLink: '🐛 Report a bug',
+        bugLink: 'Report a bug',
         bugBody: (broker, desc) =>
           'Version: BTC Steuertool ' + (DESK ? 'Desktop' : DROID ? 'Android' : 'Web') + ' ' + versionLabel('de').replace(/^Web · /, '') + '\n' +
           'Broker / file type: ' + broker + '\n\nDescription:\n' + desc,
