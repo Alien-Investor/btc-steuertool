@@ -152,6 +152,11 @@ Brücke nur `SaveFile` (Android-Speichern-Dialog), Weiche `DROID` in `web/index.
 mit Alien Pass, Alien Notes und Sachwert-Tresor auf eine neuere 44.x (Entscheidung Nutzer 17.10.2026, im Security-Monitor vorgemerkt; Pflegetermin 2027-03-17).
 **Vorgemerkt:** Härtungen aus dem Release-Audit von Alien Pass v1.23 (18.10.2026) für Release-Skripte und Build-Prüfungen — Liste lokal unter
 `~/security-audit-skill/btc-steuertool-public/QUERFUNDE-OFFEN.md` (nicht im Repo); vor dem nächsten Release bzw. dem gemeinsamen Neubau messen und übernehmen.
+**Vorgemerkt fürs nächste Release (24.10.2026):** Käfer-Maske `.sym-bug` und scrollbarer Bug-Dialog (bei 360×640 waren Titel und
+„Senden“ unerreichbar) sind im Web live und stehen im CHANGELOG unter „Nächstes Release“; APK/Flatpak übernehmen `web/dist` von selbst.
+Am Gerät prüfen (Käfer im Fuß und im Dialog, Dialog bis „Senden“ scrollbar), danach `.sym-bug` ins Kit `~/.claude/skills/app-design/kit/`
+übernehmen (Skill app-design, „Offene Querfunde“). Dabei ⬇ (16×) und ⚠ (12×) in `web/index.html` am Gerät ansehen: erscheinen sie als
+bunte Kacheln, ebenfalls durch Masken ersetzen.
 
 Skill `app-release` (Abschnitt „Besonderheiten BTC Steuertool“). Kurz: Tests + Gerätetest mit großem Datensatz → `CHANGELOG.md` →
 Commit/Push → `desktop/build-desktop.sh`, `mobile/build-apk.sh` → Nutzer signiert `SHA256SUMS` → Tag pushen → `./make-release.sh`
