@@ -6,6 +6,10 @@ Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die dens
 ## Nächstes Release (in Web seit 2026-10-24)
 - **Bug-Report auf kleinen Handys:** Der Dialog lässt sich jetzt scrollen. Auf Bildschirmen unter etwa 800 px Höhe (z. B. Galaxy A5)
   waren Titel, Schließen-Kreuz und der Knopf „Senden“ vorher abgeschnitten und nicht erreichbar.
+- **Kurstabellen bis 06.11.2026:** BTC/EUR-Tagesschlusskurse (Bitstamp) für in BTC bezahlte Gebühren, vorher bis 14.08.2026, und
+  EZB-Referenzkurse für USD und CHF, vorher bis 01.10.2026. Solche Gebühren werden jetzt bewertet statt als „nicht ermittelt“ gemeldet,
+  und Käufe in USD oder CHF nach dem 01.10.2026 (Swissquote, Pocket) lassen sich wieder umrechnen; vorher brach die Berechnung dort mit
+  einem Hinweis ab. Die Tabellen bis zum Jahresende folgen im Januar.
 - **Eigenes Käfer-Symbol** vor „Bug melden“ statt des System-Emojis 🐛, damit es auf jedem Gerät gleich aussieht.
 - **Strengere Kontrollen vor dem Veröffentlichen:** Der Programmcode der fertigen Android-App wird Befehl für Befehl mit dem geprüften
   Stand verglichen (Bildschirmschutz, feste Link-Liste, Speichern-Dialog, Konfiguration ohne Debug-Zugang). Die Builds brechen ab,

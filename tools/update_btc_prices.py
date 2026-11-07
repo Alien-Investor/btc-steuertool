@@ -67,7 +67,8 @@ def main() -> int:
         start = newest + timedelta(days=1)
 
     with open(TABLE, "w", encoding="utf-8", newline="") as f:
-        w = csv.writer(f)
+        # LF wie die committete Tabelle: der csv-Standard (CRLF) schrieb sonst JEDE vorhandene Zeile neu (07.11.2026)
+        w = csv.writer(f, lineterminator="\n")
         w.writerow(["date", "close_eur"])
         for d in sorted(table):
             w.writerow([d.isoformat(), table[d]])
