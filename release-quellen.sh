@@ -9,7 +9,7 @@
 feste_quellen() {  # $1 = apk | desktop
   local gemeinsam="VERSION release-quellen.sh web/index.html web/worker.js web/build.sh web/vendor-setup.sh web/vendor.sha256"
   case "$1" in
-    apk) printf '%s\n' $gemeinsam mobile/build-apk.sh mobile/build-www.sh mobile/patch-hardening.mjs mobile/patch-signing.mjs \
+    apk) printf '%s\n' $gemeinsam mobile/build-apk.sh mobile/apk-bytecode.sh mobile/apk-bytecode.pin mobile/build-www.sh mobile/patch-hardening.mjs mobile/patch-signing.mjs \
            mobile/capacitor.config.json mobile/apk-assets.sha256 mobile/icons.py mobile/package.json mobile/package-lock.json \
            desktop/main.js desktop/icon.png ;;
     desktop) printf '%s\n' $gemeinsam desktop/main.js desktop/preload.js desktop/atomic.js desktop/pack.mjs desktop/build-desktop.sh \
@@ -19,9 +19,36 @@ feste_quellen() {  # $1 = apk | desktop
   esac
 }
 
-# Engine-Teile, die web/build.sh 1:1 nach dist/ kopiert. Im Arbeitsbaum ALLE Dateien (auch unversionierte — die kopiert build.sh mit,
-# make-release.sh findet sie dann nicht im Tag und bricht ab), ohne Python-Caches und ohne die generierten Beispiel-Reports.
+# Engine-Teile, die web/build.sh 1:1 nach dist/ kopiert: ALLE Dateien des Baums, ohne Python-Caches und ohne die generierten Beispiel-Reports.
+# Gebaut wird im Abbild von HEAD, dort gibt es nur versionierte Dateien; eine nicht versionierte im Arbeitsbaum stoppt vorher abbild_vorpruefung.
 engine_baum() { find src examples -type f ! -path '*/__pycache__/*' ! -path 'examples/reports/*' | LC_ALL=C sort; }
+
+# ── Vor dem Abbild (v1.6, Querfunde Alien Pass v1.23 c-7/c-9) — von build-apk.sh und build-desktop.sh im gemeinsamen Arbeitsbaum aufgerufen ──
+ABBILD_ORT="$HOME/.cache/btc-steuertool-abbild"
+# Lebt der Build, der diesen Abbild-Ordner angelegt hat? .lauf = PID + Startzeit (Feld 22 in /proc/<pid>/stat) — eine wiederverwendete PID zählt nicht
+abbild_lebt() { local p s; [ -f "$1/.lauf" ] && read -r p s < "$1/.lauf" || return 1; [ -n "$s" ] && [ "$(awk '{print $22}' "/proc/$p/stat" 2>/dev/null)" = "$s" ]; }
+abbild_lauf() { echo "$$ $(awk '{print $22}' /proc/$$/stat)" > "$1/.lauf"; }
+# abbild_vorpruefung <apk|desktop> <repo>
+# (1) Keine nicht versionierte Datei unter den Eingaben DIESES Builds (feste Quellen + src/ + examples/ ohne reports/): sie fehlte im Abbild von
+#     HEAD still, der Build bliebe grün (Pass c-7, je Build eigene Liste r2c-4). Gitignorierte Ordner (web/vendor, node_modules, build/) zeigt git nicht.
+# (2) Keine Reste abgebrochener Läufe: nach SIGKILL/Absturz läuft der trap nicht, Abbild-Ordner und Worktree-Einträge blieben ungemeldet liegen
+#     (Pass c-9). Melden und mit fertigen Befehlen abbrechen, nie selbst löschen. Ein laufender Build (Prozess aus .lauf lebt) ist kein Rest.
+abbild_vorpruefung() {
+  local art="$1" repo="$2" q st nv rm="" wt="" d w
+  mapfile -t q < <(feste_quellen "$art"); [ "${#q[@]}" -gt 0 ] || return 1
+  st="$(git -C "$repo" -c core.quotePath=false status --porcelain --untracked-files=all -- "${q[@]}" src examples ':(exclude)examples/reports')" \
+    || { echo "FEHLER: git status gescheitert" >&2; return 1; }
+  nv="$(grep '^?? ' <<<"$st" || true)"
+  [ -z "$nv" ] || { echo "FEHLER: nicht versionierte Dateien unter den Quellen ($art) — sie fehlten im Abbild von HEAD (erst committen oder entfernen):" >&2
+    echo "$nv" >&2; return 1; }
+  for d in "$ABBILD_ORT"/apk.* "$ABBILD_ORT"/desktop.*; do [ -e "$d" ] || [ -L "$d" ] || continue; abbild_lebt "$d" || rm+="  rm -rf '$d'"$'\n'; done
+  while read -r w; do [ -n "$w" ] || continue; d="$(dirname "$w")"
+    if [ -d "$w" ]; then abbild_lebt "$d" || wt+="  git -C '$repo' worktree remove --force '$w'"$'\n'; else wt+="  (verwaister Eintrag $w)"$'\n'; fi
+  done < <(git -C "$repo" worktree list --porcelain | awk -v ab="$ABBILD_ORT/" 'index($0, "worktree " ab) == 1 {print substr($0, 10)}')
+  [ -z "$rm$wt" ] || { echo "FEHLER: Reste eines abgebrochenen Builds unter $ABBILD_ORT." >&2
+    echo "  Erst sicherstellen, dass kein Build mehr läuft, dann von Hand entfernen (in dieser Reihenfolge) und neu starten:" >&2
+    printf '%s%s' "$wt" "$rm" >&2; echo "  git -C '$repo' worktree prune" >&2; return 1; }
+}
 # core.quotePath=false: sonst stünden Umlaut-Dateinamen in Anführungszeichen (Release-Audit R1 b-H2)
 engine_tag() { git -c core.quotePath=false ls-tree -r --name-only "$1" -- src examples | grep -v '^examples/reports/' | LC_ALL=C sort; }
 

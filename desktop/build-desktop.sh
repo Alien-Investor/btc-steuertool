@@ -8,12 +8,19 @@ rm -f build/release/bundle.ok
 # Gebaut wird aus einem PRIVATEN Abbild von HEAD (git worktree), nie aus dem gemeinsamen Arbeitsbaum (Release-Audit v1.5 R2-1 #1, R2-2-2):
 # flatpak-builder las Starter, .desktop, icon.svg und Manifest, node pack.mjs lief — Minuten nach der Summenbildung. Eine zweite Sitzung, die
 # eine Datei ändert und zurückstellt (auch „git stash … git stash pop“), bekam eine gültige bundle.ok mit fremdem Inhalt. Ohne Git (Selbstbau
-# aus einem Archiv) wird wie bisher im Ordner gebaut — das ist dann kein Release-Build.
+# aus einem Archiv) wird wie bisher im Ordner gebaut — das ist dann kein Release-Build und bekommt keine bundle.ok (v1.6).
 REPO="$(cd .. && pwd)"
+# Gibt es ein Git-Verzeichnis, aber git scheitert (kein git im PATH, verbogenes GIT_DIR …), wird NICHT still im gemeinsamen Ordner gebaut
+# (v1.6, Querfund Alien Pass v1.23 c-5) — Selbstbau ohne Git nur, wenn es wirklich kein Repo ist
+if [ "${STEUERTOOL_IM_ABBILD:-}" != 1 ] && [ -e "$REPO/.git" ] && ! git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "FEHLER: $REPO/.git vorhanden, aber git rev-parse scheitert (git im PATH? GIT_DIR?) — kein Bau im gemeinsamen Ordner." >&2; exit 1
+fi
 if [ "${STEUERTOOL_IM_ABBILD:-}" != 1 ] && git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   [ -z "$(git -C "$REPO" status --porcelain --untracked-files=no)" ] || { echo "FEHLER: nicht committete Änderungen — gebaut wird HEAD, erst committen." >&2; exit 1; }
+  source "$REPO/release-quellen.sh"
+  abbild_vorpruefung desktop "$REPO" || exit 1   # nicht versionierte Eingaben, Reste abgebrochener Läufe (v1.6, Pass c-7/c-9)
   [ -d "$REPO/web/vendor" ] || { echo "FEHLER: web/vendor fehlt — web/vendor-setup.sh" >&2; exit 1; }
-  mkdir -p "$HOME/.cache/btc-steuertool-abbild"; ABB="$(mktemp -d "$HOME/.cache/btc-steuertool-abbild/desktop.XXXXXX")"
+  mkdir -p "$ABBILD_ORT"; ABB="$(mktemp -d "$ABBILD_ORT/desktop.XXXXXX")"; abbild_lauf "$ABB"
   aufraeumen() { git -C "$REPO" worktree remove --force "$ABB/repo" >/dev/null 2>&1 || true; rm -rf "$ABB"; git -C "$REPO" worktree prune || true; }
   trap aufraeumen EXIT
   git -C "$REPO" worktree add -q --detach "$ABB/repo" HEAD
@@ -31,6 +38,10 @@ if [ "${STEUERTOOL_IM_ABBILD:-}" != 1 ] && git -C "$REPO" rev-parse --is-inside-
   echo "Bundle: desktop/build/release/$B (aus dem Abbild von HEAD)"; cat build/release/SHA256SUMS
   echo "Signieren (Nutzer): gpg --local-user 100F9E25BFAEA807DBC357D750C0D78583BFCB81 --armor --detach-sign $REPO/desktop/build/release/SHA256SUMS"
   exit 0
+fi
+if [ "${STEUERTOOL_IM_ABBILD:-}" = 1 ]; then   # nur im Abbild, nie im gemeinsamen Arbeitsbaum (von Hand gesetzt gäbe sie sonst eine gültige bundle.ok)
+  case "$(pwd -P)/" in "$(realpath -m "$HOME/.cache/btc-steuertool-abbild")"/*) ;;
+    *) echo "FEHLER: STEUERTOOL_IM_ABBILD=1 nur im Abbild unter ~/.cache/btc-steuertool-abbild/" >&2; exit 1;; esac
 fi
 # ── ab hier im Abbild (oder Selbstbau ohne Git) ──
 
@@ -55,6 +66,10 @@ echo "Electron $EL_VER: Hash OK."
 source ../release-quellen.sh
 DESK_SUMS0="$(cd .. && quellen_summen desktop)" || { echo "FEHLER: Quellenliste unvollständig (release-quellen.sh)" >&2; exit 1; }
 # Build-Werkzeuge (asar, fuses) frisch aus dem Lock — NACH der Summenbildung, dann gegen genau diese Lock geprüft (R1 a-A5, R2-1 #2)
+# Nichts im Hüllen-Ordner, das npm ci am Lock vorbei lenkt (v1.6, Querfund Alien Pass v1.23 c-6: script-shell, Registry, Entpack-Pfad)
+for c in .npmrc .prebuild-installrc npm-shrinkwrap.json; do
+  [ ! -e "$c" ] && [ ! -L "$c" ] || { echo "FEHLER: desktop/$c — lenkt npm am Lock vorbei (nicht in release-quellen.sh). Entfernen." >&2; exit 1; }
+done
 npm ci --ignore-scripts --no-audit --no-fund
 lock_gleich . || { echo "FEHLER: node_modules ≠ package-lock.json nach npm ci" >&2; exit 1; }
 # Jede Datei, die das Flatpak-Manifest einbindet (path:), muss in der Quellenliste stehen — icon.svg fehlte (Release-Audit R1 a-A2/b-B2)
@@ -126,7 +141,12 @@ flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakr
 (cd build/release && sha256sum "$BUNDLE" > SHA256SUMS)
 [ "$(cd .. && quellen_summen desktop)" = "$DESK_SUMS0" ] || { echo "FEHLER: Quellen haben sich während des Baus geändert — neu bauen!" >&2; exit 1; }
 lock_gleich . || { echo "FEHLER: node_modules hat sich während des Baus geändert" >&2; exit 1; }
-# Prüfdatei (wird NICHT hochgeladen): 1. Zeile Bundle-Hash, 2. Zeile Electron-Pin, danach die Quellen (make-release.sh gleicht sie mit dem Tag ab)
-{ sha256sum "build/release/$BUNDLE" | cut -d' ' -f1; echo "electron $EL_VER $EL_SHA"; echo "$DESK_SUMS0"; } > build/release/bundle.ok
+# Prüfdatei (wird NICHT hochgeladen): 1. Zeile Bundle-Hash, 2. Zeile Electron-Pin, danach die Quellen (make-release.sh gleicht sie mit dem Tag ab).
+# Nur aus dem Abbild (v1.6, Pass c-5): ein Selbstbau ohne Git (Archiv) bekommt keine — make-release.sh lädt ohne sie nichts hoch.
+if [ "${STEUERTOOL_IM_ABBILD:-}" = 1 ]; then
+  { sha256sum "build/release/$BUNDLE" | cut -d' ' -f1; echo "electron $EL_VER $EL_SHA"; echo "$DESK_SUMS0"; } > build/release/bundle.ok
+else
+  echo "Hinweis: Selbstbau ohne Git — keine bundle.ok (kein Release-Build)."
+fi
 echo "Bundle: desktop/build/release/$BUNDLE"; cat build/release/SHA256SUMS
 echo "Signieren (Nutzer): gpg --local-user 100F9E25BFAEA807DBC357D750C0D78583BFCB81 --armor --detach-sign desktop/build/release/SHA256SUMS"

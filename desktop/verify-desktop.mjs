@@ -43,16 +43,29 @@ rmSync(REF,{recursive:true,force:true}); cpSync(path.join(ROOT,'examples'),path.
 rmSync(path.join(REF,'examples','reports'),{recursive:true,force:true});
 execFileSync('python3',[path.join(ROOT,'src','main.py'),'--all','--nachweis','--csv','--data-dir',path.join(REF,'examples')],{stdio:'ignore'});
 
-function run(step,extra=[],opts={}){ return new Promise(res=>{
-  const t0=Date.now(); const args=['--no-sandbox',...extra,APP], env={...ENV,ST_STEP:step,...(opts.env||{})};
-  const pr=spawn(EL,args,{env});
+// Jeder Schritt in eigener Prozessgruppe (v1.6, Querfund Alien Pass v1.23 H-4): beim Zeitlimit traf SIGKILL nur den Hauptprozess, Chromium-Kinder
+// (Zygote, GPU, Renderer) konnten weiterlaufen und spätere Schritte stören. Nach jedem Schritt wird die Gruppe geprüft und geräumt; ein Rest zählt
+// als Fehler. Bei Strg+C/TERM/HUP werden alle noch offenen Gruppen beendet.
+const gruppe=pg=>{ const r=[]; for(const p of readdirSync('/proc')){ if(!/^\d+$/.test(p)) continue;
+  try{ const s=readFileSync('/proc/'+p+'/stat','utf8'), f=s.slice(s.lastIndexOf(')')+2).split(' '); if(f[0]!=='Z'&&+f[2]===pg) r.push(+p); }catch(_){} } return r; };
+const offen=new Set();
+const raeumen=pg=>{ const n=gruppe(pg).length; try{ process.kill(-pg,'SIGCONT'); process.kill(-pg,'SIGKILL'); }catch(_){} offen.delete(pg); return n; };
+for(const s of ['SIGINT','SIGTERM','SIGHUP']) process.on(s,()=>{ for(const pg of offen) raeumen(pg); process.exit(130); });
+function spawnGruppe(cmd,args,opts,timeout){ return new Promise(res=>{
+  const t0=Date.now(), pr=spawn(cmd,args,{...opts,detached:true}); offen.add(pr.pid);
   let out='', err=''; pr.stdout.on('data',d=>out+=d); pr.stderr.on('data',d=>err+=d);
-  const kill=setTimeout(()=>pr.kill('SIGKILL'),opts.timeout||180000);
-  pr.on('exit',(code,sig)=>{ if(sig) err+='\nSIGNAL '+sig; clearTimeout(kill); const rs=out.split('\n').filter(l=>l.startsWith('R ')).map(l=>JSON.parse(l.slice(2))); res({code,rs,ms:Date.now()-t0,err}); });
+  const kill=setTimeout(()=>{ try{ process.kill(-pr.pid,'SIGKILL'); }catch(_){} },timeout);
+  pr.on('exit',(code,sig)=>{ clearTimeout(kill); if(sig) err+='\nSIGNAL '+sig;
+    // eine Sekunde Zeit für das normale Ende der Kinder, dann gilt jeder verbliebene Prozess der Gruppe als Rest
+    setTimeout(()=>{ const rest=raeumen(pr.pid); if(rest) err+='\nRESTE '+rest; res({code,out,err,ms:Date.now()-t0}); },1000); });
 }); }
+async function run(step,extra=[],opts={}){
+  const r=await spawnGruppe(EL,['--no-sandbox',...extra,APP],{env:{...ENV,ST_STEP:step,...(opts.env||{})}},opts.timeout||180000);
+  return {...r, rs:r.out.split('\n').filter(l=>l.startsWith('R ')).map(l=>JSON.parse(l.slice(2)))}; }
 // Ein Schritt zählt nur mit Endmarke „Schritt vollständig“ und ohne Signal/Zeitlimit — ein stilles vorzeitiges Ende bliebe sonst grün
 // (Querfund Alien Notes v1.7 A-4, Alien Pass v1.18 C P1-a)
 const report=r=>{ if(/SIGNAL/.test(r.err)) t(false,'Schritt abgebrochen (Signal/Zeitlimit)',{ms:r.ms});
+  if(/\nRESTE /.test(r.err)) t(false,'Prozesse des Schritts liefen nach dem Ende weiter (geräumt)',r.err.match(/\nRESTE (\d+)/)[1]);
   if(!r.rs.length) t(false,'keine Ergebnisse (Exit '+r.code+')',r.err.split('\n').filter(l=>/error|Error|FATAL|SIGNAL/.test(l)).slice(0,5)); r.rs.forEach(x=>t(x.ok,x.name,x.info));
   if(r.rs.length&&!r.rs.some(x=>x.name==='Schritt vollständig')) t(false,'Schritt ohne Endmarke — Prüfprogramm vorzeitig beendet',{ms:r.ms}); };
 
@@ -72,17 +85,18 @@ console.log('[2] Reports byte-gleich zur CLI (--all --nachweis --csv)');
     const diff=refs.filter(x=>x in rep&&n(readFileSync(path.join(refDir,x),'utf8'))!==n(rep[x]));
     t(diff.length===0,'Inhalte identisch',diff); } }
 console.log('[3] Volle Platte (ulimit, atomic.js einzeln — Chromium selbst stürzt unter ulimit ab)');
-{ const pr=await new Promise(res=>{ const c=spawn('bash',['-c','trap "" XFSZ; ulimit -f 64; exec node "$0" "$1"',path.join(D,'test','atomic-test.cjs'),path.join(TMP,'atomic')]);
-    let out='', err=''; c.stdout.on('data',d=>out+=d); c.stderr.on('data',d=>err+=d); c.on('exit',(code,sig)=>res({code,rs:out.split('\n').filter(l=>l.startsWith('R ')).map(l=>JSON.parse(l.slice(2))),err:err+(sig?'\nSIGNAL '+sig:'')})); });
-  report(pr); }
+{ // eigenes Zeitlimit (v1.6): vorher konnte dieser Schritt ewig hängen
+  const r=await spawnGruppe('bash',['-c','trap "" XFSZ; ulimit -f 64; exec node "$0" "$1"',path.join(D,'test','atomic-test.cjs'),path.join(TMP,'atomic')],{},60000);
+  report({...r, rs:r.out.split('\n').filter(l=>l.startsWith('R ')).map(l=>JSON.parse(l.slice(2)))}); }
 console.log('[4] Nur eine Instanz');
 const first=run('hold',[],{env:{ST_HOLD:'9000'}}); await new Promise(r=>setTimeout(r,3500));
 const second=await run('hold',[],{env:{ST_HOLD:'1000'},timeout:15000});
-t(second.rs.length===0&&second.ms<8000,'zweite Instanz beendet sich sofort ohne Fenster',{ms:second.ms,rs:second.rs.length});
-const f1=await first; t(f1.rs.some(x=>x.name==='läuft'),'erste Instanz lief weiter');
+const rest=r=>/\nRESTE /.test(r.err);
+t(second.rs.length===0&&second.ms<8000&&!rest(second),'zweite Instanz beendet sich sofort ohne Fenster (ohne Reste)',{ms:second.ms,rs:second.rs.length});
+const f1=await first; t(f1.rs.some(x=>x.name==='läuft')&&!rest(f1),'erste Instanz lief weiter (ohne Reste)');
 console.log('[5] Fernsteuerung verweigert');
 for(const sw of ['--remote-debugging-port=9339','--remote-debugging-pipe']){
-  const r=await run('hold',[sw],{timeout:15000}); t(r.code===1&&r.rs.length===0,sw+' → Abbruch mit Exit 1',{code:r.code,rs:r.rs.length}); }
+  const r=await run('hold',[sw],{timeout:15000}); t(r.code===1&&r.rs.length===0&&!rest(r),sw+' → Abbruch mit Exit 1 (ohne Reste)',{code:r.code,rs:r.rs.length}); }
 
 console.log(`\n${ok} OK, ${bad} Fehler`);
 process.exit(bad?1:0);

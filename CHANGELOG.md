@@ -7,6 +7,10 @@ Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die dens
 - **Bug-Report auf kleinen Handys:** Der Dialog lässt sich jetzt scrollen. Auf Bildschirmen unter etwa 800 px Höhe (z. B. Galaxy A5)
   waren Titel, Schließen-Kreuz und der Knopf „Senden“ vorher abgeschnitten und nicht erreichbar.
 - **Eigenes Käfer-Symbol** vor „Bug melden“ statt des System-Emojis 🐛, damit es auf jedem Gerät gleich aussieht.
+- **Strengere Kontrollen vor dem Veröffentlichen:** Der Programmcode der fertigen Android-App wird Befehl für Befehl mit dem geprüften
+  Stand verglichen (Bildschirmschutz, feste Link-Liste, Speichern-Dialog, Konfiguration ohne Debug-Zugang). Die Builds brechen ab,
+  wenn eine benötigte Datei nicht versioniert ist oder Reste eines abgebrochenen Laufs liegen, und die Release-Notiz darf keine
+  Platzhalter oder Codeblöcke enthalten.
 
 ## v1.5 — 2026-10-17
 - **Desktop: Browser-Engine aktualisiert** (Electron 44.5.1 → 44.7.2 mit Chromium 152.0.7977.149). Die neue Fassung bringt aus
@@ -15,7 +19,7 @@ Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die dens
 - **Android: schmaler System-Scrollbalken in Menüs und Dialogen.** Der Neon-Scrollbalken erscheint nur noch mit Maus oder
   Trackpad (Desktop-App, Browser am Rechner); auf dem Handy zeigt die App den Scrollbalken von Android statt eines festen
   10-px-Balkens.
-- **Versionsnummer in der App:** klein im Fuß („v1.5“; die Web-Version zeigt „Web · Stand <Datum>“, weil sie immer den aktuellen
+- **Versionsnummer in der App:** klein im Fuß („v1.5“; die Web-Version zeigt „Web · Stand“ mit Datum, weil sie immer den aktuellen
   Stand ausliefert). Die Version steht auch im Bug-Report und in der Diagnose.
 - **Desktop: Links (Spenden, Online-Anleitung, Bug-Report per Mail) bleiben auch nach dem Zurückstellen der Systemuhr klickbar.** Die Sperre gegen
   Fensterfluten (höchstens ein Link je Sekunde) rechnete mit der Systemuhr; wurde sie zurückgestellt (Zeitabgleich, Aufwachen

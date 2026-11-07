@@ -11,10 +11,15 @@ rm -f build/release/*.ok
 # ändert und zurückstellt (auch „git stash … git stash pop“), bekam eine gültige .ok mit fremdem Inhalt. Darum: sauberer Stand verlangt,
 # Abbild außerhalb des Repos, nur web/vendor (nicht versioniert) wird hineinkopiert und dort gegen web/vendor.sha256 aus HEAD geprüft.
 REPO="$(cd .. && pwd)"
-if [ "${STEUERTOOL_IM_ABBILD:-}" != 1 ] && git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+if [ "${STEUERTOOL_IM_ABBILD:-}" != 1 ]; then
+  # Ohne Git kein Bau (v1.6, Querfund Alien Pass v1.23 c-5): scheiterte rev-parse (kein git im PATH, verbogenes GIT_DIR), baute das Skript vorher
+  # still im gemeinsamen Ordner und schrieb eine gültige .ok — genau der Fall, den das Abbild schließt
+  git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "FEHLER: kein Git-Stand — die APK wird nur aus einem Abbild von HEAD gebaut"; exit 1; }
   [ -z "$(git -C "$REPO" status --porcelain --untracked-files=no)" ] || { echo "FEHLER: nicht committete Änderungen — gebaut wird HEAD, erst committen."; exit 1; }
+  source "$REPO/release-quellen.sh"
+  abbild_vorpruefung apk "$REPO" || exit 1   # nicht versionierte Eingaben, Reste abgebrochener Läufe (v1.6, Pass c-7/c-9)
   [ -d "$REPO/web/vendor" ] || { echo "FEHLER: web/vendor fehlt — web/vendor-setup.sh"; exit 1; }
-  mkdir -p "$HOME/.cache/btc-steuertool-abbild"; ABB="$(mktemp -d "$HOME/.cache/btc-steuertool-abbild/apk.XXXXXX")"
+  mkdir -p "$ABBILD_ORT"; ABB="$(mktemp -d "$ABBILD_ORT/apk.XXXXXX")"; abbild_lauf "$ABB"
   aufraeumen() { git -C "$REPO" worktree remove --force "$ABB/repo" >/dev/null 2>&1 || true; rm -rf "$ABB"; git -C "$REPO" worktree prune || true; }
   trap aufraeumen EXIT
   git -C "$REPO" worktree add -q --detach "$ABB/repo" HEAD
@@ -22,6 +27,7 @@ if [ "${STEUERTOOL_IM_ABBILD:-}" != 1 ] && git -C "$REPO" rev-parse --is-inside-
   echo "Abbild von HEAD $(git -C "$ABB/repo" rev-parse --short HEAD): $ABB/repo"
   rc=0; STEUERTOOL_IM_ABBILD=1 bash "$ABB/repo/mobile/build-apk.sh" || rc=$?
   cp "$ABB/repo/mobile/gradle-build.log" gradle-build.log 2>/dev/null || true
+  [ "$rc" = 0 ] || { mkdir -p build; cp "$ABB/repo/mobile/build/apk-bytecode.ist" build/ 2>/dev/null || true; }   # Bytecode-Abweichung zum Ansehen
   [ "$rc" = 0 ] || { echo "FEHLER: Build im Abbild gescheitert (rc=$rc)"; exit "$rc"; }
   F="btc-steuertool-$(sed -n 's/^VERSION_NAME=//p' "$ABB/repo/VERSION" | tr -d '[:space:]').apk"; mkdir -p build/release
   cp "$ABB/repo/mobile/build/release/$F" "$ABB/repo/mobile/build/release/$F.sha256" build/release/
@@ -30,7 +36,10 @@ if [ "${STEUERTOOL_IM_ABBILD:-}" != 1 ] && git -C "$REPO" rev-parse --is-inside-
   echo "=== mobile/build/release/$F + .ok (aus dem Abbild von HEAD) ==="
   exit 0
 fi
-# ── ab hier im Abbild (oder Selbstbau ohne Git — dann kein Release-Build) ──
+# Nur im Abbild, nie im gemeinsamen Arbeitsbaum: eine von Hand gesetzte Variable gäbe sonst eine gültige .ok (v1.6, wie Alien Pass v1.23)
+case "$(pwd -P)/" in "$(realpath -m "$HOME/.cache/btc-steuertool-abbild")"/*) ;;
+  *) echo "FEHLER: STEUERTOOL_IM_ABBILD=1 nur im Abbild unter ~/.cache/btc-steuertool-abbild/"; exit 1;; esac
+# ── ab hier im Abbild ──
 # Prüfsummen aller Quellen VOR dem Build (Liste: release-quellen.sh): die .ok trägt genau den Stand, aus dem gebaut wurde; ändert sich
 # eine Quelle während des Builds, gibt es keine .ok
 source ../release-quellen.sh
@@ -47,7 +56,12 @@ CAP_PIN="6.2.2"
 # den Capacitor-Kern direkt aus node_modules), keine Konfiguration, die vor capacitor.config.json gelesen würde, und android/ neu erzeugt —
 # ein über Wochen wiederverwendetes android/ trüge Reste, die keine Quelle beschreibt.
 for c in capacitor.config.ts capacitor.config.js capacitor.config.mjs capacitor.config.cjs; do
-  [ ! -e "$c" ] || { echo "FEHLER: mobile/$c vorhanden — die CLI läse sie vor capacitor.config.json. Entfernen."; exit 1; }
+  [ ! -e "$c" ] && [ ! -L "$c" ] || { echo "FEHLER: mobile/$c vorhanden — die CLI läse sie vor capacitor.config.json. Entfernen."; exit 1; }
+done
+# Ebenso nichts, das npm ci / npx lenkt, ohne in der Quellenliste zu stehen (v1.6, Querfund Alien Pass v1.23 c-6: script-shell gilt auch für
+# npx cap, Registry, Entpack-Pfad): eine APK aus einem späteren Stand mit einer solchen Datei bestünde sonst die Bindung an den Tag
+for c in .npmrc .prebuild-installrc npm-shrinkwrap.json; do
+  [ ! -e "$c" ] && [ ! -L "$c" ] || { echo "FEHLER: mobile/$c — lenkt npm am Lock vorbei (nicht in release-quellen.sh). Entfernen."; exit 1; }
 done
 npm ci --ignore-scripts --no-audit --no-fund
 lock_gleich . || { echo "FEHLER: node_modules ≠ package-lock.json nach npm ci"; exit 1; }   # Release-Audit R2-1 #2
@@ -88,30 +102,18 @@ RULES_OK=0; for x in $(unzip -Z1 "$APK" 'res/*.xml'); do D="$("$BT/aapt" dump xm
 DEPLOY_OK=0; for x in $(unzip -Z1 "$APK" 'res/*.xml'); do D="$("$BT/aapt" dump xmltree "$APK" "$x" 2>/dev/null || true)"
   if grep -q "E: :widget" <<<"$D" && grep -A2 'E: :preference' <<<"$D" | grep -A1 'name="DisableDeploy"' | grep -q 'value=(type 0x12)0xffffffff'; then DEPLOY_OK=1; break; fi; done
 [ "$DEPLOY_OK" = 1 ] || { echo "FEHLER: DisableDeploy fehlt in der APK-config.xml!"; exit 1; }
-# Bytecode: beide Plugins, CSP-Header, Speichern-Dialog (FLAG_SECURE prüft patch-hardening.mjs am erzeugten Java)
-DEXTMP="$(mktemp -d)"; unzip -q -o "$APK" 'classes*.dex' -d "$DEXTMP"
-DEX=""; for d in "$DEXTMP"/classes*.dex; do DEX+="$("$BT/dexdump" -d "$d" 2>/dev/null | grep -aE 'org/alieninvestor/steuertool|const-string' || true)"; done
-rm -r "$DEXTMP"
-for pat in 'Lorg/alieninvestor/steuertool/SaveFilePlugin;' 'Lorg/alieninvestor/steuertool/LinkGuardPlugin;' '"Content-Security-Policy"' \
-           "connect-src 'self'" '"android.intent.action.CREATE_DOCUMENT"|ACTION_CREATE_DOCUMENT'; do
-  grep -aEq -- "$pat" <<<"$DEX" || { echo "FEHLER: fehlt im Bytecode: $pat"; exit 1; }
-done
-# FLAG_SECURE im Bytecode der FERTIGEN APK, nicht nur im erzeugten Java (Release-Audit v1.5 R2-1 #1): MainActivity.onCreate lädt 8192
-# (FLAG_SECURE) und übergibt genau dieses Register an Window.addFlags; keine eigene Klasse ruft Window.clearFlags
-DEXTMP="$(mktemp -d)"; unzip -q -o "$APK" 'classes*.dex' -d "$DEXTMP"; MAINDEX=""; OWNDEX=""
-for d in "$DEXTMP"/classes*.dex; do DD="$("$BT/dexdump" -d "$d" 2>/dev/null || true)"
-  MAINDEX+="$(awk '/Class descriptor.*Lorg\/alieninvestor\/steuertool\/MainActivity;/{f=1;next} f&&/Class descriptor/{f=0} f' <<<"$DD")"
-  OWNDEX+="$(awk '/Class descriptor.*Lorg\/alieninvestor\/steuertool\//{f=1;next} f&&/Class descriptor/{f=0} f' <<<"$DD")"; done
-rm -rf "$DEXTMP"
-OC="$(awk '/name *: .onCreate./{f=1} f&&/catches/{exit} f' <<<"$MAINDEX")"
-R8192="$(grep -oE 'const/16 v[0-9]+, #int 8192' <<<"$OC" | head -1 | grep -oE 'v[0-9]+' || true)"
-[ -n "$R8192" ] && grep -qE "invoke-virtual \{v[0-9]+, $R8192\}, Landroid/view/Window;\.addFlags:\(I\)V" <<<"$OC" || { echo "FEHLER: FLAG_SECURE fehlt im Bytecode von MainActivity.onCreate!"; exit 1; }
-! grep -q 'Landroid/view/Window;\.clearFlags' <<<"$OWNDEX" || { echo "FEHLER: eigene Klasse ruft Window.clearFlags!"; exit 1; }
+# Bytecode, Komponenten, Plugin-Liste und Capacitor-Konfiguration der FERTIGEN APK (v1.6, Querfunde Alien Pass v1.23 d-1…d-6, r2d-1/-2): Regeln +
+# App-Code wörtlich gegen apk-bytecode.pin (Einzelheiten im Kopf von apk-bytecode.sh). Bei Abweichung liegt die Ist-Fassung in build/apk-bytecode.ist.
+source ./apk-bytecode.sh
+BCD="$(mktemp -d)"
+bc_dumps "$APK" "$BCD" "$BT" && bc_pruefen "$BCD" apk-bytecode.pin ../desktop/main.js \
+  || { mkdir -p build; cp "$BCD/ist.txt" build/apk-bytecode.ist 2>/dev/null || true; rm -rf "$BCD"; echo "FEHLER: Bytecode-Endkontrolle der APK"; exit 1; }
+rm -rf "$BCD"
 grep -q "Content-Security-Policy" android/app/src/main/assets/public/index.html || { echo "FEHLER: CSP-Meta fehlt in der eingebetteten index.html"; exit 1; }
 "$BT/apksigner" verify "$APK" >/dev/null || { echo "FEHLER: Signatur ungültig"; exit 1; }
 CERT="$("$BT/apksigner" verify --print-certs "$APK" 2>/dev/null | grep -m1 'SHA-256 digest' | awk '{print $NF}' || true)"
 [ "$CERT" = "$CERT_HEX" ] || { echo "FEHLER: APK nicht mit dem Release-Zertifikat signiert (${CERT:-keins})"; exit 1; }
-echo "APK-Endkontrolle OK (keine Berechtigung, nicht debuggable, kein Backup, SaveFile + LinkGuard, CSP, FLAG_SECURE im Bytecode)."
+echo "APK-Endkontrolle OK (keine Berechtigung, nicht debuggable, kein Backup, eine Activity, SaveFile + LinkGuard, CSP, FLAG_SECURE, Bytecode wörtlich, Konfiguration exakt)."
 
 VNAME=$(grep '^VERSION_NAME=' ../VERSION | cut -d= -f2 | tr -d '[:space:]')
 mkdir -p build/release

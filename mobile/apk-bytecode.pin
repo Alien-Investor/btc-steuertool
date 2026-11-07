@@ -1,0 +1,651 @@
+# Bytecode der App-Klassen (mobile/apk-bytecode.sh erzeugt, nie von Hand ändern)
+# Klassen → Oberklasse
+Lorg/alieninvestor/steuertool/LinkGuardPlugin; → Lcom/getcapacitor/Plugin;
+Lorg/alieninvestor/steuertool/MainActivity$1; → Lcom/getcapacitor/BridgeWebViewClient;
+Lorg/alieninvestor/steuertool/MainActivity; → Lcom/getcapacitor/BridgeActivity;
+Lorg/alieninvestor/steuertool/R$color; → Ljava/lang/Object;
+Lorg/alieninvestor/steuertool/R$drawable; → Ljava/lang/Object;
+Lorg/alieninvestor/steuertool/R$layout; → Ljava/lang/Object;
+Lorg/alieninvestor/steuertool/R$mipmap; → Ljava/lang/Object;
+Lorg/alieninvestor/steuertool/R$string; → Ljava/lang/Object;
+Lorg/alieninvestor/steuertool/R$style; → Ljava/lang/Object;
+Lorg/alieninvestor/steuertool/R$xml; → Ljava/lang/Object;
+Lorg/alieninvestor/steuertool/R; → Ljava/lang/Object;
+Lorg/alieninvestor/steuertool/SaveFilePlugin; → Lcom/getcapacitor/Plugin;
+# Annotationen
+Lorg/alieninvestor/steuertool/LinkGuardPlugin; class Lcom/getcapacitor/annotation/CapacitorPlugin; name="LinkGuard"
+Lorg/alieninvestor/steuertool/SaveFilePlugin; class Lcom/getcapacitor/annotation/CapacitorPlugin; name="SaveFile"
+Lorg/alieninvestor/steuertool/SaveFilePlugin; method onPicked Lcom/getcapacitor/annotation/ActivityCallback;
+Lorg/alieninvestor/steuertool/SaveFilePlugin; method save Lcom/getcapacitor/PluginMethod;
+## Lorg/alieninvestor/steuertool/LinkGuardPlugin; <clinit> ()V
+new-instance v0, Ljava/util/HashSet;
+const-string <LINK aus desktop/main.js>
+filled-new-array/range {…}, [Ljava/lang/String;
+move-result-object v1
+invoke-static {v1}, Ljava/util/Arrays;.asList:([Ljava/lang/Object;)Ljava/util/List;
+move-result-object v1
+invoke-direct {v0, v1}, Ljava/util/HashSet;.<init>:(Ljava/util/Collection;)V
+sput-object v0, Lorg/alieninvestor/steuertool/LinkGuardPlugin;.LINKS:Ljava/util/Set;
+return-void
+catches       : (none)
+## Lorg/alieninvestor/steuertool/LinkGuardPlugin; <init> ()V
+invoke-direct {v0}, Lcom/getcapacitor/Plugin;.<init>:()V
+return-void
+catches       : (none)
+## Lorg/alieninvestor/steuertool/LinkGuardPlugin; mailOk (Landroid/net/Uri;)Z
+invoke-virtual {v7}, Landroid/net/Uri;.toString:()Ljava/lang/String;
+move-result-object v0
+invoke-virtual {v0}, Ljava/lang/String;.length:()I
+move-result v0
+const/16 v1, #int 8000
+const/4 v2, #int 0
+if-le v0, v1, 000e
+return v2
+invoke-virtual {v7}, Landroid/net/Uri;.getEncodedSchemeSpecificPart:()Ljava/lang/String;
+move-result-object v0
+if-eqz v0, 0079
+invoke-virtual {v7}, Landroid/net/Uri;.getEncodedFragment:()Ljava/lang/String;
+move-result-object v7
+if-eqz v7, 001b
+goto 0079
+const/16 v7, #int 63
+invoke-virtual {v0, v7}, Ljava/lang/String;.indexOf:(I)I
+move-result v7
+if-gez v7, 0025
+move-object v1, v0
+goto 0029
+invoke-virtual {v0, v2, v7}, Ljava/lang/String;.substring:(II)Ljava/lang/String;
+move-result-object v1
+invoke-static {v1}, Landroid/net/Uri;.decode:(Ljava/lang/String;)Ljava/lang/String;
+move-result-object v1
+sget-object v3, Ljava/util/Locale;.ROOT:Ljava/util/Locale;
+invoke-virtual {v1, v3}, Ljava/lang/String;.toLowerCase:(Ljava/util/Locale;)Ljava/lang/String;
+move-result-object v1
+const-string v3, "kontakt@alien-investor.org"
+invoke-virtual {v3, v1}, Ljava/lang/String;.equals:(Ljava/lang/Object;)Z
+move-result v1
+if-nez v1, 003c
+return v2
+const/4 v1, #int 1
+if-ltz v7, 0078
+add-int/2addr v7, v1
+invoke-virtual {v0, v7}, Ljava/lang/String;.substring:(I)Ljava/lang/String;
+move-result-object v7
+const-string v0, "&"
+invoke-virtual {v7, v0}, Ljava/lang/String;.split:(Ljava/lang/String;)[Ljava/lang/String;
+move-result-object v7
+array-length v0, v7
+const/4 v3, #int 0
+if-ge v3, v0, 0078
+aget-object v4, v7, v3
+invoke-virtual {v4}, Ljava/lang/String;.isEmpty:()Z
+move-result v5
+if-eqz v5, 0057
+goto 0075
+const-string v5, "="
+const/4 v6, #int 2
+invoke-virtual {v4, v5, v6}, Ljava/lang/String;.split:(Ljava/lang/String;I)[Ljava/lang/String;
+move-result-object v4
+aget-object v4, v4, v2
+invoke-static {v4}, Landroid/net/Uri;.decode:(Ljava/lang/String;)Ljava/lang/String;
+move-result-object v4
+const-string v5, "subject"
+invoke-virtual {v4, v5}, Ljava/lang/String;.equals:(Ljava/lang/Object;)Z
+move-result v5
+if-nez v5, 0075
+const-string v5, "body"
+invoke-virtual {v4, v5}, Ljava/lang/String;.equals:(Ljava/lang/Object;)Z
+move-result v4
+if-nez v4, 0075
+return v2
+add-int/lit8 v3, v3, #int 1
+goto 004c
+return v1
+return v2
+catches       : (none)
+## Lorg/alieninvestor/steuertool/LinkGuardPlugin; norm (Landroid/net/Uri;)Ljava/lang/String;
+invoke-virtual {v3}, Landroid/net/Uri;.getEncodedPath:()Ljava/lang/String;
+move-result-object v0
+new-instance v1, Ljava/lang/StringBuilder;
+invoke-direct {v1}, Ljava/lang/StringBuilder;.<init>:()V
+invoke-virtual {v3}, Landroid/net/Uri;.getScheme:()Ljava/lang/String;
+move-result-object v2
+invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+const-string v2, "://"
+invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+invoke-virtual {v3}, Landroid/net/Uri;.getEncodedAuthority:()Ljava/lang/String;
+move-result-object v2
+invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+if-eqz v0, 0024
+invoke-virtual {v0}, Ljava/lang/String;.isEmpty:()Z
+move-result v2
+if-eqz v2, 0026
+const-string v0, "/"
+invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+invoke-virtual {v1}, Ljava/lang/StringBuilder;.toString:()Ljava/lang/String;
+move-result-object v0
+invoke-virtual {v3}, Landroid/net/Uri;.getEncodedQuery:()Ljava/lang/String;
+move-result-object v1
+if-eqz v1, 004b
+new-instance v1, Ljava/lang/StringBuilder;
+invoke-direct {v1}, Ljava/lang/StringBuilder;.<init>:()V
+invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+const-string v0, "?"
+invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+invoke-virtual {v3}, Landroid/net/Uri;.getEncodedQuery:()Ljava/lang/String;
+move-result-object v0
+invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+invoke-virtual {v1}, Ljava/lang/StringBuilder;.toString:()Ljava/lang/String;
+move-result-object v0
+invoke-virtual {v3}, Landroid/net/Uri;.getEncodedFragment:()Ljava/lang/String;
+move-result-object v1
+if-eqz v1, 0069
+new-instance v1, Ljava/lang/StringBuilder;
+invoke-direct {v1}, Ljava/lang/StringBuilder;.<init>:()V
+invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+const-string v0, "#"
+invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+invoke-virtual {v3}, Landroid/net/Uri;.getEncodedFragment:()Ljava/lang/String;
+move-result-object v3
+invoke-virtual {v1, v3}, Ljava/lang/StringBuilder;.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+invoke-virtual {v1}, Ljava/lang/StringBuilder;.toString:()Ljava/lang/String;
+move-result-object v0
+return-object v0
+catches       : (none)
+## Lorg/alieninvestor/steuertool/LinkGuardPlugin; shouldOverrideLoad (Landroid/net/Uri;)Ljava/lang/Boolean;
+invoke-virtual {v6}, Landroid/net/Uri;.getScheme:()Ljava/lang/String;
+move-result-object v0
+if-nez v0, 0009
+const-string v0, ""
+goto 000d
+invoke-virtual {v6}, Landroid/net/Uri;.getScheme:()Ljava/lang/String;
+move-result-object v0
+const-string v1, "https"
+invoke-virtual {v0, v1}, Ljava/lang/String;.equals:(Ljava/lang/Object;)Z
+move-result v2
+const/4 v3, #int 0
+if-eqz v2, 002a
+const-string v2, "localhost"
+invoke-virtual {v6}, Landroid/net/Uri;.getHost:()Ljava/lang/String;
+move-result-object v4
+invoke-virtual {v2, v4}, Ljava/lang/String;.equals:(Ljava/lang/Object;)Z
+move-result v2
+if-eqz v2, 002a
+invoke-virtual {v6}, Landroid/net/Uri;.getPort:()I
+move-result v2
+const/4 v4, #int -1
+if-ne v2, v4, 002a
+return-object v3
+const-string v2, "mailto"
+invoke-virtual {v0, v2}, Ljava/lang/String;.equals:(Ljava/lang/Object;)Z
+move-result v2
+if-eqz v2, 0040
+invoke-static {v6}, Lorg/alieninvestor/steuertool/LinkGuardPlugin;.mailOk:(Landroid/net/Uri;)Z
+move-result v2
+if-eqz v2, 0040
+new-instance v3, Landroid/content/Intent;
+const-string v0, "android.intent.action.SENDTO"
+invoke-direct {v3, v0, v6}, Landroid/content/Intent;.<init>:(Ljava/lang/String;Landroid/net/Uri;)V
+goto 005e
+invoke-virtual {v0, v1}, Ljava/lang/String;.equals:(Ljava/lang/Object;)Z
+move-result v0
+if-eqz v0, 005e
+sget-object v0, Lorg/alieninvestor/steuertool/LinkGuardPlugin;.LINKS:Ljava/util/Set;
+invoke-static {v6}, Lorg/alieninvestor/steuertool/LinkGuardPlugin;.norm:(Landroid/net/Uri;)Ljava/lang/String;
+move-result-object v1
+invoke-interface {v0, v1}, Ljava/util/Set;.contains:(Ljava/lang/Object;)Z
+move-result v0
+if-eqz v0, 005e
+new-instance v3, Landroid/content/Intent;
+const-string v0, "android.intent.action.VIEW"
+invoke-direct {v3, v0, v6}, Landroid/content/Intent;.<init>:(Ljava/lang/String;Landroid/net/Uri;)V
+const-string v6, "android.intent.category.BROWSABLE"
+invoke-virtual {v3, v6}, Landroid/content/Intent;.addCategory:(Ljava/lang/String;)Landroid/content/Intent;
+if-eqz v3, 006c
+const/high16 v6, #int 268435456
+invoke-virtual {v3, v6}, Landroid/content/Intent;.addFlags:(I)Landroid/content/Intent;
+invoke-virtual {v5}, Lorg/alieninvestor/steuertool/LinkGuardPlugin;.getContext:()Landroid/content/Context;
+move-result-object v6
+invoke-virtual {v6, v3}, Landroid/content/Context;.startActivity:(Landroid/content/Intent;)V
+const/4 v6, #int 1
+invoke-static {v6}, Ljava/lang/Boolean;.valueOf:(Z)Ljava/lang/Boolean;
+move-result-object v6
+return-object v6
+catches       : 1
+0x0065 - 0x006c
+Landroid/content/ActivityNotFoundException; -> 0x006c
+## Lorg/alieninvestor/steuertool/MainActivity$1; <init> (Lorg/alieninvestor/steuertool/MainActivity;Lcom/getcapacitor/Bridge;)V
+iput-object v1, v0, Lorg/alieninvestor/steuertool/MainActivity$1;.this$0:Lorg/alieninvestor/steuertool/MainActivity;
+invoke-direct {v0, v2}, Lcom/getcapacitor/BridgeWebViewClient;.<init>:(Lcom/getcapacitor/Bridge;)V
+return-void
+catches       : (none)
+## Lorg/alieninvestor/steuertool/MainActivity$1; shouldInterceptRequest (Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;)Landroid/webkit/WebResourceResponse;
+invoke-interface {v10}, Landroid/webkit/WebResourceRequest;.getUrl:()Landroid/net/Uri;
+move-result-object v0
+invoke-virtual {v0}, Landroid/net/Uri;.getPath:()Ljava/lang/String;
+move-result-object v0
+if-eqz v0, 0036
+const-string v1, "/_capacitor_file_"
+invoke-virtual {v0, v1}, Ljava/lang/String;.startsWith:(Ljava/lang/String;)Z
+move-result v1
+if-nez v1, 001a
+const-string v1, "/_capacitor_content_"
+invoke-virtual {v0, v1}, Ljava/lang/String;.startsWith:(Ljava/lang/String;)Z
+move-result v0
+if-eqz v0, 0036
+new-instance v9, Landroid/webkit/WebResourceResponse;
+const-string v2, "text/plain"
+const-string v3, "utf-8"
+const/16 v4, #int 404
+const-string v5, "Not Found"
+new-instance v6, Ljava/util/HashMap;
+invoke-direct {v6}, Ljava/util/HashMap;.<init>:()V
+new-instance v7, Ljava/io/ByteArrayInputStream;
+const/4 v10, #int 0
+new-array v10, v10, [B
+invoke-direct {v7, v10}, Ljava/io/ByteArrayInputStream;.<init>:([B)V
+move-object v1, v9
+invoke-direct/range {v1, v2, v3, v4, v5, v6, v7}, Landroid/webkit/WebResourceResponse;.<init>:(Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;Ljava/util/Map;Ljava/io/InputStream;)V
+return-object v9
+invoke-super {v8, v9, v10}, Lcom/getcapacitor/BridgeWebViewClient;.shouldInterceptRequest:(Landroid/webkit/WebView;Landroid/webkit/WebResourceRequest;)Landroid/webkit/WebResourceResponse;
+move-result-object v9
+if-eqz v9, 005f
+new-instance v10, Ljava/util/HashMap;
+invoke-direct {v10}, Ljava/util/HashMap;.<init>:()V
+invoke-virtual {v9}, Landroid/webkit/WebResourceResponse;.getResponseHeaders:()Ljava/util/Map;
+move-result-object v0
+if-eqz v0, 004e
+invoke-virtual {v9}, Landroid/webkit/WebResourceResponse;.getResponseHeaders:()Ljava/util/Map;
+move-result-object v0
+invoke-interface {v10, v0}, Ljava/util/Map;.putAll:(Ljava/util/Map;)V
+const-string v0, "Content-Security-Policy"
+const-string v1, "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
+invoke-interface {v10, v0, v1}, Ljava/util/Map;.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+const-string v0, "X-Content-Type-Options"
+const-string v1, "nosniff"
+invoke-interface {v10, v0, v1}, Ljava/util/Map;.put:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+invoke-virtual {v9, v10}, Landroid/webkit/WebResourceResponse;.setResponseHeaders:(Ljava/util/Map;)V
+return-object v9
+catches       : (none)
+## Lorg/alieninvestor/steuertool/MainActivity; <init> ()V
+invoke-direct {v0}, Lcom/getcapacitor/BridgeActivity;.<init>:()V
+return-void
+catches       : (none)
+## Lorg/alieninvestor/steuertool/MainActivity; onCreate (Landroid/os/Bundle;)V
+const-class v0, Lorg/alieninvestor/steuertool/SaveFilePlugin;
+invoke-virtual {v2, v0}, Lorg/alieninvestor/steuertool/MainActivity;.registerPlugin:(Ljava/lang/Class;)V
+const-class v0, Lorg/alieninvestor/steuertool/LinkGuardPlugin;
+invoke-virtual {v2, v0}, Lorg/alieninvestor/steuertool/MainActivity;.registerPlugin:(Ljava/lang/Class;)V
+invoke-super {v2, v3}, Lcom/getcapacitor/BridgeActivity;.onCreate:(Landroid/os/Bundle;)V
+invoke-virtual {v2}, Lorg/alieninvestor/steuertool/MainActivity;.getWindow:()Landroid/view/Window;
+move-result-object v3
+const/16 v0, #int 8192
+invoke-virtual {v3, v0}, Landroid/view/Window;.addFlags:(I)V
+invoke-virtual {v2}, Lorg/alieninvestor/steuertool/MainActivity;.getBridge:()Lcom/getcapacitor/Bridge;
+move-result-object v3
+invoke-virtual {v3}, Lcom/getcapacitor/Bridge;.getWebView:()Landroid/webkit/WebView;
+move-result-object v3
+invoke-virtual {v3}, Landroid/webkit/WebView;.getSettings:()Landroid/webkit/WebSettings;
+move-result-object v3
+const/4 v0, #int 0
+invoke-virtual {v3, v0}, Landroid/webkit/WebSettings;.setGeolocationEnabled:(Z)V
+invoke-virtual {v3, v0}, Landroid/webkit/WebSettings;.setJavaScriptCanOpenWindowsAutomatically:(Z)V
+invoke-virtual {v3, v0}, Landroid/webkit/WebSettings;.setSupportMultipleWindows:(Z)V
+invoke-virtual {v3, v0}, Landroid/webkit/WebSettings;.setAllowFileAccess:(Z)V
+invoke-virtual {v3, v0}, Landroid/webkit/WebSettings;.setAllowContentAccess:(Z)V
+invoke-virtual {v2}, Lorg/alieninvestor/steuertool/MainActivity;.getBridge:()Lcom/getcapacitor/Bridge;
+move-result-object v3
+new-instance v0, Lorg/alieninvestor/steuertool/MainActivity$1;
+invoke-virtual {v2}, Lorg/alieninvestor/steuertool/MainActivity;.getBridge:()Lcom/getcapacitor/Bridge;
+move-result-object v1
+invoke-direct {v0, v2, v1}, Lorg/alieninvestor/steuertool/MainActivity$1;.<init>:(Lorg/alieninvestor/steuertool/MainActivity;Lcom/getcapacitor/Bridge;)V
+invoke-virtual {v3, v0}, Lcom/getcapacitor/Bridge;.setWebViewClient:(Lcom/getcapacitor/BridgeWebViewClient;)V
+return-void
+catches       : (none)
+## Lorg/alieninvestor/steuertool/R$color; <init> ()V
+invoke-direct {v0}, Ljava/lang/Object;.<init>:()V
+return-void
+catches       : (none)
+## Lorg/alieninvestor/steuertool/R$drawable; <init> ()V
+invoke-direct {v0}, Ljava/lang/Object;.<init>:()V
+return-void
+catches       : (none)
+## Lorg/alieninvestor/steuertool/R$layout; <init> ()V
+invoke-direct {v0}, Ljava/lang/Object;.<init>:()V
+return-void
+catches       : (none)
+## Lorg/alieninvestor/steuertool/R$mipmap; <init> ()V
+invoke-direct {v0}, Ljava/lang/Object;.<init>:()V
+return-void
+catches       : (none)
+## Lorg/alieninvestor/steuertool/R$string; <init> ()V
+invoke-direct {v0}, Ljava/lang/Object;.<init>:()V
+return-void
+catches       : (none)
+## Lorg/alieninvestor/steuertool/R$style; <init> ()V
+invoke-direct {v0}, Ljava/lang/Object;.<init>:()V
+return-void
+catches       : (none)
+## Lorg/alieninvestor/steuertool/R$xml; <init> ()V
+invoke-direct {v0}, Ljava/lang/Object;.<init>:()V
+return-void
+catches       : (none)
+## Lorg/alieninvestor/steuertool/R; <init> ()V
+invoke-direct {v0}, Ljava/lang/Object;.<init>:()V
+return-void
+catches       : (none)
+## Lorg/alieninvestor/steuertool/SaveFilePlugin; <clinit> ()V
+const-string v0, "^[\\w.-]{1,120}\\.(txt|csv|zip)$"
+invoke-static {v0}, Ljava/util/regex/Pattern;.compile:(Ljava/lang/String;)Ljava/util/regex/Pattern;
+move-result-object v0
+sput-object v0, Lorg/alieninvestor/steuertool/SaveFilePlugin;.NAME:Ljava/util/regex/Pattern;
+return-void
+catches       : (none)
+## Lorg/alieninvestor/steuertool/SaveFilePlugin; <init> ()V
+invoke-direct {v1}, Lcom/getcapacitor/Plugin;.<init>:()V
+const/4 v0, #int 0
+iput-object v0, v1, Lorg/alieninvestor/steuertool/SaveFilePlugin;.pending:[B
+return-void
+catches       : (none)
+## Lorg/alieninvestor/steuertool/SaveFilePlugin; dropDocument (Landroid/net/Uri;)V
+invoke-virtual {v8}, Lorg/alieninvestor/steuertool/SaveFilePlugin;.getContext:()Landroid/content/Context;
+move-result-object v0
+invoke-virtual {v0}, Landroid/content/Context;.getContentResolver:()Landroid/content/ContentResolver;
+move-result-object v1
+const/4 v0, #int 1
+new-array v3, v0, [Ljava/lang/String;
+const-string v0, "_size"
+const/4 v7, #int 0
+aput-object v0, v3, v7
+const/4 v4, #int 0
+const/4 v5, #int 0
+const/4 v6, #int 0
+move-object v2, v9
+invoke-virtual/range {v1, v2, v3, v4, v5, v6}, Landroid/content/ContentResolver;.query:(Landroid/net/Uri;[Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;Ljava/lang/String;)Landroid/database/Cursor;
+move-result-object v0
+if-eqz v0, 004e
+invoke-interface {v0}, Landroid/database/Cursor;.moveToFirst:()Z
+move-result v1
+if-eqz v1, 004e
+invoke-interface {v0, v7}, Landroid/database/Cursor;.isNull:(I)Z
+move-result v1
+if-nez v1, 004e
+invoke-interface {v0, v7}, Landroid/database/Cursor;.getLong:(I)J
+move-result-wide v1
+const-wide/16 v3, #int 0
+cmp-long v5, v1, v3
+if-eqz v5, 0031
+goto 004e
+if-eqz v0, 0036
+invoke-interface {v0}, Landroid/database/Cursor;.close:()V
+invoke-virtual {v8}, Lorg/alieninvestor/steuertool/SaveFilePlugin;.getContext:()Landroid/content/Context;
+move-result-object v0
+invoke-virtual {v0}, Landroid/content/Context;.getContentResolver:()Landroid/content/ContentResolver;
+move-result-object v0
+invoke-static {v0, v9}, Landroid/provider/DocumentsContract;.deleteDocument:(Landroid/content/ContentResolver;Landroid/net/Uri;)Z
+return-void
+move-exception v9
+if-eqz v0, 004d
+invoke-interface {v0}, Landroid/database/Cursor;.close:()V
+goto 004d
+move-exception v0
+invoke-virtual {v9, v0}, Ljava/lang/Throwable;.addSuppressed:(Ljava/lang/Throwable;)V
+throw v9
+if-eqz v0, 0053
+invoke-interface {v0}, Landroid/database/Cursor;.close:()V
+return-void
+catches       : 6
+0x0000 - 0x0018
+Ljava/lang/Exception; -> 0x0053
+0x001a - 0x002a
+<any> -> 0x0042
+0x0033 - 0x0036
+Ljava/lang/Exception; -> 0x0053
+0x0036 - 0x0041
+Ljava/lang/Exception; -> 0x0041
+0x0045 - 0x0048
+<any> -> 0x0049
+0x004a - 0x0053
+Ljava/lang/Exception; -> 0x0053
+## Lorg/alieninvestor/steuertool/SaveFilePlugin; onPicked (Lcom/getcapacitor/PluginCall;Landroidx/activity/result/ActivityResult;)V
+const-string v0, "name"
+const-string v1, "Speichern fehlgeschlagen: "
+iget-object v2, v11, Lorg/alieninvestor/steuertool/SaveFilePlugin;.pending:[B
+const/4 v3, #int 0
+iput-object v3, v11, Lorg/alieninvestor/steuertool/SaveFilePlugin;.pending:[B
+invoke-virtual {v13}, Landroidx/activity/result/ActivityResult;.getResultCode:()I
+move-result v4
+const/4 v5, #int -1
+if-ne v4, v5, 001e
+invoke-virtual {v13}, Landroidx/activity/result/ActivityResult;.getData:()Landroid/content/Intent;
+move-result-object v4
+if-eqz v4, 001e
+invoke-virtual {v13}, Landroidx/activity/result/ActivityResult;.getData:()Landroid/content/Intent;
+move-result-object v13
+invoke-virtual {v13}, Landroid/content/Intent;.getData:()Landroid/net/Uri;
+move-result-object v3
+move-object v5, v3
+if-eqz v12, 00db
+if-nez v2, 0025
+goto/16 00db
+new-instance v13, Lcom/getcapacitor/JSObject;
+invoke-direct {v13}, Lcom/getcapacitor/JSObject;.<init>:()V
+const-string v3, "saved"
+const/4 v10, #int 0
+if-nez v5, 003d
+invoke-virtual {v13, v3, v10}, Lcom/getcapacitor/JSObject;.put:(Ljava/lang/String;Z)Lcom/getcapacitor/JSObject;
+invoke-virtual {v12, v13}, Lcom/getcapacitor/PluginCall;.resolve:(Lcom/getcapacitor/JSObject;)V
+invoke-virtual {v11}, Lorg/alieninvestor/steuertool/SaveFilePlugin;.getBridge:()Lcom/getcapacitor/Bridge;
+move-result-object v13
+invoke-virtual {v13, v12}, Lcom/getcapacitor/Bridge;.releaseCall:(Lcom/getcapacitor/PluginCall;)V
+return-void
+invoke-virtual {v11}, Lorg/alieninvestor/steuertool/SaveFilePlugin;.getContext:()Landroid/content/Context;
+move-result-object v4
+invoke-virtual {v4}, Landroid/content/Context;.getContentResolver:()Landroid/content/ContentResolver;
+move-result-object v4
+const-string v6, "wt"
+invoke-virtual {v4, v5, v6}, Landroid/content/ContentResolver;.openOutputStream:(Landroid/net/Uri;Ljava/lang/String;)Ljava/io/OutputStream;
+move-result-object v4
+if-eqz v4, 00a6
+invoke-virtual {v4, v2}, Ljava/io/OutputStream;.write:([B)V
+if-eqz v4, 0055
+invoke-virtual {v4}, Ljava/io/OutputStream;.close:()V
+invoke-virtual {v12, v0}, Lcom/getcapacitor/PluginCall;.getString:(Ljava/lang/String;)Ljava/lang/String;
+move-result-object v1
+const/4 v2, #int 1
+invoke-virtual {v11}, Lorg/alieninvestor/steuertool/SaveFilePlugin;.getContext:()Landroid/content/Context;
+move-result-object v4
+invoke-virtual {v4}, Landroid/content/Context;.getContentResolver:()Landroid/content/ContentResolver;
+move-result-object v4
+new-array v6, v2, [Ljava/lang/String;
+const-string v7, "_display_name"
+aput-object v7, v6, v10
+const/4 v7, #int 0
+const/4 v8, #int 0
+const/4 v9, #int 0
+invoke-virtual/range {v4, v5, v6, v7, v8, v9}, Landroid/content/ContentResolver;.query:(Landroid/net/Uri;[Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;Ljava/lang/String;)Landroid/database/Cursor;
+move-result-object v4
+if-eqz v4, 008e
+invoke-interface {v4}, Landroid/database/Cursor;.moveToFirst:()Z
+move-result v5
+if-eqz v5, 008e
+invoke-interface {v4, v10}, Landroid/database/Cursor;.getString:(I)Ljava/lang/String;
+move-result-object v5
+if-eqz v5, 008e
+invoke-interface {v4, v10}, Landroid/database/Cursor;.getString:(I)Ljava/lang/String;
+move-result-object v1
+goto 008e
+move-exception v5
+if-eqz v4, 008d
+invoke-interface {v4}, Landroid/database/Cursor;.close:()V
+goto 008d
+move-exception v4
+invoke-virtual {v5, v4}, Ljava/lang/Throwable;.addSuppressed:(Ljava/lang/Throwable;)V
+throw v5
+if-eqz v4, 0093
+invoke-interface {v4}, Landroid/database/Cursor;.close:()V
+invoke-virtual {v13, v3, v2}, Lcom/getcapacitor/JSObject;.put:(Ljava/lang/String;Z)Lcom/getcapacitor/JSObject;
+invoke-virtual {v13, v0, v1}, Lcom/getcapacitor/JSObject;.put:(Ljava/lang/String;Ljava/lang/String;)Lcom/getcapacitor/JSObject;
+invoke-virtual {v12, v13}, Lcom/getcapacitor/PluginCall;.resolve:(Lcom/getcapacitor/JSObject;)V
+invoke-virtual {v11}, Lorg/alieninvestor/steuertool/SaveFilePlugin;.getBridge:()Lcom/getcapacitor/Bridge;
+move-result-object v13
+invoke-virtual {v13, v12}, Lcom/getcapacitor/Bridge;.releaseCall:(Lcom/getcapacitor/PluginCall;)V
+return-void
+move-exception v13
+goto 00ae
+new-instance v13, Ljava/io/IOException;
+const-string v0, "kein Ziel"
+invoke-direct {v13, v0}, Ljava/io/IOException;.<init>:(Ljava/lang/String;)V
+throw v13
+if-eqz v4, 00b8
+invoke-virtual {v4}, Ljava/io/OutputStream;.close:()V
+goto 00b8
+move-exception v0
+invoke-virtual {v13, v0}, Ljava/lang/Throwable;.addSuppressed:(Ljava/lang/Throwable;)V
+throw v13
+move-exception v13
+invoke-direct {v11, v5}, Lorg/alieninvestor/steuertool/SaveFilePlugin;.dropDocument:(Landroid/net/Uri;)V
+new-instance v0, Ljava/lang/StringBuilder;
+invoke-direct {v0, v1}, Ljava/lang/StringBuilder;.<init>:(Ljava/lang/String;)V
+invoke-virtual {v13}, Ljava/lang/Exception;.getMessage:()Ljava/lang/String;
+move-result-object v13
+invoke-virtual {v0, v13}, Ljava/lang/StringBuilder;.append:(Ljava/lang/String;)Ljava/lang/StringBuilder;
+invoke-virtual {v0}, Ljava/lang/StringBuilder;.toString:()Ljava/lang/String;
+move-result-object v13
+invoke-virtual {v12, v13}, Lcom/getcapacitor/PluginCall;.reject:(Ljava/lang/String;)V
+goto/16 0035
+move-exception v13
+invoke-virtual {v11}, Lorg/alieninvestor/steuertool/SaveFilePlugin;.getBridge:()Lcom/getcapacitor/Bridge;
+move-result-object v0
+invoke-virtual {v0, v12}, Lcom/getcapacitor/Bridge;.releaseCall:(Lcom/getcapacitor/PluginCall;)V
+throw v13
+if-eqz v5, 00e0
+invoke-direct {v11, v5}, Lorg/alieninvestor/steuertool/SaveFilePlugin;.dropDocument:(Landroid/net/Uri;)V
+if-eqz v12, 00ee
+const-string v13, "Speichern abgebrochen — bitte erneut speichern"
+invoke-virtual {v12, v13}, Lcom/getcapacitor/PluginCall;.reject:(Ljava/lang/String;)V
+invoke-virtual {v11}, Lorg/alieninvestor/steuertool/SaveFilePlugin;.getBridge:()Lcom/getcapacitor/Bridge;
+move-result-object v13
+invoke-virtual {v13, v12}, Lcom/getcapacitor/Bridge;.releaseCall:(Lcom/getcapacitor/PluginCall;)V
+return-void
+catches       : 15
+0x0025 - 0x002a
+<any> -> 0x00d2
+0x002f - 0x0035
+<any> -> 0x00d2
+0x003d - 0x004b
+Ljava/lang/Exception; -> 0x00b9
+<any> -> 0x00d2
+0x004d - 0x0050
+<any> -> 0x00a4
+0x0052 - 0x0055
+Ljava/lang/Exception; -> 0x00b9
+<any> -> 0x00d2
+0x0055 - 0x0059
+<any> -> 0x00d2
+0x005a - 0x006f
+Ljava/lang/Exception; -> 0x0093
+<any> -> 0x00d2
+0x0071 - 0x0081
+<any> -> 0x0082
+0x0085 - 0x0088
+<any> -> 0x0089
+0x008a - 0x0093
+Ljava/lang/Exception; -> 0x0093
+<any> -> 0x00d2
+0x0093 - 0x009c
+<any> -> 0x00d2
+0x00a6 - 0x00ae
+<any> -> 0x00a4
+0x00b0 - 0x00b3
+<any> -> 0x00b4
+0x00b5 - 0x00b9
+Ljava/lang/Exception; -> 0x00b9
+<any> -> 0x00d2
+0x00ba - 0x00d0
+<any> -> 0x00d2
+## Lorg/alieninvestor/steuertool/SaveFilePlugin; save (Lcom/getcapacitor/PluginCall;)V
+iget-object v0, v6, Lorg/alieninvestor/steuertool/SaveFilePlugin;.pending:[B
+if-eqz v0, 000a
+const-string v0, "Es ist bereits ein Speichern-Dialog offen"
+invoke-virtual {v7, v0}, Lcom/getcapacitor/PluginCall;.reject:(Ljava/lang/String;)V
+return-void
+const-string v0, "name"
+const-string v1, ""
+invoke-virtual {v7, v0, v1}, Lcom/getcapacitor/PluginCall;.getString:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+move-result-object v0
+const-string v1, "data"
+invoke-virtual {v7, v1}, Lcom/getcapacitor/PluginCall;.getString:(Ljava/lang/String;)Ljava/lang/String;
+move-result-object v2
+if-eqz v0, 0092
+sget-object v3, Lorg/alieninvestor/steuertool/SaveFilePlugin;.NAME:Ljava/util/regex/Pattern;
+invoke-virtual {v3, v0}, Ljava/util/regex/Pattern;.matcher:(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+move-result-object v3
+invoke-virtual {v3}, Ljava/util/regex/Matcher;.matches:()Z
+move-result v3
+if-nez v3, 0027
+goto 0092
+const-string v3, "Datei zu groß oder leer"
+if-eqz v2, 008e
+invoke-virtual {v2}, Ljava/lang/String;.isEmpty:()Z
+move-result v4
+if-nez v4, 008e
+invoke-virtual {v2}, Ljava/lang/String;.length:()I
+move-result v4
+const v5, #float 2.00618e-36
+if-le v4, v5, 003b
+goto 008e
+const/4 v4, #int 0
+invoke-static {v2, v4}, Landroid/util/Base64;.decode:(Ljava/lang/String;I)[B
+move-result-object v2
+array-length v4, v2
+if-eqz v4, 0084
+array-length v4, v2
+const/high16 v5, #int 52428800
+if-le v4, v5, 0049
+goto 0084
+invoke-virtual {v7}, Lcom/getcapacitor/PluginCall;.getData:()Lcom/getcapacitor/JSObject;
+move-result-object v3
+invoke-virtual {v3, v1}, Lcom/getcapacitor/JSObject;.remove:(Ljava/lang/String;)Ljava/lang/Object;
+iput-object v2, v6, Lorg/alieninvestor/steuertool/SaveFilePlugin;.pending:[B
+const-string v1, ".zip"
+invoke-virtual {v0, v1}, Ljava/lang/String;.endsWith:(Ljava/lang/String;)Z
+move-result v1
+if-eqz v1, 005d
+const-string v1, "application/zip"
+goto 006a
+const-string v1, ".csv"
+invoke-virtual {v0, v1}, Ljava/lang/String;.endsWith:(Ljava/lang/String;)Z
+move-result v1
+if-eqz v1, 0068
+const-string v1, "text/csv"
+goto 006a
+const-string v1, "text/plain"
+new-instance v2, Landroid/content/Intent;
+const-string v3, "android.intent.action.CREATE_DOCUMENT"
+invoke-direct {v2, v3}, Landroid/content/Intent;.<init>:(Ljava/lang/String;)V
+const-string v3, "android.intent.category.OPENABLE"
+invoke-virtual {v2, v3}, Landroid/content/Intent;.addCategory:(Ljava/lang/String;)Landroid/content/Intent;
+invoke-virtual {v2, v1}, Landroid/content/Intent;.setType:(Ljava/lang/String;)Landroid/content/Intent;
+const-string v1, "android.intent.extra.TITLE"
+invoke-virtual {v2, v1, v0}, Landroid/content/Intent;.putExtra:(Ljava/lang/String;Ljava/lang/String;)Landroid/content/Intent;
+const-string v0, "onPicked"
+invoke-virtual {v6, v7, v2, v0}, Lorg/alieninvestor/steuertool/SaveFilePlugin;.startActivityForResult:(Lcom/getcapacitor/PluginCall;Landroid/content/Intent;Ljava/lang/String;)V
+return-void
+invoke-virtual {v7, v3}, Lcom/getcapacitor/PluginCall;.reject:(Ljava/lang/String;)V
+return-void
+const-string v0, "Daten unlesbar"
+invoke-virtual {v7, v0}, Lcom/getcapacitor/PluginCall;.reject:(Ljava/lang/String;)V
+return-void
+invoke-virtual {v7, v3}, Lcom/getcapacitor/PluginCall;.reject:(Ljava/lang/String;)V
+return-void
+const-string v0, "Ungültiger Dateiname"
+invoke-virtual {v7, v0}, Lcom/getcapacitor/PluginCall;.reject:(Ljava/lang/String;)V
+return-void
+catches       : 1
+0x003c - 0x0040
+Ljava/lang/IllegalArgumentException; -> 0x0088
+## Lorg/alieninvestor/steuertool/SaveFilePlugin; saveInstanceState ()Landroid/os/Bundle;
+const/4 v0, #int 0
+return-object v0
+catches       : (none)

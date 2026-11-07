@@ -5,7 +5,7 @@
 //   3) Plugin SaveFile: Speichern über den Android-Speichern-Dialog (SAF ACTION_CREATE_DOCUMENT) — einzige Brücke zur Seite
 //   4) Plugin LinkGuard: keine Navigation; nur die feste Link-Liste und mailto an kontakt@ gehen nach außen
 // Link-Liste und CSP kommen aus desktop/main.js (eine Quelle für Flatpak und APK).
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
 
 const die = m => { console.error('FEHLER: ' + m + ' — Build abgebrochen!'); process.exit(1); };
 const jstr = s => '"' + s.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
@@ -278,8 +278,32 @@ ${linksJava}
 
 // Invarianten
 const main = readFileSync(DIR + '/MainActivity.java', 'utf8');
-if (!main.includes('FLAG_SECURE') || !main.includes('registerPlugin(SaveFilePlugin.class)') || !main.includes('registerPlugin(LinkGuardPlugin.class)'))
+// Zeilenanfang statt includes (v1.6, Querfund Alien Pass v1.23 nb-1): ein auskommentiertes „// registerPlugin(…)“ bestand die Prüfung sonst
+if (!/^\s+getWindow\(\)\.addFlags\(WindowManager\.LayoutParams\.FLAG_SECURE\);$/m.test(main) || !/^\s+registerPlugin\(SaveFilePlugin\.class\);$/m.test(main)
+    || !/^\s+registerPlugin\(LinkGuardPlugin\.class\);$/m.test(main))
   die('MainActivity unvollständig');
+// Genau die drei eigenen Java-Dateien im ganzen Quellbaum (v1.6, Pass nb-1): eine weitere Klasse — auch unter einem anderen Paket, das die
+// Bytecode-Endkontrolle (apk-bytecode.sh, nur org.alieninvestor.steuertool.*) nicht sähe — stoppt hier; kein rohes CR (versteckte Zeilen)
+const SRC = 'android/app/src/main/java';
+const walk = d => readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(d + '/' + e.name) : [d + '/' + e.name]);
+const javaFiles = walk(SRC).sort();
+const javaSoll = ['LinkGuardPlugin.java', 'MainActivity.java', 'SaveFilePlugin.java'].map(f => DIR + '/' + f);
+if (JSON.stringify(javaFiles) !== JSON.stringify(javaSoll)) die('Java-Quellen ≠ MainActivity/SaveFilePlugin/LinkGuardPlugin: ' + javaFiles.join(', '));
+for (const f of javaFiles) if (readFileSync(f, 'utf8').includes('\r')) die('rohes CR in ' + f);
+// Capacitor-Konfiguration als exakte Schlüsselmenge (v1.6, Pass r2d-2), wortgleich zur Endkontrolle (apk-bytecode.sh, jq): webContentsDebuggingEnabled
+// (WebView samt Steuerdaten über adb inspizierbar), loggingBehavior, server.url/plugins … liefen sonst durch
+{
+  const CFGF = 'android/app/src/main/assets/capacitor.config.json';
+  let cfg; try { cfg = JSON.parse(readFileSync(CFGF, 'utf8')); } catch { die(CFGF + ' fehlt oder ist kein JSON'); }
+  const obj = o => o !== null && typeof o === 'object' && !Array.isArray(o);
+  const nur = (o, erlaubt) => Object.keys(o).every(k => erlaubt.includes(k));
+  const cfgOk = obj(cfg) && obj(cfg.android) && nur(cfg, ['appId', 'appName', 'webDir', 'android', 'loggingBehavior'])
+    && nur(cfg.android, ['allowMixedContent', 'webContentsDebuggingEnabled', 'loggingBehavior']) && cfg.appId === 'org.alieninvestor.steuertool'
+    && cfg.webDir === 'www' && typeof cfg.appName === 'string' && cfg.appName !== '' && cfg.android.allowMixedContent === false
+    && (!('webContentsDebuggingEnabled' in cfg.android) || cfg.android.webContentsDebuggingEnabled === false)
+    && [cfg, cfg.android].every(o => !('loggingBehavior' in o) || o.loggingBehavior === 'none');
+  if (!cfgOk) die('Capacitor-Konfiguration ≠ erlaubte Schlüsselmenge (webContentsDebuggingEnabled/loggingBehavior/server …)');
+}
 if (!main.includes('setAllowContentAccess(false)') || !main.includes('"/_capacitor_file_"')) die('MainActivity-Härtung unvollständig');
 const sf = readFileSync(DIR + '/SaveFilePlugin.java', 'utf8');
 if (!sf.includes('call.getData().remove("data")') || !sf.includes('saveInstanceState() { return null; }') || !sf.includes('getBridge().releaseCall(call)'))

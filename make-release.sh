@@ -109,9 +109,16 @@ DST="$STAGE/desktop"; mkdir -p "$DST"; for f in "$BUNDLE" SHA256SUMS SHA256SUMS.
 [ "$(grep -c . "$DST/SHA256SUMS" || true)" = 1 ] && grep -qxF "$(sha256sum "$DST/$BUNDLE" | cut -d' ' -f1)  $BUNDLE" "$DST/SHA256SUMS" \
   || { echo "FEHLER: SHA256SUMS hat nicht genau eine Zeile für $BUNDLE"; exit 1; }
 # Signatur nur mit dem Release-Schlüssel aus dem Tag (gpgv, eigener Schlüsselbund) und am Hauptschlüssel-Fingerabdruck der VALIDSIG-Zeile —
-# vorher reichte die Zeichenkette irgendwo in der Ausgabe, auch in der Benutzerkennung eines fremden Schlüssels (Release-Audit R1 b-B6)
-git show "$TC:alien-investor-release-key.asc" | gpg --batch --dearmor > "$STAGE/release-key.gpg" 2>/dev/null || { echo "FEHLER: Release-Schlüssel aus $TAG nicht lesbar"; exit 1; }
-GVS="$(gpgv --keyring "$STAGE/release-key.gpg" --status-fd 1 "$DST/SHA256SUMS.asc" "$DST/SHA256SUMS" 2>/dev/null || true)"
+# vorher reichte die Zeichenkette irgendwo in der Ausgabe, auch in der Benutzerkennung eines fremden Schlüssels (Release-Audit R1 b-B6).
+# Eigenes Wegwerf-Home: ~/.gnupg (gpg.conf, Vertrauensdatenbank) wirkt nicht hinein (v1.6, wie Alien Pass v1.23).
+mkdir -m 700 "$STAGE/gnupg"
+git show "$TC:alien-investor-release-key.asc" | gpg --homedir "$STAGE/gnupg" --batch --dearmor > "$STAGE/release-key.gpg" 2>/dev/null \
+  && [ -s "$STAGE/release-key.gpg" ] || { echo "FEHLER: Release-Schlüssel aus $TAG nicht lesbar"; exit 1; }
+GVS="$(gpgv --homedir "$STAGE/gnupg" --keyring "$STAGE/release-key.gpg" --status-fd 1 "$DST/SHA256SUMS.asc" "$DST/SHA256SUMS" 2>/dev/null || true)"
+# Eigene Meldung für einen abgelaufenen Schlüssel (v1.6, Querfund Alien Pass v1.23 c-8): gpgv meldet EXPKEYSIG/KEYEXPIRED — auch wenn der Schlüssel
+# verlängert wurde, der Export im Tag aber noch der alte ist (Schlüssel läuft am 21.09.2028 ab). Abgelehnt wird so oder so.
+grep -qE '^\[GNUPG:\] (EXPKEYSIG|KEYEXPIRED)( |$)' <<<"$GVS" && { echo "FEHLER: Release-Schlüssel abgelaufen — oder verlängert, aber alien-investor-release-key.asc in $TAG ist noch der alte Export:"
+  echo "         neu exportieren (gpg --armor --export 100F9E25BFAEA807DBC357D750C0D78583BFCB81 > alien-investor-release-key.asc), committen, neuen Tag setzen"; exit 1; }
 # … und nur eine gute Signatur eines gültigen Schlüssels: gpgv meldet auch für einen widerrufenen Schlüssel VALIDSIG (R2-1 #7)
 grep -q '^\[GNUPG:\] GOODSIG ' <<<"$GVS" && grep -qE '^\[GNUPG:\] VALIDSIG [0-9A-F]+ .* 100F9E25BFAEA807DBC357D750C0D78583BFCB81$' <<<"$GVS" \
   && ! grep -qE '^\[GNUPG:\] (REVKEYSIG|EXPKEYSIG|EXPSIG|BADSIG|ERRSIG|KEYREVOKED|KEYEXPIRED|SIGEXPIRED)( |$)' <<<"$GVS" \
@@ -146,15 +153,29 @@ tag_github() {
 }
 tag_github
 
-# Release-Notes aus CHANGELOG.md des TAGS (Abschnitt der aktuellen Version), nicht aus dem Arbeitsbaum
-CHANGES=$(git show "$TC:CHANGELOG.md" | awk -v v="v${NAME}" '$1=="##" && $2==v {f=1;next} f && $1=="##" {exit} f{print}')
+# Release-Notes aus CHANGELOG.md des TAGS (Abschnitt der aktuellen Version), nicht aus dem Arbeitsbaum.
+# Erst ganz lesen, dann schneiden (v1.6, Querfund Alien Pass v1.23 w6): `git show | awk '…exit'` kann bei großem CHANGELOG mit SIGPIPE enden,
+# unter pipefail bricht set -e dann OHNE Meldung ab.
+CL="$(git show "$TC:CHANGELOG.md")" || { echo "FEHLER: CHANGELOG.md in $TAG nicht lesbar"; exit 1; }
+CHANGES=$(awk -v v="v${NAME}" '$1=="##" && $2==v {f=1;next} f && $1=="##" {exit} f{print}' <<<"$CL")
 [ -n "$CHANGES" ] || { echo "FEHLER: CHANGELOG.md in $TAG hat keinen Abschnitt „## v${NAME}“"; exit 1; }
-# Kein Platzhalter in den öffentlichen Release-Notes (wie Alien Notes v1.14, erweitert R1 b-H3): jede [eckige Klammer] (auch mehrzeilig, bis
-# 300 Zeichen), {geschweifte Klammer}, ???, XX/XXX (auch in „XX.10.2026“), vX.Y und TODO/TBD/FIXME in jeder Schreibweise stoppen den Lauf;
-# Markdown-Links [Text](…) und Kästchen [ ]/[x] zählen nicht. rc 1 = kein Treffer; ein Treffer (0) ODER ein grep-Fehler (2) stoppen.
-# -z liest alles als einen Datensatz (mehrzeilig).
-PHRC=0; grep -qzP '\[(?![ xX]\])[^\]]{1,300}\](?!\()|\{[^}]{1,80}\}|\?\?\?|\bX{2,}\b|\bvX\.Y\b|(?i)\b(TODO|TBD|FIXME)\b' <<<"$CHANGES" || PHRC=$?
+# Der Schnitt endet an der nächsten Zeile mit „##“ als erstem Feld — das muss die nächste Versionsüberschrift in Spalte 0 sein oder das Dateiende
+# (v1.6, Pass r2c-3): ein eingerücktes oder verschachteltes „## “ (eingerückter Code, Listenpunkt, Zitat) beendete ihn sonst still mitten im Abschnitt.
+ENDE=$(awk -v v="v${NAME}" '$1=="##" && $2==v {f=1;next} f && $1=="##" {print; e=1; exit} END{if (!e) print "EOF"}' <<<"$CL")
+[ "$ENDE" = EOF ] || grep -qE '^## v[0-9]+(\.[0-9]+)+( |$)' <<<"$ENDE" \
+  || { echo "FEHLER: CHANGELOG-Abschnitt v${NAME} endet nicht an einer Versionsüberschrift („${ENDE:0:60}“ – eingerücktes „## “?) – erst auflösen"; exit 1; }
+# Kein Platzhalter in den öffentlichen Release-Notes (wie Alien Notes v1.14, erweitert R1 b-H3): jede [eckige Klammer] (auch leer, mehrzeilig, bis
+# 300 Zeichen), {geschweifte Klammer}, ???, XX/XXX (auch in „XX.10.2026“), vX.Y, YYYY/JJJJ/TT.MM und TODO/TBD/FIXME in jeder Schreibweise stoppen
+# den Lauf. Seit v1.6 (Pass c-3) OHNE Ausnahme für Markdown-Links und Kästchen: „- [ ] Gerätetest“, „[x]“, „[Bericht](#)“ und „[]“ gingen sonst in
+# die öffentliche Notiz. Ebenso <Wort> in spitzen Klammern („<Datum>“, „<Version>“ — GitHub verschluckt unbekannte Tags STILL; „< 1 s“ bleibt frei).
+# rc 1 = kein Treffer; ein Treffer (0) ODER ein grep-Fehler (2) stoppen. -z liest alles als einen Datensatz (mehrzeilig).
+PHRC=0; grep -qzP '\[[^\]]{0,300}\]|\{[^}]{1,80}\}|\?\?\?|\bX{2,}\b|\bvX\.Y\b|\b(?:YYYY|JJJJ)\b|\bTT\.MM\b|<[A-Za-zÄÖÜäöü][^<>\n]{0,40}>|(?i)\b(TODO|TBD|FIXME)\b' <<<"$CHANGES" || PHRC=$?
 [ "$PHRC" = 1 ] || { echo "FEHLER: Platzhalter im CHANGELOG-Abschnitt v${NAME} (oder Prüfung gescheitert, rc=$PHRC) – erst auflösen"; exit 1; }
+# Kein Codeblock im Abschnitt (v1.6, Pass c-3/r2c-3): JEDE Folge ``` oder ~~~ stoppt. Ein ~~~-Zaun oder ein Zaun aus ≥ 6 Backticks mit einer
+# „## “-Zeile darin beendete den Schnitt oben still, und der offene Block machte die festen Teile der Notiz (Installation, Fingerabdruck,
+# Flatpak-Befehle) zu Code.
+ZRC=0; grep -qE '`{3}|~{3}' <<<"$CHANGES" || ZRC=$?
+[ "$ZRC" = 1 ] || { echo "FEHLER: CHANGELOG-Abschnitt v${NAME} enthält \`\`\` oder ~~~ (Codeblock; oder Prüfung gescheitert, rc=$ZRC) – erst auflösen"; exit 1; }
 BODY="## BTC Steuertool ${TAG}
 ${CHANGES}
 ---

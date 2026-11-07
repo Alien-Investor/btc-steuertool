@@ -150,8 +150,9 @@ Brücke nur `SaveFile` (Android-Speichern-Dialog), Weiche `DROID` in `web/index.
 
 **Stand:** v1.5 (Pflege-Release, Electron 44.7.2, 17.10.2026) auf Download-Seite, GitHub, Zap Store und Web. Nächster Desktop-Neubau gemeinsam
 mit Alien Pass, Alien Notes und Sachwert-Tresor auf eine neuere 44.x (Entscheidung Nutzer 17.10.2026, im Security-Monitor vorgemerkt; Pflegetermin 2027-03-17).
-**Vorgemerkt:** Härtungen aus dem Release-Audit von Alien Pass v1.23 (18.10.2026) für Release-Skripte und Build-Prüfungen — Liste lokal unter
-`~/security-audit-skill/btc-steuertool-public/QUERFUNDE-OFFEN.md` (nicht im Repo); vor dem nächsten Release bzw. dem gemeinsamen Neubau messen und übernehmen.
+**v1.6 in Vorbereitung** (Entscheidung Nutzer 07.11.2026, VERSION schon 1.6/7): Bug-Dialog + Käfer, Kurstabellen bis Anfang November, Härtungen aus dem
+Release-Audit von Alien Pass v1.23 (eingebaut 07.11.2026). Danach Guide + Tutorial-Video (`NAECHSTE-SESSION-GUIDE-VIDEO.md`), im Januar v1.7 nur mit den
+Kurstabellen bis 31.12. (keine Änderung an der Oberfläche).
 **Vorgemerkt fürs nächste Release (24.10.2026):** Käfer-Maske `.sym-bug` und scrollbarer Bug-Dialog (bei 360×640 waren Titel und
 „Senden“ unerreichbar) sind im Web live und stehen im CHANGELOG unter „Nächstes Release“; APK/Flatpak übernehmen `web/dist` von selbst.
 Am Gerät prüfen (Käfer im Fuß und im Dialog, Dialog bis „Senden“ scrollbar), danach `.sym-bug` ins Kit `~/.claude/skills/app-design/kit/`
@@ -173,8 +174,18 @@ sind über Listen gebunden: `web/vendor.sha256` (schreibt `vendor-setup.sh`, pr�
 `mobile/apk-assets.sha256` (Capacitor-Dateien der APK, Soll aus dem npm-Tarball 6.2.2). **Beide Builds laufen in einem privaten `git worktree`
 von HEAD** (`~/.cache/btc-steuertool-abbild/`, nur bei sauberem Arbeitsbaum; Ergebnis wird zurückkopiert) — parallele Sitzungen, die Dateien ändern
 und zurückstellen („git stash … pop“), wirken so nicht mehr hinein (Audit R2). Dort frisch: `npm ci` + Abgleich mit der Lock, `android/` neu,
-`capacitor.config.ts/.js` bricht ab. Endkontrolle prüft FLAG_SECURE im Bytecode, das Bundle die Builder-Ausgabe gegen die Quellen. Signatur: `gpgv`
-mit dem Schlüssel aus dem Tag (GOODSIG + VALIDSIG-Hauptschlüssel, kein Widerruf). `make-release.sh` lädt die Prüffunktionen aus dem Tag.
+`capacitor.config.ts/.js`, `.npmrc`, `.prebuild-installrc`, `npm-shrinkwrap.json` (mobile/, desktop/) brechen ab. Vor dem Abbild stoppen nicht versionierte
+Eingänge und Reste abgebrochener Läufe (`abbild_vorpruefung`, gibt fertige Befehle aus, löscht nie selbst); `STEUERTOOL_IM_ABBILD=1` gilt nur im Abbild,
+die APK ohne Git bricht ab, ein Desktop-Selbstbau ohne Git bekommt keine `bundle.ok`. Das Bundle prüft die Builder-Ausgabe gegen die Quellen.
+**APK-Endkontrolle `mobile/apk-bytecode.sh` (v1.6):** Regeln (FLAG_SECURE auf `getWindow()` ohne Sprung, beide Plugins vor `super.onCreate`, Fenster-Positivliste,
+keine Reflection, Annotationen, eine Activity, keine npm-Plugins, Capacitor-Konfiguration als exakte Schlüsselmenge) und App-Code **wörtlich** gegen
+`mobile/apk-bytecode.pin`. Eine gewollte Änderung (Vorlage in `patch-hardening.mjs`, MAIL/CSP in `desktop/main.js`, D8/AGP/Capacitor) bricht den Build ab:
+`diff mobile/apk-bytecode.pin mobile/build/apk-bytecode.ist` ansehen, bewusst übernehmen, im Commit begründen. Fertige APK prüfen: `bash mobile/apk-bytecode.sh <apk>`.
+Signatur: `gpgv` mit dem Schlüssel aus dem Tag in eigenem Wegwerf-Home (GOODSIG + VALIDSIG-Hauptschlüssel, kein Widerruf, abgelaufen mit eigener Meldung).
+Der Release-Schlüssel läuft am 21.09.2028 ab: nach einer Verlängerung `alien-investor-release-key.asc` in allen vier Repos neu exportieren und mit dem
+nächsten Tag ausliefern. Release-Notiz: keine eckigen Klammern (auch Kästchen/Links), kein `<Wort>`, kein Codeblock, Abschnitt endet an `## vX.Y`.
+`make-release.sh` lädt die Prüffunktionen aus dem Tag. **Kein `-rN`-Release:** ein Electron-Wechsel geht nur mit einem regulären Release raus, für
+einen reinen Desktop-Neubau gibt es keinen geprüften Weg (Querfund Alien Pass v1.23 c-2).
 Restgrenzen (bewusst): `assets/dexopt/` nur nach Namen (ART-Profile), Flatpak-BaseApp und Gradle-Distribution/-Abhängigkeiten nicht gepinnt
 (`~/.gradle`), `fonts.css` nur über `vendor.sha256`, `env.sh`/`ANDROID_HOME` ist Vertrauensanker. Trockenproben (Wegwerf-Klon, Netz gestubbt): `bash ~/security-audit-skill/btc-steuertool-public/run-2/sperre/alle.sh`.
 **Web-Version immer mit ausrollen** (Web, Flatpak und APK zeigen denselben Stand): `web/build.sh`, dann
