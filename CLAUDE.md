@@ -148,13 +148,12 @@ Brücke nur `SaveFile` (Android-Speichern-Dialog), Weiche `DROID` in `web/index.
 
 ## Release (Flatpak + APK gemeinsam, seit v1.0 am 02.10.2026)
 
-**Stand:** v1.5 (Pflege-Release, Electron 44.7.2, 17.10.2026) auf Download-Seite, GitHub, Zap Store und Web. Nächster Desktop-Neubau gemeinsam
-mit Alien Pass, Alien Notes und Sachwert-Tresor auf eine neuere 44.x (Entscheidung Nutzer 17.10.2026, im Security-Monitor vorgemerkt; Pflegetermin 2027-03-17).
-**v1.6 in Vorbereitung** (Entscheidung Nutzer 07.11.2026, VERSION schon 1.6/7): Bug-Dialog + Käfer, Kurstabellen bis Anfang November, Härtungen aus dem
-Release-Audit von Alien Pass v1.23 (eingebaut 07.11.2026). Danach Guide + Tutorial-Video (`NAECHSTE-SESSION-GUIDE-VIDEO.md`), im Januar v1.7 nur mit den
-Kurstabellen bis 31.12. (keine Änderung an der Oberfläche). Oberfläche am Gerät bestätigt (07.11.2026, 1.6-Test-APK): Käfer, Bug-Dialog, ⬇ und ⚠
-erscheinen schlicht in der Textfarbe (kein Umbau, `.sym-bug` ist im Kit). Kurstabellen bis 06.11.2026 (`de2163c`), Web damit live seit 07.11.2026.
-Offen: `## v1.6` im CHANGELOG + Faktencheck, Builds aus dem Endstand, Gerätetest mit großem Datensatz, Trockenproben `run-2/sperre` auf 1.6 umstellen.
+**Stand:** v1.6 (Kurstabellen bis 06.11.2026, Bug-Dialog, Härtungen aus Alien Pass v1.23; Electron 44.7.2) veröffentlicht 07.11.2026: Tag `v1.6` = `e22e3da`,
+GitHub, Download-Seite, Web, Website (DE/EN). Gerätetest APK und Flatpak je 20/20 Reports byte-gleich zur CLI (großer Datensatz `gross/`).
+Trockenproben der Release-Sperre jetzt `bash ~/security-audit-skill/btc-steuertool-public/run-3/sperre/alle.sh` (datumsunabhängig, Version im Pfad).
+Als Nächstes: Guide + Tutorial-Video (`NAECHSTE-SESSION-GUIDE-VIDEO.md`), im Januar v1.7 nur mit den Kurstabellen bis 31.12. (keine Änderung an der
+Oberfläche). Nächster Desktop-Neubau gemeinsam mit Alien Pass, Alien Notes und Sachwert-Tresor auf eine neuere 44.x (Entscheidung Nutzer 17.10.2026,
+im Security-Monitor vorgemerkt; Pflegetermin 2027-03-17).
 
 Skill `app-release` (Abschnitt „Besonderheiten BTC Steuertool“). Kurz: Tests + Gerätetest mit großem Datensatz → `CHANGELOG.md` →
 Commit/Push → `desktop/build-desktop.sh`, `mobile/build-apk.sh` → Nutzer signiert `SHA256SUMS` → Tag pushen → `./make-release.sh`
@@ -184,7 +183,7 @@ nächsten Tag ausliefern. Release-Notiz: keine eckigen Klammern (auch Kästchen/
 `make-release.sh` lädt die Prüffunktionen aus dem Tag. **Kein `-rN`-Release:** ein Electron-Wechsel geht nur mit einem regulären Release raus, für
 einen reinen Desktop-Neubau gibt es keinen geprüften Weg (Querfund Alien Pass v1.23 c-2).
 Restgrenzen (bewusst): `assets/dexopt/` nur nach Namen (ART-Profile), Flatpak-BaseApp und Gradle-Distribution/-Abhängigkeiten nicht gepinnt
-(`~/.gradle`), `fonts.css` nur über `vendor.sha256`, `env.sh`/`ANDROID_HOME` ist Vertrauensanker. Trockenproben (Wegwerf-Klon, Netz gestubbt): `bash ~/security-audit-skill/btc-steuertool-public/run-2/sperre/alle.sh`.
+(`~/.gradle`), `fonts.css` nur über `vendor.sha256`, `env.sh`/`ANDROID_HOME` ist Vertrauensanker. Trockenproben (Wegwerf-Klon, Netz gestubbt): siehe „Stand“ oben (`run-3/sperre`; bei neuer Version Pfad und Versionsnummer in einer Kopie umstellen).
 **Web-Version immer mit ausrollen** (Web, Flatpak und APK zeigen denselben Stand): `web/build.sh`, dann
 `rsync -a --no-o --no-g --chmod=D755,F644 web/dist/ root@api.alien-investor.org:/var/www/alien-investor/html/steuertool/` (vorher `-an --itemize-changes`),
 danach `cmp` der Live-Dateien gegen `web/dist`. Auch nach reinen Engine- oder GUI-Fixes ohne App-Release.
