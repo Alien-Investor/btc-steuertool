@@ -151,8 +151,9 @@ Brücke nur `SaveFile` (Android-Speichern-Dialog), Weiche `DROID` in `web/index.
 **Stand:** v1.6 (Kurstabellen bis 06.11.2026, Bug-Dialog, Härtungen aus Alien Pass v1.23; Electron 44.7.2) veröffentlicht 07.11.2026: Tag `v1.6` = `e22e3da`,
 GitHub, Download-Seite, Zap Store `@1.6` (Relay geprüft), Web, Website (DE/EN); 1.5 vom Server gelöscht. Gerätetest APK und Flatpak je 20/20 Reports byte-gleich zur CLI (großer Datensatz `gross/`).
 Trockenproben der Release-Sperre jetzt `bash ~/security-audit-skill/btc-steuertool-public/run-3/sperre/alle.sh` (datumsunabhängig, Version im Pfad).
-Als Nächstes: Tutorial-Video (`NAECHSTE-SESSION-GUIDE-VIDEO.md`), im Januar v1.7 mit den Kurstabellen bis 31.12. (keine Änderung an der
-Oberfläche). **Für v1.7 vorgemerkt (Nutzer 07.11.2026):** Pocket schlägt den EZB-Kurs nach dem UTC-Datum nach (`broker_pocket.py`, `date.date()`),
+Als Nächstes: Tutorial-Video, danach `steuertool-guide.html` zur schlanken Video-Seite (kein neuer ausführlicher Guide, das „?“-Handbuch ist die
+einzige ausführliche Textquelle; Entscheidung Nutzer 07.11.2026, Ablauf in `NAECHSTE-SESSION-GUIDE-VIDEO.md`), im Januar v1.7 mit den Kurstabellen
+bis 31.12. (keine Änderung an der Oberfläche außer dem Linktext „Ausführliche Anleitung mit Bildern“ im Handbuch). **Für v1.7 vorgemerkt (Nutzer 07.11.2026):** Pocket schlägt den EZB-Kurs nach dem UTC-Datum nach (`broker_pocket.py`, `date.date()`),
 Swissquote und Sammelimport nach dem deutschen Kalendertag — prüfen und angleichen (ändert Reports betroffener Nutzer, im CHANGELOG nennen).
 Diese Datei (22 KB) beim nächsten Mal unter den Richtwert bringen (Umbau mit Nutzer abgestimmt, Wortlaut beim Auslagern unverändert). Nächster Desktop-Neubau gemeinsam mit Alien Pass, Alien Notes und Sachwert-Tresor auf eine neuere 44.x (Entscheidung Nutzer 17.10.2026,
 im Security-Monitor vorgemerkt; Pflegetermin 2027-03-17).
