@@ -132,15 +132,16 @@ Alle erzeugten Dateien landen im Ordner `reports/`:
 reports/
 ├── steuerreport_2025.txt     ← Übersichtlicher Report (für Finanzamt verwendbar)
 ├── steuernachweis_2025.txt   ← Formaler Nachweis (druckfertig, für Finanzamt)
-├── nokyc_intern_2025.txt     ← noKYC-Käufe — NUR INTERN, nicht für Finanzamt!
-├── wallet_abgleich_intern_2025.txt ← Wallet-Namen, Zuordnung der Überträge — NUR INTERN!
+├── nokyc_intern_2025.txt     ← noKYC-Käufe und -Verkäufe, eigene Buchführung (nicht beilegen)
+├── wallet_abgleich_intern_2025.txt ← Wallet-Namen, Zuordnung der Überträge, nur für dich
 ├── kaeufe_2025.csv           ← Käufe als Tabelle (für Excel)
 └── verkaeufe_2025.csv        ← Verkäufe mit FiFo-Details (für Excel)
 ```
 
 **Wichtig:** `nokyc_intern_YYYY.txt` wird nur erzeugt wenn du Bisq-/noKYC-Daten hast.
-Diese Datei **niemals** dem Finanzamt oder Steuerberater übergeben — sie enthält
-P2P-Käufe die bewusst aus dem offiziellen Report herausgehalten werden.
+Sie ist für deine eigene Buchführung und gehört nicht in die Belegkette des offiziellen
+Nachweises. Steuerpflichtige Gewinne aus noKYC-Verkäufen stehen dort und zählen für die
+Steuererklärung trotzdem mit (siehe „Zur Rechtslage“ im Abschnitt noKYC-Käufe).
 
 `wallet_abgleich_intern_YYYY.txt` ist ebenfalls nur für dich: Sie nennt deine Wallets mit
 echten Namen (Dateinamen der BitBox-Exporte), listet alle Übertrags-Zuordnungen und offenen
@@ -168,29 +169,27 @@ Waren Käufe bei mehreren Brokern beteiligt, müssen auch deren CSVs beigelegt w
 **Nicht beteiligte Broker weglassen:** Nur die CSVs der Broker beilegen, die im
 Steuernachweis unter "Quelle" in der FiFo-Zuordnung der Verkäufe auftauchen.
 CSVs anderer Broker haben keine Beleg-Funktion — der Nachweis listet die
-Jahres-Anschaffungen bereits auf. "Gesamt"-CSVs verraten zudem immer auch
-Transaktionen aus anderen Jahren (z.B. Käufe des laufenden Jahres) und ggf.
-Einnahmen wie Spenden-Eingänge, die mit dem Steuerjahr nichts zu tun haben.
+Jahres-Anschaffungen bereits auf. "Gesamt"-CSVs enthalten zudem Vorgänge aus
+anderen Jahren, die für diesen Nachweis keine Rolle spielen.
 
-### Was das Finanzamt NICHT bekommt
+### Was nicht beigelegt wird
 
 Genauso wichtig wie die richtigen Unterlagen: zu wissen, was nicht in die Belegkette gehört.
+„Nicht beilegen“ heißt: nicht ungefragt mit der Erklärung einreichen. Fordert das Finanzamt
+Unterlagen an (Mitwirkungspflicht), gilt das für alle deine Bestände und Wallets.
 
 | Datei | Warum nicht |
 |-------|-------------|
-| `reports/nokyc_intern_JAHR.txt` | Interne noKYC-Übersicht — niemals einreichen |
-| `reports/wallet_abgleich_intern_JAHR.txt` | Echte Wallet-Namen und Vergleichsrechnung — niemals einreichen |
-| BitBox-CSVs (`bitbox/`) | Selbst erstellte Dateien ohne Beweiswert — das Finanzamt hat keinen Anspruch auf deine Wallet-Historie. Die Belegkette besteht aus den Broker-CSVs. |
-| `Broker/bisq*.csv` und `manual_buys.csv` | noKYC-Quellen — nur für die interne Buchführung |
+| `reports/nokyc_intern_JAHR.txt` | Interne noKYC-Übersicht für die eigene Buchführung — steuerpflichtige Gewinne daraus zählen trotzdem mit |
+| `reports/wallet_abgleich_intern_JAHR.txt` | Echte Wallet-Namen und Vergleichsrechnung, nur für dich |
+| BitBox-CSVs (`bitbox/`) | Selbst erstellte Exporte, keine Fremdbelege. Die Belegkette besteht aus den Broker-CSVs. |
+| `Broker/bisq*.csv` und `manual_buys.csv` | noKYC-Quellen für die interne Buchführung (mit `kyc=ja` erfasste Käufe stehen im offiziellen Nachweis, Beleg ist dann der Export des Brokers) |
 | `fx_cache.json` und Quellcode | Technische Dateien, für das Finanzamt irrelevant |
 
-**Wallet-Notizen neutral halten:** Die Notiz-Felder in den BitBox-CSVs sind private
-Anmerkungen — sie tauchen in keinem vom Tool erzeugten Finanzamt-Dokument auf.
-Trotzdem empfiehlt es sich, Notizen neutral zu formulieren („Uebertrag" statt
-detaillierter Beschreibungen — bewusst ohne Umlaut, damit die Note in jedem
-Programm sauber dargestellt wird). Falls eine Wallet-CSV doch einmal weitergegeben
-wird, steht dort nichts, was das Finanzamt nichts angeht. Notizen lassen sich in der
-BitBoxApp jederzeit ändern — danach die CSV einfach neu exportieren.
+**Wallet-Notizen sachlich halten:** Die Notiz-Felder in den BitBox-CSVs sind private
+Anmerkungen und stehen in keinem Finanzamt-Dokument des Tools. Schreib kurz und sachlich,
+etwa „Uebertrag" (ohne Umlaut, damit jedes Programm die Notiz sauber anzeigt). Schenkungen
+und Spenden brauchen das Spendenwort (siehe „Häufige Fragen“).
 
 ---
 
@@ -277,15 +276,18 @@ legen. Das Tool erkennt den Ordner automatisch und markiert alle Transaktionen a
 bitbox/
 ├── wallet1.csv           ← normale KYC-Wallet
 └── nokyc/
-    └── nokyc_wallet.csv  ← NUR INTERN, nicht für Finanzamt
+    └── nokyc_wallet.csv  ← noKYC-Wallet, eigene Buchführung (nicht beilegen)
 ```
 
 Alle Wallet-Bewegungen aus `bitbox/nokyc/` erscheinen:
 - **nicht** in `steuerreport_*.txt` oder `steuernachweis_*.txt`
 - **nur** in `nokyc_intern_*.txt` unter "noKYC-WALLET-AKTIVITÄT"
 
-Das ist sinnvoll um den Saldo und die Bewegungen intern nachzuhalten, ohne dass
-das Finanzamt von dieser Wallet-Aktivität erfährt.
+So hältst du Saldo und Bewegungen dieser Wallet in der eigenen Buchführung nach, getrennt
+von den Finanzamt-Dokumenten. Ein Verkauf aus dieser Wallet ist ein Verkauf wie jeder andere:
+Haltefrist und Freigrenze gelten genauso (siehe „Zur Rechtslage“ unten). Den Verkauf trägst
+du in `manual_sales.csv` mit `no_kyc=ja` ein, eine Zahlung mit Bitcoin ebenso. Ohne Eintrag
+bucht das Tool den Abgang als Übertrag in eine nicht eingelesene Wallet und rechnet keinen Gewinn.
 
 ### Wie noKYC-Käufe im Report erscheinen
 
@@ -296,7 +298,7 @@ noKYC-Käufe tauchen in **keiner** der Finanzamt-Dateien auf:
 
 Das Tool erzeugt stattdessen eine eigene Datei:
 
-- `nokyc_intern_2025.txt` — **nur für dich**, niemals weitergeben
+- `nokyc_intern_2025.txt` — **für deine eigene Buchführung**, nicht beilegen
 
 Diese Datei beginnt mit einem deutlichen Warnhinweis:
 
@@ -304,17 +306,28 @@ Diese Datei beginnt mit einem deutlichen Warnhinweis:
 ========================================================================
   !! INTERN — NICHT FÜR FINANZAMT BESTIMMT !!
 
-  Diese Datei enthält noKYC-Käufe (Bisq / Robosats / P2P).
+  Diese Datei enthält noKYC-Käufe und -Verkäufe (Bisq / Robosats / P2P).
   Sie dient ausschließlich der eigenen Buchführung.
   NICHT an Steuerberater oder Finanzamt weitergeben.
+
+  Für das Finanzamt:  steuerreport_2025.txt
+  Formaler Nachweis:  steuernachweis_2025.txt
 ========================================================================
 ```
 
-Danach folgen alle noKYC-Käufe und verbleibenden noKYC-Bestände zur eigenen Übersicht.
+Danach folgen die noKYC-Käufe, die noKYC-Verkäufe mit FiFo-Zuordnung, Haltedauer und Gewinn
+je Lot, Gebühren in Bitcoin und die verbleibenden noKYC-Bestände. Gab es in einem Jahr nur
+noKYC-Vorgänge, erzeugt das Tool für dieses Jahr keinen Steuerreport und keinen Steuernachweis.
 
-**Zur Rechtslage:** Du bist nicht verpflichtet, deinen vollständigen Wallet-Fingerprint
-offenzulegen. Solange die Anschaffungskosten korrekt angegeben sind und steuerpflichtige
-Gewinne vollständig gemeldet werden, ist die selektive Angabe steuerrechtlich unbedenklich.
+**Zur Rechtslage:** Die Trennung betrifft nur die Unterlagen, nicht die Steuerpflicht. Für
+Verkäufe aus noKYC-Beständen gelten dieselben Regeln wie für alle anderen: Liegt zwischen Kauf
+und Verkauf nicht mehr als ein Jahr, ist der Gewinn steuerpflichtig (§ 23 Abs. 1 Satz 1 Nr. 2 EStG).
+Diese Gewinne zählen für die Steuererklärung mit, auch bei der Freigrenze. Steuerreport und
+Steuernachweis rechnen sie nicht mit. In `nokyc_intern_JAHR.txt` steht der Gewinn je Lot:
+Steuerpflichtig sind die Lots mit „innerhalb Haltefrist“, bei den Gebühren die Zeile „davon
+steuerpflichtig“. Die Summe bildest du selbst und trägst sie in die Anlage SO ein oder nennst
+sie deinem Steuerberater. Fragt das Finanzamt nach, musst du auch zu diesen Beständen Auskunft
+geben und Belege vorlegen (§ 90 AO, BMF-Schreiben vom 06.03.2025, Rn. 100 bis 104).
 
 **Wichtig für den Steuernachweis:** Bei noKYC-Käufen gibt es keinen Broker-Beleg.
 Eigene Aufzeichnungen aufbewahren — z.B. Bisq-Trade-History, Wallet-Transaktionsbelege
@@ -370,9 +383,12 @@ Anlage SO (Sonstige Einkünfte) angegeben werden.
 
 **Steuerfreier Gewinn** — muss nicht angegeben werden (Veräußerung nach mehr als einem Jahr).
 
-**Freigrenze** — Bis 600 EUR (vor 2024) bzw. 1.000 EUR (ab 2024) steuerpflichtiger
-Gewinn pro Jahr fällt keine Steuer an. Bei Überschreitung wird der **gesamte**
-Betrag steuerpflichtig, nicht nur der Teil über der Grenze.
+**Freigrenze** — Liegt der Gesamtgewinn aus privaten Veräußerungsgeschäften eines Jahres
+unter 600 EUR (bis 2023) bzw. unter 1.000 EUR (ab 2024), bleibt er steuerfrei
+(§ 23 Abs. 3 Satz 5 EStG). Erreicht er die Grenze, ist der **gesamte** Gewinn
+steuerpflichtig, nicht nur der Teil darüber. Mit zählen auch andere private
+Veräußerungsgeschäfte des Jahres (etwa Gold) und Gewinne aus noKYC-Verkäufen;
+Steuerreport und Steuernachweis prüfen die Grenze nur mit ihren eigenen Zahlen.
 
 **Verbleibende BTC-Bestände** — zeigt dir welche Lots du noch hältst, mit Kaufdatum
 und Einstandspreis. Erscheint am Ende des laufenden Jahres-Reports.
@@ -428,13 +444,18 @@ Version holen oder den Kurs selbst in `fx_cache.json` eintragen
 (`{"2026-10-05:USD": "0.88500"}`, EUR je Einheit) — ein Eintrag dort hat Vorrang.
 
 **Kann ich dem Ergebnis vertrauen?**
-Das Tool rechnet nach der FiFo-Methode wie vom deutschen Steuerrecht vorgeschrieben.
+Das Tool rechnet nach FiFo (First In, First Out) und walletbezogen. Das BMF-Schreiben vom
+06.03.2025 lässt FiFo zu (Rn. 61) und sieht eine walletbezogene Betrachtung vor (Rn. 62).
 Die Ergebnisse sollten aber immer von deinem Steuerberater geprüft werden —
 besonders wenn steuerpflichtige Gewinne ausgewiesen werden.
 
 **Warum tauchen Bisq/noKYC-Käufe nicht im Finanzamt-Report auf?**
-Das ist bewusst so gestaltet. noKYC-Käufe erscheinen nur im internen Block am Ende
-des Reports — nicht im offiziellen Teil. Für die Steuer relevant ist, ob du
-steuerpflichtige Gewinne erzielt hast. Bei P2P-Käufen die du als langfristige
-Selbstverwahrung hältst und nie über eine KYC-Börse verkaufst, entsteht kein
-steuerpflichtiger Vorgang der gemeldet werden müsste.
+Das ist bewusst so gestaltet: Steuerreport und Steuernachweis enthalten nur den KYC-Bestand,
+noKYC-Käufe und -Verkäufe stehen getrennt in `nokyc_intern_JAHR.txt`. An der Steuer ändert
+das nichts. Kauf und Halten allein sind kein steuerpflichtiger Vorgang, egal ob du über eine
+KYC-Börse oder P2P gekauft hast. Gebühren, die du in Bitcoin zahlst, zählen als kleine
+Veräußerung (siehe oben). Verkaufst oder tauschst du Bitcoin oder bezahlst du damit innerhalb
+eines Jahres nach dem Kauf, ist der Gewinn steuerpflichtig, auch bei noKYC-Beständen und auch
+ohne KYC-Börse. Den Verkauf trägst du in `manual_sales.csv` mit `no_kyc=ja` ein, eine Zahlung
+mit Bitcoin ebenso. Diese Gewinne zählen für die Steuererklärung und die Freigrenze mit (siehe
+„Zur Rechtslage“ im Abschnitt noKYC-Käufe).
