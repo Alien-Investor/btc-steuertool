@@ -149,7 +149,7 @@ Brücke nur `SaveFile` (Android-Speichern-Dialog), Weiche `DROID` in `web/index.
 ## Release (Flatpak + APK gemeinsam, seit v1.0 am 02.10.2026)
 
 **Stand:** v1.6 (Kurstabellen bis 06.11.2026, Bug-Dialog, Härtungen aus Alien Pass v1.23; Electron 44.7.2) veröffentlicht 07.11.2026: Tag `v1.6` = `e22e3da`,
-GitHub, Download-Seite, Web, Website (DE/EN). Gerätetest APK und Flatpak je 20/20 Reports byte-gleich zur CLI (großer Datensatz `gross/`).
+GitHub, Download-Seite, Zap Store `@1.6` (Relay geprüft), Web, Website (DE/EN); 1.5 vom Server gelöscht. Gerätetest APK und Flatpak je 20/20 Reports byte-gleich zur CLI (großer Datensatz `gross/`).
 Trockenproben der Release-Sperre jetzt `bash ~/security-audit-skill/btc-steuertool-public/run-3/sperre/alle.sh` (datumsunabhängig, Version im Pfad).
 Als Nächstes: Guide + Tutorial-Video (`NAECHSTE-SESSION-GUIDE-VIDEO.md`), im Januar v1.7 nur mit den Kurstabellen bis 31.12. (keine Änderung an der
 Oberfläche). Nächster Desktop-Neubau gemeinsam mit Alien Pass, Alien Notes und Sachwert-Tresor auf eine neuere 44.x (Entscheidung Nutzer 17.10.2026,
