@@ -152,12 +152,8 @@ Brücke nur `SaveFile` (Android-Speichern-Dialog), Weiche `DROID` in `web/index.
 mit Alien Pass, Alien Notes und Sachwert-Tresor auf eine neuere 44.x (Entscheidung Nutzer 17.10.2026, im Security-Monitor vorgemerkt; Pflegetermin 2027-03-17).
 **v1.6 in Vorbereitung** (Entscheidung Nutzer 07.11.2026, VERSION schon 1.6/7): Bug-Dialog + Käfer, Kurstabellen bis Anfang November, Härtungen aus dem
 Release-Audit von Alien Pass v1.23 (eingebaut 07.11.2026). Danach Guide + Tutorial-Video (`NAECHSTE-SESSION-GUIDE-VIDEO.md`), im Januar v1.7 nur mit den
-Kurstabellen bis 31.12. (keine Änderung an der Oberfläche).
-**Vorgemerkt fürs nächste Release (24.10.2026):** Käfer-Maske `.sym-bug` und scrollbarer Bug-Dialog (bei 360×640 waren Titel und
-„Senden“ unerreichbar) sind im Web live und stehen im CHANGELOG unter „Nächstes Release“; APK/Flatpak übernehmen `web/dist` von selbst.
-Am Gerät prüfen (Käfer im Fuß und im Dialog, Dialog bis „Senden“ scrollbar), danach `.sym-bug` ins Kit `~/.claude/skills/app-design/kit/`
-übernehmen (Skill app-design, „Offene Querfunde“). Dabei ⬇ (16×) und ⚠ (12×) in `web/index.html` am Gerät ansehen: erscheinen sie als
-bunte Kacheln, ebenfalls durch Masken ersetzen.
+Kurstabellen bis 31.12. (keine Änderung an der Oberfläche). Oberfläche am Gerät bestätigt (07.11.2026, 1.6-Test-APK): Käfer, Bug-Dialog, ⬇ und ⚠
+erscheinen schlicht in der Textfarbe (kein Umbau, `.sym-bug` ist im Kit). Offen: Kurstabellen, `## v1.6` im CHANGELOG + Faktencheck, Gerätetest mit großem Datensatz.
 
 Skill `app-release` (Abschnitt „Besonderheiten BTC Steuertool“). Kurz: Tests + Gerätetest mit großem Datensatz → `CHANGELOG.md` →
 Commit/Push → `desktop/build-desktop.sh`, `mobile/build-apk.sh` → Nutzer signiert `SHA256SUMS` → Tag pushen → `./make-release.sh`
