@@ -153,7 +153,8 @@ mit Alien Pass, Alien Notes und Sachwert-Tresor auf eine neuere 44.x (Entscheidu
 **v1.6 in Vorbereitung** (Entscheidung Nutzer 07.11.2026, VERSION schon 1.6/7): Bug-Dialog + Käfer, Kurstabellen bis Anfang November, Härtungen aus dem
 Release-Audit von Alien Pass v1.23 (eingebaut 07.11.2026). Danach Guide + Tutorial-Video (`NAECHSTE-SESSION-GUIDE-VIDEO.md`), im Januar v1.7 nur mit den
 Kurstabellen bis 31.12. (keine Änderung an der Oberfläche). Oberfläche am Gerät bestätigt (07.11.2026, 1.6-Test-APK): Käfer, Bug-Dialog, ⬇ und ⚠
-erscheinen schlicht in der Textfarbe (kein Umbau, `.sym-bug` ist im Kit). Offen: Kurstabellen, `## v1.6` im CHANGELOG + Faktencheck, Gerätetest mit großem Datensatz.
+erscheinen schlicht in der Textfarbe (kein Umbau, `.sym-bug` ist im Kit). Kurstabellen bis 06.11.2026 (`de2163c`), Web damit live seit 07.11.2026.
+Offen: `## v1.6` im CHANGELOG + Faktencheck, Builds aus dem Endstand, Gerätetest mit großem Datensatz, Trockenproben `run-2/sperre` auf 1.6 umstellen.
 
 Skill `app-release` (Abschnitt „Besonderheiten BTC Steuertool“). Kurz: Tests + Gerätetest mit großem Datensatz → `CHANGELOG.md` →
 Commit/Push → `desktop/build-desktop.sh`, `mobile/build-apk.sh` → Nutzer signiert `SHA256SUMS` → Tag pushen → `./make-release.sh`
