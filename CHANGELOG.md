@@ -3,18 +3,18 @@
 Das CLI und die Web-Version haben keine eigenen Versionen; sie laufen immer auf dem Stand von `main`.
 Dieses Änderungsprotokoll gilt für die App-Fassungen (Flatpak + APK), die denselben Rechenkern enthalten.
 
-## Nächstes Release (in Web seit 2026-10-24)
-- **Bug-Report auf kleinen Handys:** Der Dialog lässt sich jetzt scrollen. Auf Bildschirmen unter etwa 800 px Höhe (z. B. Galaxy A5)
-  waren Titel, Schließen-Kreuz und der Knopf „Senden“ vorher abgeschnitten und nicht erreichbar.
+## v1.6 — 2026-11-07
 - **Kurstabellen bis 06.11.2026:** BTC/EUR-Tagesschlusskurse (Bitstamp) für in BTC bezahlte Gebühren, vorher bis 14.08.2026, und
-  EZB-Referenzkurse für USD und CHF, vorher bis 01.10.2026. Solche Gebühren werden jetzt bewertet statt als „nicht ermittelt“ gemeldet,
-  und Käufe in USD oder CHF nach dem 01.10.2026 (Swissquote, Pocket) lassen sich wieder umrechnen; vorher brach die Berechnung dort mit
-  einem Hinweis ab. Die Tabellen bis zum Jahresende folgen im Januar.
+  EZB-Referenzkurse für USD und CHF, vorher bis 01.10.2026. In BTC bezahlte Gebühren vom 15.08. bis 06.11.2026 werden jetzt bewertet statt
+  als „nicht ermittelt“ gemeldet. Käufe und Verkäufe in USD oder CHF vom 02.10. bis 06.11.2026 (z. B. Swissquote, Pocket) werden
+  jetzt umgerechnet; vorher brach die Berechnung dort mit einem Hinweis ab. Die Tabellen bis zum Jahresende folgen im Januar.
+- **Bug-Report auf kleinen Handys:** Der Dialog lässt sich jetzt scrollen. Auf kleinen Bildschirmen (z. B. Galaxy A5)
+  waren Titel, Schließen-Kreuz und der Knopf „Senden“ vorher abgeschnitten und nicht erreichbar.
 - **Eigenes Käfer-Symbol** vor „Bug melden“ statt des System-Emojis 🐛, damit es auf jedem Gerät gleich aussieht.
-- **Strengere Kontrollen vor dem Veröffentlichen:** Der Programmcode der fertigen Android-App wird Befehl für Befehl mit dem geprüften
-  Stand verglichen (Bildschirmschutz, feste Link-Liste, Speichern-Dialog, Konfiguration ohne Debug-Zugang). Die Builds brechen ab,
-  wenn eine benötigte Datei nicht versioniert ist oder Reste eines abgebrochenen Laufs liegen, und die Release-Notiz darf keine
-  Platzhalter oder Codeblöcke enthalten.
+- **Strengere Kontrollen vor dem Veröffentlichen:** Der eigene Android-Code der fertigen App wird Befehl für Befehl mit dem geprüften
+  Stand verglichen (Bildschirmschutz, Speichern-Dialog, Link-Sperre); die Link-Liste und die Konfiguration ohne Debug-Zugang werden
+  zusätzlich einzeln geprüft. Die Builds brechen ab, wenn unter den Quellen eine nicht versionierte Datei liegt oder ein abgebrochener
+  Lauf Reste hinterlassen hat, und die Release-Notiz darf keine Platzhalter oder Codeblöcke enthalten.
 
 ## v1.5 — 2026-10-17
 - **Desktop: Browser-Engine aktualisiert** (Electron 44.5.1 → 44.7.2 mit Chromium 152.0.7977.149). Die neue Fassung bringt aus
