@@ -156,8 +156,8 @@ bleibt die einzige ausführliche Textquelle). Befunde aus den Faktenchecks zum V
 Summenzeile von `nokyc_intern`) liegen in `youtube-videos-automatik/btc-steuertool-guide/_befunde_handbuch.md`. Im Januar v1.7 mit den Kurstabellen
 bis 31.12. und dem Handbuch-Linktext „Video-Anleitung“ statt „Ausführliche Anleitung mit Bildern“. **Für v1.7 vorgemerkt (Nutzer 07.11.2026):** Pocket schlägt den EZB-Kurs nach dem UTC-Datum nach (`broker_pocket.py`, `date.date()`),
 Swissquote und Sammelimport nach dem deutschen Kalendertag — prüfen und angleichen (ändert Reports betroffener Nutzer, im CHANGELOG nennen).
-Diese Datei (22 KB) beim nächsten Mal unter den Richtwert bringen (Umbau mit Nutzer abgestimmt, Wortlaut beim Auslagern unverändert). Nächster Desktop-Neubau gemeinsam mit Alien Pass, Alien Notes und Sachwert-Tresor auf eine neuere 44.x (Entscheidung Nutzer 17.10.2026,
-im Security-Monitor vorgemerkt; Pflegetermin 2027-03-17).
+Diese Datei (22 KB) beim nächsten Mal unter den Richtwert bringen (Umbau mit Nutzer abgestimmt, Wortlaut beim Auslagern unverändert). Nächster Desktop-Neubau gemeinsam mit Alien Pass, Alien Notes und Sachwert-Tresor auf Electron 46 im Februar 2027, spätestens 2027-02-28
+(Electron 44 EOL 2027-03-02, vorläufig; Entscheidung Nutzer 09.11.2026, im Security-Monitor vorgemerkt).
 
 Skill `app-release` (Abschnitt „Besonderheiten BTC Steuertool“). Kurz: Tests + Gerätetest mit großem Datensatz → `CHANGELOG.md` →
 Commit/Push → `desktop/build-desktop.sh`, `mobile/build-apk.sh` → Nutzer signiert `SHA256SUMS` → Tag pushen → `./make-release.sh`
